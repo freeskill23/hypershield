@@ -19,6 +19,8 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const BOOTSTRAP_CODE = 'HYPER-ROOT';
+
 function genReferralCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
   let s = '';
@@ -103,13 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         // Validate referral code against profiles table.
-        const { data: referrer, error: refErr } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('my_referral_code', input.referral_code)
-          .maybeSingle();
-        if (refErr) throw new Error('초대 코드 검증 중 오류가 발생했습니다.');
-        if (!referrer) throw new Error('유효하지 않은 초대 코드입니다. 기존 회원의 코드가 필요합니다.');
+        // HYPER-ROOT is the always-valid bootstrap code so the first member can join.
+        const isBootstrap = input.referral_code.toUpperCase() === BOOTSTRAP_CODE;
+        if (!isBootstrap) {
+          const { data: referrer, error: refErr } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('my_referral_code', input.referral_code)
+            .maybeSingle();
+          if (refErr) throw new Error('초대 코드 검증 중 오류가 발생했습니다.');
+          if (!referrer) throw new Error('유효하지 않은 초대 코드입니다. 기존 회원의 코드가 필요합니다.');
+        }
 
         const { data, error } = await supabase.auth.signUp({
           email: input.email,
@@ -183,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const validateReferralCode = useCallback(async (code: string): Promise<boolean> => {
+    if (code.toUpperCase() === BOOTSTRAP_CODE) return true;
     if (!isSupabaseConfigured || !supabase) {
       return mockBackend.validateReferralCode(code);
     }
