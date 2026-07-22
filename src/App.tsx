@@ -84,7 +84,7 @@ function Shell() {
         profilesHook={profilesHook}
         categoriesHook={categoriesHook}
         refreshAll={refreshAll}
-        hasPendingCodeRequest={myRequests.items.some((r) => r.status === 'pending')}
+        hasPendingCodeRequest={myRequests.requests.some((r) => r.status === 'pending')}
       />
     </ErrorBoundary>
   );
