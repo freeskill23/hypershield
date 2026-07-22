@@ -1,29 +1,30 @@
 import { useState, useCallback, useEffect } from 'react';
-import { LogOut, Store, Users, Crown } from 'lucide-react';
+import { LogOut, Store, Users, Crown, Package } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
-import { useProducts, useOrders, useProfiles } from './lib/data';
+import { useProducts, useOrders, useProfiles, useCategories } from './lib/data';
 import Gatekeeper from './components/Gatekeeper';
-import MembershipCard from './components/MembershipCard';
 import PrivateStore from './components/PrivateStore';
 import ReferralNetwork from './components/ReferralNetwork';
 import AdminDashboard from './components/AdminDashboard';
+import MyPage from './components/MyPage';
 
-type MemberTab = 'store' | 'network';
+type MemberTab = 'store' | 'mypage' | 'network';
 
 function Shell() {
   const { profile, loading, signOut } = useAuth();
   const [memberTab, setMemberTab] = useState<MemberTab>('store');
 
-  // Data hooks (only used when authenticated)
   const productsHook = useProducts();
   const ordersHook = useOrders();
   const profilesHook = useProfiles();
+  const categoriesHook = useCategories();
 
   const refreshAll = useCallback(() => {
     productsHook.refresh();
     ordersHook.refresh();
     profilesHook.refresh();
-  }, [productsHook, ordersHook, profilesHook]);
+    categoriesHook.refresh();
+  }, [productsHook, ordersHook, profilesHook, categoriesHook]);
 
   const switchMemberTab = useCallback((tab: MemberTab) => {
     setMemberTab(tab);
@@ -32,8 +33,9 @@ function Shell() {
 
   useEffect(() => {
     const onPopState = (e: PopStateEvent) => {
-      if (e.state?.view === 'member' && (e.state.tab === 'store' || e.state.tab === 'network')) {
-        setMemberTab(e.state.tab);
+      if (e.state?.view === 'member') {
+        const t = e.state.tab;
+        if (t === 'store' || t === 'mypage' || t === 'network') setMemberTab(t);
       }
     };
     window.addEventListener('popstate', onPopState);
@@ -43,7 +45,8 @@ function Shell() {
   useEffect(() => {
     if (profile && profile.role !== 'admin') {
       const hash = window.location.hash.replace('#', '');
-      const initialTab: MemberTab = hash === 'network' ? 'network' : 'store';
+      const valid: MemberTab[] = ['store', 'mypage', 'network'];
+      const initialTab: MemberTab = valid.includes(hash as MemberTab) ? (hash as MemberTab) : 'store';
       if (initialTab !== memberTab) setMemberTab(initialTab);
       window.history.replaceState({ view: 'member', tab: initialTab }, '', `#${initialTab}`);
     }
@@ -68,7 +71,6 @@ function Shell() {
 
   return (
     <div className="min-h-screen bg-navy-950">
-      {/* Top nav */}
       <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
           <div className="flex items-center">
@@ -80,7 +82,8 @@ function Shell() {
             <div className="hidden text-right md:block">
               <div className="text-sm font-medium text-slate-100">{profile.full_name}</div>
               <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                {isAdmin ? 'Administrator' : 'VIP Member'} · {profile.my_referral_code}
+                {isAdmin ? 'Administrator' : 'Member'}
+                {profile.my_referral_code ? ` · ${profile.my_referral_code}` : ''}
               </div>
             </div>
             <div className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold text-navy-950 ${isAdmin ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
@@ -104,25 +107,22 @@ function Shell() {
             profiles={profilesHook.profiles}
             orders={ordersHook.orders}
             products={productsHook.products}
+            categories={categoriesHook.categories}
             refresh={refreshAll}
           />
         ) : (
           <div className="space-y-6">
-            {/* Hero row: membership card + greeting */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[auto,1fr]">
-              <MembershipCard profile={profile} />
-              <div className="flex flex-col justify-center">
-                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-xs text-gold-light">
-                  <Crown className="h-3 w-3" /> Private Club
-                </div>
-                <h1 className="mt-3 font-display text-2xl font-bold text-slate-50 md:text-3xl">
-                  환영합니다, <span className="text-shimmer">{profile.full_name}</span>님
-                </h1>
-                <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-400">
-                  시중가에서 거품을 완전히 제거한 클럽 공급가로 모든 상품을 만나보세요.
-                  내 전용 초대 코드를 공유해 지인을 클럽에 초대할 수 있습니다.
-                </p>
+            {/* Greeting */}
+            <div className="flex flex-col">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-xs text-gold-light">
+                <Crown className="h-3 w-3" /> Private Club
               </div>
+              <h1 className="mt-3 font-display text-2xl font-bold text-slate-50 md:text-3xl">
+                환영합니다, <span className="text-shimmer">{profile.full_name}</span>님
+              </h1>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-slate-400">
+                프라이빗 클럽은 시중가에서 광고비, 유통비 등을 완전히 제거한 클럽 공급가로 하이퍼쉴드 상품을 만나보세요. 내 전용 초대 코드를 공유해 지인을 클럽에 초대할 수 있습니다.
+              </p>
             </div>
 
             {/* Tabs */}
@@ -136,6 +136,14 @@ function Shell() {
                 <Store className="h-4 w-4" /> 프라이빗 스토어
               </button>
               <button
+                onClick={() => switchMemberTab('mypage')}
+                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+                  memberTab === 'mypage' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Package className="h-4 w-4" /> 마이페이지
+              </button>
+              <button
                 onClick={() => switchMemberTab('network')}
                 className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
                   memberTab === 'network' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
@@ -146,7 +154,14 @@ function Shell() {
             </div>
 
             {memberTab === 'store' ? (
-              <PrivateStore products={productsHook.products} onOrdered={ordersHook.refresh} />
+              <PrivateStore
+                products={productsHook.products}
+                categories={categoriesHook.categories}
+                profile={profile}
+                onOrdered={refreshAll}
+              />
+            ) : memberTab === 'mypage' ? (
+              <MyPage profile={profile} />
             ) : (
               <ReferralNetwork profiles={profilesHook.profiles} me={profile} />
             )}
