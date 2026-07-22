@@ -5,7 +5,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // (which is gitignored) is not present at build time.
 const FALLBACK_URL = 'https://cnrpkymyermkibkbityz.supabase.co';
 const FALLBACK_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNucnBreW15ZXJta2lia2JpdHl6Iiwicm9sIjoiYW5vbiIsImlhdCI6MTc4NDU5OTczNiwiZXhwIjoyMTAwMTc1NzM2fQ.6VcHiWvQMNkRF9C2dfIOv-dLSm5UTmsQv1siIXxuiBU';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNucnBreW15ZXJta2lia2JpdHl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1OTk3MzYsImV4cCI6MjEwMDE3NTczNn0.6VcHiWvQMNkRF9C2dfIOv-dLSm5UTmsQv1siIXxuiBU';
 
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || FALLBACK_URL;
 const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || FALLBACK_ANON_KEY;
