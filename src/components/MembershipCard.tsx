@@ -10,6 +10,7 @@ export default function MembershipCard({ profile }: Props) {
   const [copied, setCopied] = useState(false);
 
   async function copyCode() {
+    if (!profile.my_referral_code) return;
     try {
       await navigator.clipboard.writeText(profile.my_referral_code);
       setCopied(true);

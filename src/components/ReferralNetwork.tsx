@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { UserPlus, Crown, Search, Users, Sparkles, Send, CheckCircle2, Clock, XCircle, MessageSquare } from 'lucide-react';
 import { Profile, ReferralRequest } from '../lib/types';
 import { formatDate } from '../lib/format';
@@ -32,6 +32,15 @@ export default function ReferralNetwork({ profiles, me }: Props) {
 
   const hasCode = Boolean(me.my_referral_code);
   const pendingRequest = requests.find((r) => r.status === 'pending');
+  const approvedRequest = requests.find((r) => r.status === 'approved');
+
+  // When an approved request is detected but the profile hasn't been
+  // updated yet, refresh the auth profile so the code appears.
+  useEffect(() => {
+    if (approvedRequest && !hasCode) {
+      refreshProfile();
+    }
+  }, [approvedRequest, hasCode, refreshProfile]);
 
   async function handleSubmitRequest(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +52,7 @@ export default function ReferralNetwork({ profiles, me }: Props) {
       if (result) {
         setReason('');
         refresh();
+        refreshProfile();
       } else {
         setError('신청 중 오류가 발생했습니다.');
       }

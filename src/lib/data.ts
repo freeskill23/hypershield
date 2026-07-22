@@ -69,10 +69,35 @@ export function useCategories() {
 }
 
 export function useOrders() {
-  return useCollection<Order>('orders', () => mockBackend.listOrders(), {
-    column: 'created_at',
-    ascending: false,
-  });
+  const [items, setItems] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (!isSupabaseConfigured || !supabase) {
+        setItems(await mockBackend.listOrders());
+        return;
+      }
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setItems((data as Order[]) ?? []);
+    } catch (e) {
+      console.error('orders load error', e);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { items, loading, refresh };
 }
 
 export function useMyOrders(userId: string | undefined) {

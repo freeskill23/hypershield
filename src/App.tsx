@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
-import { LogOut, Store, Users, Crown, Package } from 'lucide-react';
+import { LogOut, Store, Users, Crown, Package, Sparkles, ArrowRight } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
+import { useReferralRequests } from './lib/data';
 import { useProducts, useOrders, useProfiles, useCategories } from './lib/data';
 import Gatekeeper from './components/Gatekeeper';
 import PrivateStore from './components/PrivateStore';
@@ -12,8 +13,10 @@ import ErrorBoundary from './components/ErrorBoundary';
 type MemberTab = 'store' | 'mypage' | 'network';
 
 function Shell() {
-  const { profile, loading, signOut } = useAuth();
+  const { profile, loading, signOut, refresh: refreshProfile } = useAuth();
   const [memberTab, setMemberTab] = useState<MemberTab>('store');
+
+  const myRequests = useReferralRequests(profile?.id);
 
   const productsHook = useProducts();
   const ordersHook = useOrders();
@@ -25,7 +28,8 @@ function Shell() {
     ordersHook.refresh();
     profilesHook.refresh();
     categoriesHook.refresh();
-  }, [productsHook, ordersHook, profilesHook, categoriesHook]);
+    refreshProfile();
+  }, [productsHook, ordersHook, profilesHook, categoriesHook, refreshProfile]);
 
   const switchMemberTab = useCallback((tab: MemberTab) => {
     setMemberTab(tab);
@@ -80,6 +84,7 @@ function Shell() {
         profilesHook={profilesHook}
         categoriesHook={categoriesHook}
         refreshAll={refreshAll}
+        hasPendingCodeRequest={myRequests.items.some((r) => r.status === 'pending')}
       />
     </ErrorBoundary>
   );
@@ -105,6 +110,7 @@ function ShellContent({
   profilesHook: ReturnType<typeof useProfiles>;
   categoriesHook: ReturnType<typeof useCategories>;
   refreshAll: () => void;
+  hasPendingCodeRequest: boolean;
 }) {
   const isAdmin = profile.role === 'admin';
 
@@ -163,6 +169,40 @@ function ShellContent({
                 프라이빗 클럽은 시중가에서 광고비, 유통비 등을 완전히 제거한 클럽 공급가로 하이퍼쉴드 상품을 만나보세요. 내 전용 초대 코드를 공유해 지인을 클럽에 초대할 수 있습니다.
               </p>
             </div>
+
+            {/* Referral code prompt for members without one */}
+            {!profile.my_referral_code && (
+              <div
+                className={`flex flex-col gap-3 rounded-xl border p-4 transition sm:flex-row sm:items-center sm:justify-between ${
+                  hasPendingCodeRequest
+                    ? 'border-cyan/30 bg-cyan/5'
+                    : 'border-gold/30 bg-gold/5'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${hasPendingCodeRequest ? 'bg-cyan/15 text-cyan' : 'bg-gold/15 text-gold'}`}>
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-100">
+                      {hasPendingCodeRequest ? '초대 코드 승인 대기 중' : '아직 초대 코드가 없습니다'}
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      {hasPendingCodeRequest
+                        ? '관리자가 신청을 검토하고 있습니다. 승인되면 코드가 발급됩니다.'
+                        : '지인을 클럽에 초대하려면 관리자에게 초대 코드를 신청하세요.'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => switchMemberTab('network')}
+                  className={`btn-ghost shrink-0 text-xs ${hasPendingCodeRequest ? '' : 'btn-gold'}`}
+                >
+                  {hasPendingCodeRequest ? '신청 확인하기' : '초대 코드 신청하기'}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-1 rounded-lg bg-navy-950/60 p-1">
