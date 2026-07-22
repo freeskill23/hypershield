@@ -100,6 +100,7 @@ function ShellContent({
   profilesHook,
   categoriesHook,
   refreshAll,
+  hasPendingCodeRequest,
 }: {
   profile: NonNullable<ReturnType<typeof useAuth>['profile']>;
   memberTab: MemberTab;
