@@ -21,13 +21,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const BOOTSTRAP_CODE = 'HYPER-ROOT';
 
-function genReferralCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
-  let s = '';
-  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return 'HYPER-' + s;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ profile: null, loading: true, error: null });
 
@@ -108,44 +101,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // HYPER-ROOT is the always-valid bootstrap code so the first member can join.
         const isBootstrap = input.referral_code.toUpperCase() === BOOTSTRAP_CODE;
         if (!isBootstrap) {
-          const { data: referrer, error: refErr } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('my_referral_code', input.referral_code)
-            .maybeSingle();
+          const { data: valid, error: refErr } = await supabase
+            .rpc('is_valid_referral_code', { code: input.referral_code });
           if (refErr) throw new Error('초대 코드 검증 중 오류가 발생했습니다.');
-          if (!referrer) throw new Error('유효하지 않은 초대 코드입니다. 기존 회원의 코드가 필요합니다.');
+          if (!valid) throw new Error('유효하지 않은 초대 코드입니다. 기존 회원의 코드가 필요합니다.');
         }
 
+        // Pass full_name + referral_code as metadata so the DB trigger
+        // (handle_new_user) can create the profile row even when email
+        // confirmation is enabled and no session exists yet.
         const { data, error } = await supabase.auth.signUp({
           email: input.email,
           password: input.password,
+          options: {
+            data: {
+              full_name: input.full_name,
+              referral_code: input.referral_code,
+            },
+          },
         });
         if (error) throw error;
         if (!data.user) throw new Error('가입에 실패했습니다.');
 
-        let code = genReferralCode();
-        // ensure uniqueness (best-effort)
-        for (let i = 0; i < 5; i++) {
-          const { data: existing } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('my_referral_code', code)
-            .maybeSingle();
-          if (!existing) break;
-          code = genReferralCode();
+        // If email confirmation is required, there is no session yet.
+        // The profile row is created by the DB trigger; tell the user to
+        // confirm their email, and do not set a profile.
+        if (!data.session) {
+          setState({
+            profile: null,
+            loading: false,
+            error: null,
+          });
+          throw new Error(
+            '가입이 완료되었습니다. 이메일함(스팸함 포함)에서 인증 메일을 확인한 후 로그인해 주세요.',
+          );
         }
-
-        const newProfile: Partial<Profile> = {
-          id: data.user.id,
-          email: input.email,
-          full_name: input.full_name,
-          role: 'member',
-          my_referral_code: code,
-          referred_by_code: input.referral_code,
-        };
-        const { error: insertErr } = await supabase.from('profiles').insert(newProfile);
-        if (insertErr) throw insertErr;
 
         const profile = await loadProfile(data.user.id);
         setState({ profile, loading: false, error: null });
@@ -193,11 +183,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured || !supabase) {
       return mockBackend.validateReferralCode(code);
     }
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('my_referral_code', code)
-      .maybeSingle();
+    const { data, error } = await supabase
+      .rpc('is_valid_referral_code', { code });
+    if (error) {
+      console.error('referral validate error', error);
+      return false;
+    }
     return Boolean(data);
   }, []);
 
