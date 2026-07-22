@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, MapPin, Truck, CheckCircle2, Clock, Plus, Trash2, X, ShoppingBag } from 'lucide-react';
+import { Package, MapPin, Truck, CheckCircle2, Clock, Plus, Trash2, X, ShoppingBag, Coins } from 'lucide-react';
 import { Profile, OrderStatus, Address } from '../lib/types';
 import { formatKRW, formatDateTime } from '../lib/format';
 import { useMyOrders, useAddresses, addAddress, deleteAddress } from '../lib/data';
@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 export default function MyPage({ profile }: Props) {
   const { orders, loading } = useMyOrders(profile.id);
   const { addresses, refresh } = useAddresses(profile.id);
-  const [tab, setTab] = useState<'orders' | 'addresses'>('orders');
+  const [tab, setTab] = useState<'orders' | 'addresses' | 'points'>('orders');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ label: '기본 배송지', recipient_name: profile.full_name, recipient_phone: '', address: '', address_detail: '' });
 
@@ -75,7 +75,38 @@ export default function MyPage({ profile }: Props) {
         >
           <MapPin className="h-4 w-4" /> 배송지 관리
         </button>
+        <button
+          onClick={() => setTab('points')}
+          className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
+            tab === 'points' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Coins className="h-4 w-4" /> 포인트
+        </button>
       </div>
+
+      {/* Points tab */}
+      {tab === 'points' && (
+        <div className="space-y-4">
+          <div className="card-surface flex items-center gap-4 p-5">
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-gold/15">
+              <Coins className="h-7 w-7 text-gold" />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400">사용 가능한 포인트</div>
+              <div className="font-display text-2xl font-bold text-gold-light">{formatKRW(profile.points)}</div>
+            </div>
+          </div>
+          <div className="card-surface p-4">
+            <div className="mb-2 text-sm font-medium text-slate-200">포인트 안내</div>
+            <ul className="space-y-1.5 text-xs text-slate-400">
+              <li>• 내 초대 코드로 가입한 회원이 첫 구매를 하면 구매금액의 10%가 포인트로 적립됩니다.</li>
+              <li>• 포인트는 상품 구매 시 현금처럼 사용할 수 있습니다. (1포인트 = 1원)</li>
+              <li>• 포인트는 주문 시 결제 금액에서 차감되며, 남은 포인트는 다음 구매에 사용할 수 있습니다.</li>
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Orders tab */}
       {tab === 'orders' && (
@@ -153,9 +184,17 @@ export default function MyPage({ profile }: Props) {
                   )}
 
                   {/* Total */}
-                  <div className="mt-3 flex justify-between border-t border-navy-700 pt-3">
-                    <span className="text-xs text-slate-400">총 결제 금액</span>
-                    <span className="font-display text-base font-bold text-cyan">{formatKRW(o.total_amount)}</span>
+                  <div className="mt-3 space-y-1 border-t border-navy-700 pt-3">
+                    {o.points_used > 0 && (
+                      <div className="flex justify-between text-xs text-gold-light">
+                        <span>포인트 사용</span>
+                        <span>- {formatKRW(o.points_used)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-xs text-slate-400">총 결제 금액</span>
+                      <span className="font-display text-base font-bold text-cyan">{formatKRW(o.total_amount)}</span>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -236,9 +236,12 @@ export async function createOrderWithItems(input: {
   user_id: string;
   items: { product: Product; qty: number }[];
   address: Address;
+  pointsToUse?: number;
 }): Promise<Order | null> {
   if (!isSupabaseConfigured || !supabase) return null;
-  const total = input.items.reduce((s, i) => s + i.qty * i.product.club_price, 0);
+  const pointsToUse = Math.max(0, input.pointsToUse ?? 0);
+  const grossTotal = input.items.reduce((s, i) => s + i.qty * i.product.club_price, 0);
+  const total = Math.max(0, grossTotal - pointsToUse);
 
   const { data: order, error: orderErr } = await supabase
     .from('orders')
@@ -246,6 +249,7 @@ export async function createOrderWithItems(input: {
       user_id: input.user_id,
       total_amount: total,
       status: 'pending',
+      points_used: pointsToUse,
       recipient_name: input.address.recipient_name,
       recipient_phone: input.address.recipient_phone,
       address: input.address.address,
@@ -269,6 +273,17 @@ export async function createOrderWithItems(input: {
   }));
   const { error: itemErr } = await supabase.from('order_items').insert(rows);
   if (itemErr) console.error('create order items error', itemErr);
+
+  // Deduct buyer's points atomically
+  if (pointsToUse > 0) {
+    const { error: deductErr } = await supabase
+      .rpc('deduct_user_points', { p_user_id: input.user_id, p_amount: pointsToUse });
+    if (deductErr) console.error('deduct points error', deductErr);
+  }
+
+  // Award referral reward to referrer (10% of total on first order)
+  const { error: rewardErr } = await supabase.rpc('process_order_referral_reward', { p_order_id: order.id });
+  if (rewardErr) console.error('referral reward error', rewardErr);
 
   return order as Order;
 }

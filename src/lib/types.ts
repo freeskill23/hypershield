@@ -7,6 +7,7 @@ export interface Profile {
   role: Role;
   my_referral_code: string | null;
   referred_by_code: string | null;
+  points: number;
   created_at: string;
 }
 
@@ -43,6 +44,8 @@ export interface Order {
   carrier: string | null;
   tracking_number: string | null;
   shipped_at: string | null;
+  points_used: number;
+  points_earned: number;
   created_at: string;
   order_items?: OrderItem[];
 }

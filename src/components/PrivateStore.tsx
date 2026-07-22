@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import {
-  ShoppingCart, Plus, Minus, Trash2, Tag, X, CheckCircle2, Package, MapPin, Truck, AlertCircle, CreditCard,
+  ShoppingCart, Plus, Minus, Trash2, Tag, X, CheckCircle2, Package, MapPin, Truck, AlertCircle, CreditCard, Coins,
 } from 'lucide-react';
 import { Product, CartItem, Category, Profile, Address, OrderStatus } from '../lib/types';
 import { formatKRW } from '../lib/format';
@@ -281,8 +281,12 @@ function CartCheckoutDrawer(props: CartDrawerProps) {
   const [selectedAddrId, setSelectedAddrId] = useState<string | null>(null);
   const [showAddrForm, setShowAddrForm] = useState(false);
   const [addrForm, setAddrForm] = useState({ label: '기본 배송지', recipient_name: profile.full_name, recipient_phone: '', address: '', address_detail: '' });
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsInput, setPointsInput] = useState('0');
 
   const selectedAddr = addresses.find((a) => a.id === selectedAddrId) ?? null;
+  const pointsToUse = usePoints ? Math.min(Math.max(0, parseInt(pointsInput) || 0), profile.points, cartTotal) : 0;
+  const finalTotal = Math.max(0, cartTotal - pointsToUse);
 
   async function handleAddAddress(e: React.FormEvent) {
     e.preventDefault();
@@ -308,9 +312,10 @@ function CartCheckoutDrawer(props: CartDrawerProps) {
         user_id: profile.id,
         items: cart,
         address: selectedAddr,
+        pointsToUse,
       });
       if (order) {
-        props.onCheckoutComplete(`주문 완료 · ${formatKRW(cartTotal)} (주문번호 ${order.id.slice(-6).toUpperCase()})`);
+        props.onCheckoutComplete(`주문 완료 · ${formatKRW(finalTotal)} (주문번호 ${order.id.slice(-6).toUpperCase()})`);
         props.onStepChange('cart');
         props.onClose();
       } else {
@@ -492,6 +497,47 @@ function CartCheckoutDrawer(props: CartDrawerProps) {
                 ))}
               </div>
 
+              {/* Points usage */}
+              {profile.points > 0 && (
+                <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gold-light">
+                    <input
+                      type="checkbox"
+                      checked={usePoints}
+                      onChange={(e) => { setUsePoints(e.target.checked); if (!e.target.checked) setPointsInput('0'); }}
+                      className="h-4 w-4 accent-gold"
+                    />
+                    <Coins className="h-4 w-4" /> 포인트 사용
+                  </label>
+                  {usePoints && (
+                    <div className="mt-3 space-y-2">
+                      <div className="text-xs text-slate-400">보유 포인트: <span className="text-gold-light font-medium">{formatKRW(profile.points)}P</span></div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.min(profile.points, cartTotal)}
+                          value={pointsInput}
+                          onChange={(e) => setPointsInput(e.target.value)}
+                          placeholder="사용할 포인트"
+                          className="input-field flex-1 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPointsInput(String(Math.min(profile.points, cartTotal)))}
+                          className="btn-ghost px-3 py-2 text-xs"
+                        >
+                          전액 사용
+                        </button>
+                      </div>
+                      {pointsToUse > 0 && (
+                        <div className="text-xs text-gold-light">{formatKRW(pointsToUse)}P 사용 → 결제금액에서 차감</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Bank transfer info */}
               <div className="rounded-xl border border-cyan/30 bg-cyan/5 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-cyan">
@@ -517,9 +563,19 @@ function CartCheckoutDrawer(props: CartDrawerProps) {
                   <span>클럽가 합계</span>
                   <span className="font-semibold">{formatKRW(cartTotal)}</span>
                 </div>
+                {pointsToUse > 0 && (
+                  <div className="flex justify-between text-gold-light">
+                    <span>포인트 사용</span>
+                    <span>- {formatKRW(pointsToUse)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gold-light">
                   <span>절약액</span>
-                  <span>- {formatKRW(savings)}</span>
+                  <span>- {formatKRW(savings + pointsToUse)}</span>
+                </div>
+                <div className="flex justify-between border-t border-navy-700 pt-1 text-slate-200">
+                  <span className="font-medium">최종 결제금액</span>
+                  <span className="font-display text-base font-bold text-cyan">{formatKRW(finalTotal)}</span>
                 </div>
               </div>
             </div>
@@ -563,7 +619,7 @@ function CartCheckoutDrawer(props: CartDrawerProps) {
                 disabled={busy || !selectedAddr}
                 className="btn-gold flex-1"
               >
-                {busy ? '주문 중...' : `주문하기 · ${formatKRW(cartTotal)}`}
+                {busy ? '주문 중...' : `주문하기 · ${formatKRW(finalTotal)}`}
               </button>
             </div>
           )}

@@ -120,9 +120,13 @@ function ShellContent({
       <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
           <div className="flex items-center">
-            <div className="font-gothic text-xl font-bold tracking-tight text-slate-100">
+            <button
+              onClick={() => switchMemberTab('store')}
+              className="font-gothic text-xl font-bold tracking-tight text-slate-100 transition hover:text-cyan"
+              title="메인으로"
+            >
               하이퍼쉴드 프라이빗 클럽
-            </div>
+            </button>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right md:block">
