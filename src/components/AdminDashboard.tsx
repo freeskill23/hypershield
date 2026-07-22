@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   LineChart, Line, Legend,
@@ -19,6 +19,32 @@ interface Props {
 
 export default function AdminDashboard({ profiles, orders, products, refresh }: Props) {
   const [tab, setTab] = useState<'overview' | 'referrals' | 'products'>('overview');
+  const switchTab = useCallback((t: 'overview' | 'referrals' | 'products') => {
+    setTab(t);
+    window.history.pushState({ view: 'admin', tab: t }, '', `#${t}`);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (e.state?.view === 'admin') {
+        const t = e.state.tab;
+        if (t === 'overview' || t === 'referrals' || t === 'products') setTab(t);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'overview' || hash === 'referrals' || hash === 'products') {
+      setTab(hash);
+      window.history.replaceState({ view: 'admin', tab: hash }, '', `#${hash}`);
+    } else {
+      window.history.replaceState({ view: 'admin', tab }, '', `#${tab}`);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [query, setQuery] = useState('');
   const [showProductForm, setShowProductForm] = useState(false);
 
@@ -123,7 +149,7 @@ export default function AdminDashboard({ profiles, orders, products, refresh }: 
         ] as const).map(([k, label]) => (
           <button
             key={k}
-            onClick={() => setTab(k)}
+            onClick={() => switchTab(k)}
             className={`rounded-md px-4 py-2 text-sm font-medium transition ${
               tab === k ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
             }`}

@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { Lock, Crown, Mail, KeyRound, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
-interface Props {
-  onAuthed: () => void;
-}
-
-export default function Gatekeeper({ onAuthed }: Props) {
+export default function Gatekeeper() {
   const { signIn, signUp, error, validateReferralCode } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [busy, setBusy] = useState(false);
@@ -40,7 +36,6 @@ export default function Gatekeeper({ onAuthed }: Props) {
     setLocalError(null);
     try {
       await signIn({ email: email.trim(), password });
-      onAuthed();
     } catch (err: any) {
       setLocalError(err.message || '로그인 실패');
     } finally {
@@ -69,7 +64,6 @@ export default function Gatekeeper({ onAuthed }: Props) {
         full_name: fullName.trim(),
         referral_code: referral.trim().toUpperCase(),
       });
-      onAuthed();
     } catch (err: any) {
       setLocalError(err.message || '가입 실패');
     } finally {

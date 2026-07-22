@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { LogOut, Store, Users, Crown } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { useProducts, useOrders, useProfiles } from './lib/data';
@@ -12,7 +12,6 @@ type MemberTab = 'store' | 'network';
 
 function Shell() {
   const { profile, loading, signOut } = useAuth();
-  const [authed, setAuthed] = useState(false);
   const [memberTab, setMemberTab] = useState<MemberTab>('store');
 
   // Data hooks (only used when authenticated)
@@ -26,6 +25,30 @@ function Shell() {
     profilesHook.refresh();
   }, [productsHook, ordersHook, profilesHook]);
 
+  const switchMemberTab = useCallback((tab: MemberTab) => {
+    setMemberTab(tab);
+    window.history.pushState({ view: 'member', tab }, '', `#${tab}`);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (e.state?.view === 'member' && (e.state.tab === 'store' || e.state.tab === 'network')) {
+        setMemberTab(e.state.tab);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (profile && profile.role !== 'admin') {
+      const hash = window.location.hash.replace('#', '');
+      const initialTab: MemberTab = hash === 'network' ? 'network' : 'store';
+      if (initialTab !== memberTab) setMemberTab(initialTab);
+      window.history.replaceState({ view: 'member', tab: initialTab }, '', `#${initialTab}`);
+    }
+  }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center bg-navy-950">
@@ -37,8 +60,8 @@ function Shell() {
     );
   }
 
-  if (!profile || !authed) {
-    return <Gatekeeper onAuthed={() => setAuthed(true)} />;
+  if (!profile) {
+    return <Gatekeeper />;
   }
 
   const isAdmin = profile.role === 'admin';
@@ -64,7 +87,7 @@ function Shell() {
               {profile.full_name.slice(0, 1)}
             </div>
             <button
-              onClick={async () => { await signOut(); setAuthed(false); }}
+              onClick={async () => { await signOut(); }}
               className="btn-ghost px-3 py-2"
               title="로그아웃"
             >
@@ -105,7 +128,7 @@ function Shell() {
             {/* Tabs */}
             <div className="flex flex-wrap gap-1 rounded-lg bg-navy-950/60 p-1">
               <button
-                onClick={() => setMemberTab('store')}
+                onClick={() => switchMemberTab('store')}
                 className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
                   memberTab === 'store' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
                 }`}
@@ -113,7 +136,7 @@ function Shell() {
                 <Store className="h-4 w-4" /> 프라이빗 스토어
               </button>
               <button
-                onClick={() => setMemberTab('network')}
+                onClick={() => switchMemberTab('network')}
                 className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
                   memberTab === 'network' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
                 }`}
