@@ -143,10 +143,10 @@ function ShellContent({
       <main className="mx-auto max-w-7xl px-5 py-6 md:px-8 md:py-8">
         {isAdmin ? (
           <AdminDashboard
-            profiles={profilesHook.profiles}
-            orders={ordersHook.orders}
-            products={productsHook.products}
-            categories={categoriesHook.categories}
+            profiles={profilesHook.items}
+            orders={ordersHook.items}
+            products={productsHook.items}
+            categories={categoriesHook.items}
             refresh={refreshAll}
           />
         ) : (
@@ -194,15 +194,15 @@ function ShellContent({
 
             {memberTab === 'store' ? (
               <PrivateStore
-                products={productsHook.products}
-                categories={categoriesHook.categories}
+                products={productsHook.items}
+                categories={categoriesHook.items}
                 profile={profile}
                 onOrdered={refreshAll}
               />
             ) : memberTab === 'mypage' ? (
               <MyPage profile={profile} />
             ) : (
-              <ReferralNetwork profiles={profilesHook.profiles} me={profile} />
+              <ReferralNetwork profiles={profilesHook.items} me={profile} />
             )}
           </div>
         )}
