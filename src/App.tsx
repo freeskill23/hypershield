@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Shield, LogOut, Store, Users, LayoutDashboard, Crown } from 'lucide-react';
+import { LogOut, Store, Users, Crown } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
 import { useProducts, useOrders, useProfiles } from './lib/data';
 import Gatekeeper from './components/Gatekeeper';
@@ -48,14 +48,8 @@ function Shell() {
       {/* Top nav */}
       <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-cyan-sheen text-navy-950 shadow-glow">
-              <Shield className="h-4.5 w-4.5" strokeWidth={2.5} />
-            </div>
-            <div>
-              <div className="font-display text-base font-semibold text-slate-100">HYPERSHIELD</div>
-              <div className="text-[9px] uppercase tracking-[0.3em] text-cyan/80">Private Club</div>
-            </div>
+          <div className="flex items-center">
+            <img src="/hypershield_logopng.png" alt="Hypershield" className="h-9 w-auto" />
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right md:block">
@@ -94,7 +88,7 @@ function Shell() {
               <MembershipCard profile={profile} />
               <div className="flex flex-col justify-center">
                 <div className="inline-flex w-fit items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-xs text-gold-light">
-                  <Crown className="h-3 w-3" /> Private 50% Club
+                  <Crown className="h-3 w-3" /> Private Club
                 </div>
                 <h1 className="mt-3 font-display text-2xl font-bold text-slate-50 md:text-3xl">
                   환영합니다, <span className="text-shimmer">{profile.full_name}</span>님

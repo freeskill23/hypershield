@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Lock, Crown, Mail, KeyRound, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, Crown, Mail, KeyRound, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
 interface Props {
@@ -96,21 +96,11 @@ export default function Gatekeeper({ onAuthed }: Props) {
 
       <div className="relative z-10 flex min-h-screen flex-col">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-6 md:px-12">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-sheen text-navy-950 shadow-glow">
-              <Shield className="h-5 w-5" strokeWidth={2.5} />
-            </div>
-            <div>
-              <div className="font-display text-lg font-semibold tracking-wide text-slate-100">
-                HYPERSHIELD
-              </div>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-cyan/80">
-                Private Club
-              </div>
-            </div>
+        <header className="relative flex items-center justify-center px-6 py-6 md:px-12">
+          <div className="font-gothic text-xl font-bold tracking-tight text-slate-100">
+            하이퍼쉴드 프라이빗 클럽
           </div>
-          <div className="hidden items-center gap-2 text-xs text-slate-400 md:flex">
+          <div className="absolute right-6 hidden items-center gap-2 text-xs text-slate-400 md:flex md:right-12">
             <Lock className="h-3.5 w-3.5 text-cyan" />
             <span>초대 전용 · 폐쇄형 멤버십</span>
           </div>
@@ -122,12 +112,10 @@ export default function Gatekeeper({ onAuthed }: Props) {
             <div className="mb-8 text-center">
               <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-4 py-1.5 text-xs font-medium text-gold-light">
                 <Crown className="h-3.5 w-3.5" />
-                Private 50% Club
+                Private Club
               </div>
-              <h1 className="font-display text-3xl font-bold leading-tight text-slate-50 md:text-4xl">
-                초대 코드가 있어야만
-                <br />
-                <span className="text-shimmer">입장 가능한 클럽</span>
+              <h1 className="font-gothic text-base font-medium leading-snug text-slate-300 md:text-lg">
+                초대 코드가 있어야만 입장 가능한 클럽
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-slate-400">
                 광고비·유통 거품 0%. 기존 회원의 초대 코드로만 가입할 수 있는
