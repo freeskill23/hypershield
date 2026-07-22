@@ -7,6 +7,7 @@ import PrivateStore from './components/PrivateStore';
 import ReferralNetwork from './components/ReferralNetwork';
 import AdminDashboard from './components/AdminDashboard';
 import MyPage from './components/MyPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 type MemberTab = 'store' | 'mypage' | 'network';
 
@@ -67,6 +68,44 @@ function Shell() {
     return <Gatekeeper />;
   }
 
+  return (
+    <ErrorBoundary>
+      <ShellContent
+        profile={profile}
+        memberTab={memberTab}
+        switchMemberTab={switchMemberTab}
+        signOut={signOut}
+        productsHook={productsHook}
+        ordersHook={ordersHook}
+        profilesHook={profilesHook}
+        categoriesHook={categoriesHook}
+        refreshAll={refreshAll}
+      />
+    </ErrorBoundary>
+  );
+}
+
+function ShellContent({
+  profile,
+  memberTab,
+  switchMemberTab,
+  signOut,
+  productsHook,
+  ordersHook,
+  profilesHook,
+  categoriesHook,
+  refreshAll,
+}: {
+  profile: NonNullable<ReturnType<typeof useAuth>['profile']>;
+  memberTab: MemberTab;
+  switchMemberTab: (tab: MemberTab) => void;
+  signOut: () => Promise<void>;
+  productsHook: ReturnType<typeof useProducts>;
+  ordersHook: ReturnType<typeof useOrders>;
+  profilesHook: ReturnType<typeof useProfiles>;
+  categoriesHook: ReturnType<typeof useCategories>;
+  refreshAll: () => void;
+}) {
   const isAdmin = profile.role === 'admin';
 
   return (
