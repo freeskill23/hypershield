@@ -49,7 +49,7 @@ function Shell() {
       <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
           <div className="flex items-center">
-            <img src="/hypershield_logopng.png" alt="Hypershield" className="h-9 w-auto" />
+            <img src="./hypershield_logopng.png" alt="Hypershield" className="h-9 w-auto" />
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right md:block">
