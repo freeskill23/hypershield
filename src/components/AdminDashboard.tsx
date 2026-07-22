@@ -66,7 +66,7 @@ export default function AdminDashboard({ profiles, orders, products, categories,
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const allRefRequests = useAllReferralRequests(!!profile);
+  const allRefRequests = useAllReferralRequests(true);
   const pendingRefRequests = allRefRequests.items.filter((r) => r.status === 'pending');
 
   const totalMembers = profiles.filter((p) => p.role === 'member').length;
