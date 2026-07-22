@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { mockBackend } from './mockBackend';
 import { Product, Order, OrderItem, Profile, Category, Address, ReferralRequest } from './types';
@@ -15,15 +15,23 @@ function useCollection<T>(
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Stabilize mockFn in a ref so inline arrow functions don't
+  // recreate the callback and trigger an infinite fetch loop.
+  const mockFnRef = useRef(mockFn);
+  mockFnRef.current = mockFn;
+
+  const orderCol = order?.column;
+  const orderAsc = order?.ascending;
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       if (!isSupabaseConfigured || !supabase) {
-        setItems(await mockFn());
+        setItems(await mockFnRef.current());
         return;
       }
       let q = supabase.from(table).select('*');
-      if (order) q = q.order(order.column, { ascending: order.ascending ?? false });
+      if (orderCol) q = q.order(orderCol, { ascending: orderAsc ?? false });
       const { data, error } = await q;
       if (error) throw error;
       setItems((data as T[]) ?? []);
@@ -33,7 +41,7 @@ function useCollection<T>(
     } finally {
       setLoading(false);
     }
-  }, [table, mockFn, order?.column, order?.ascending]);
+  }, [table, orderCol, orderAsc]);
 
   useEffect(() => {
     refresh();

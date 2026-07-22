@@ -62,24 +62,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      if (!data.session) {
-        setState({ profile: null, loading: false, error: null });
-        return;
-      }
-      const profile = await loadProfile(data.session.user.id);
-      if (!mounted) return;
-      setState({ profile, loading: false, error: null });
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        if (!session) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (!data.session) {
           setState({ profile: null, loading: false, error: null });
           return;
         }
-        const profile = await loadProfile(session.user.id);
+        const profile = await loadProfile(data.session.user.id);
+        if (!mounted) return;
         setState({ profile, loading: false, error: null });
+      } catch (e) {
+        console.error('auth init error', e);
+        if (mounted) setState({ profile: null, loading: false, error: null });
+      }
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      (async () => {
+        try {
+          if (!session) {
+            setState({ profile: null, loading: false, error: null });
+            return;
+          }
+          const profile = await loadProfile(session.user.id);
+          setState({ profile, loading: false, error: null });
+        } catch (e) {
+          console.error('auth state change error', e);
+          setState({ profile: null, loading: false, error: null });
+        }
       })();
     });
     return () => {
