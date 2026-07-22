@@ -16,12 +16,13 @@ function Shell() {
   const { profile, loading, signOut, refresh: refreshProfile } = useAuth();
   const [memberTab, setMemberTab] = useState<MemberTab>('store');
 
+  const authReady = !loading && !!profile;
   const myRequests = useReferralRequests(profile?.id);
 
-  const productsHook = useProducts();
-  const ordersHook = useOrders();
-  const profilesHook = useProfiles();
-  const categoriesHook = useCategories();
+  const productsHook = useProducts(authReady);
+  const ordersHook = useOrders(authReady);
+  const profilesHook = useProfiles(authReady);
+  const categoriesHook = useCategories(authReady);
 
   const refreshAll = useCallback(() => {
     productsHook.refresh();

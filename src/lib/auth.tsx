@@ -184,8 +184,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ profile: null, loading: false, error: null });
       return;
     }
-    await supabase.auth.signOut();
-    setState({ profile: null, loading: false, error: null });
+    try {
+      // scope: 'local' avoids a server round-trip that can fail on mobile,
+      // which would leave the session in localStorage and cause the app to
+      // re-authenticate on refresh.
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (e) {
+      console.error('signOut error', e);
+    } finally {
+      setState({ profile: null, loading: false, error: null });
+    }
   }, []);
 
   const validateReferralCode = useCallback(async (code: string): Promise<boolean> => {

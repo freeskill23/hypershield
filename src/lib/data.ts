@@ -11,6 +11,7 @@ function useCollection<T>(
   table: string,
   mockFn: () => Promise<T[]>,
   order?: { column: string; ascending?: boolean },
+  enabled: boolean = true,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +45,9 @@ function useCollection<T>(
   }, [table, orderCol, orderAsc]);
 
   useEffect(() => {
+    if (!enabled) return;
     refresh();
-  }, [refresh]);
+  }, [refresh, enabled]);
 
   return { items, loading, refresh };
 }
@@ -54,21 +56,21 @@ function useCollection<T>(
 // Collection hooks
 // ============================================================
 
-export function useProducts() {
+export function useProducts(enabled: boolean = true) {
   return useCollection<Product>('products', () => mockBackend.listProducts(), {
     column: 'created_at',
     ascending: false,
-  });
+  }, enabled);
 }
 
-export function useCategories() {
+export function useCategories(enabled: boolean = true) {
   return useCollection<Category>('categories', async () => [], {
     column: 'sort_order',
     ascending: true,
-  });
+  }, enabled);
 }
 
-export function useOrders() {
+export function useOrders(enabled: boolean = true) {
   const [items, setItems] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -94,8 +96,9 @@ export function useOrders() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     refresh();
-  }, [refresh]);
+  }, [refresh, enabled]);
 
   return { items, loading, refresh };
 }
@@ -138,11 +141,11 @@ export function useMyOrders(userId: string | undefined) {
   return { orders, loading, refresh };
 }
 
-export function useProfiles() {
+export function useProfiles(enabled: boolean = true) {
   return useCollection<Profile>('profiles', () => mockBackend.listProfiles(), {
     column: 'created_at',
     ascending: false,
-  });
+  }, enabled);
 }
 
 export function useAddresses(userId: string | undefined) {
@@ -221,11 +224,11 @@ export function useReferralRequests(userId: string | undefined) {
   return { requests, loading, refresh };
 }
 
-export function useAllReferralRequests() {
+export function useAllReferralRequests(enabled: boolean = true) {
   return useCollection<ReferralRequest>('referral_requests', async () => [], {
     column: 'created_at',
     ascending: false,
-  });
+  }, enabled);
 }
 
 // ============================================================
