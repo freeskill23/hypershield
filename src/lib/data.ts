@@ -1,25 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { mockBackend } from './mockBackend';
-import { Product, Order, OrderItem, Profile, Category, Address, ReferralRequest } from './types';
+import { GroupBuy, Participant, Profile } from './types';
 
 // ============================================================
-// Generic hook factory for Supabase queries
+// Collection hooks
 // ============================================================
 
 function useCollection<T>(
   table: string,
-  mockFn: () => Promise<T[]>,
   order?: { column: string; ascending?: boolean },
   enabled: boolean = true,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Stabilize mockFn in a ref so inline arrow functions don't
-  // recreate the callback and trigger an infinite fetch loop.
-  const mockFnRef = useRef(mockFn);
-  mockFnRef.current = mockFn;
 
   const orderCol = order?.column;
   const orderAsc = order?.ascending;
@@ -28,7 +21,7 @@ function useCollection<T>(
     setLoading(true);
     try {
       if (!isSupabaseConfigured || !supabase) {
-        setItems(await mockFnRef.current());
+        setItems([]);
         return;
       }
       let q = supabase.from(table).select('*');
@@ -52,372 +45,188 @@ function useCollection<T>(
   return { items, loading, refresh };
 }
 
-// ============================================================
-// Collection hooks
-// ============================================================
-
-export function useProducts(enabled: boolean = true) {
-  return useCollection<Product>('products', () => mockBackend.listProducts(), {
-    column: 'created_at',
-    ascending: false,
-  }, enabled);
+export function useGroupBuys(enabled: boolean = true) {
+  return useCollection<GroupBuy>('group_buys', { column: 'created_at', ascending: false }, enabled);
 }
 
-export function useCategories(enabled: boolean = true) {
-  return useCollection<Category>('categories', async () => [], {
-    column: 'sort_order',
-    ascending: true,
-  }, enabled);
+export function useProfiles(enabled: boolean = true) {
+  return useCollection<Profile>('profiles', { column: 'created_at', ascending: false }, enabled);
 }
 
-export function useOrders(enabled: boolean = true) {
-  const [items, setItems] = useState<Order[]>([]);
+export function useParticipants(enabled: boolean = true) {
+  return useCollection<Participant>('participants', { column: 'created_at', ascending: false }, enabled);
+}
+
+export function useMyParticipations(userId: string | undefined) {
+  const [items, setItems] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    if (!userId) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       if (!isSupabaseConfigured || !supabase) {
-        setItems(await mockBackend.listOrders());
+        setItems([]);
         return;
       }
       const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
+        .from('participants')
+        .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setItems((data as Order[]) ?? []);
+      setItems((data as Participant[]) ?? []);
     } catch (e) {
-      console.error('orders load error', e);
+      console.error('my participations load error', e);
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    if (!enabled) return;
     refresh();
-  }, [refresh, enabled]);
+  }, [refresh]);
 
   return { items, loading, refresh };
 }
 
-export function useMyOrders(userId: string | undefined) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      if (!isSupabaseConfigured || !supabase) {
-        setOrders([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setOrders((data as Order[]) ?? []);
-    } catch (e) {
-      console.error('my orders load error', e);
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  return { orders, loading, refresh };
-}
-
-export function useProfiles(enabled: boolean = true) {
-  return useCollection<Profile>('profiles', () => mockBackend.listProfiles(), {
-    column: 'created_at',
-    ascending: false,
-  }, enabled);
-}
-
-export function useAddresses(userId: string | undefined) {
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setAddresses([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      if (!isSupabaseConfigured || !supabase) {
-        setAddresses([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      setAddresses((data as Address[]) ?? []);
-    } catch (e) {
-      console.error('addresses load error', e);
-      setAddresses([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  return { addresses, loading, refresh };
-}
-
-export function useReferralRequests(userId: string | undefined) {
-  const [requests, setRequests] = useState<ReferralRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      if (!isSupabaseConfigured || !supabase) {
-        setRequests([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('referral_requests')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setRequests((data as ReferralRequest[]) ?? []);
-    } catch (e) {
-      console.error('referral requests load error', e);
-      setRequests([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  return { requests, loading, refresh };
-}
-
-export function useAllReferralRequests(enabled: boolean = true) {
-  return useCollection<ReferralRequest>('referral_requests', async () => [], {
-    column: 'created_at',
-    ascending: false,
-  }, enabled);
-}
-
 // ============================================================
-// Order operations
+// Group Buy operations
 // ============================================================
 
-export async function createOrderWithItems(input: {
-  user_id: string;
-  items: { product: Product; qty: number }[];
-  address: Address;
-  pointsToUse?: number;
-}): Promise<Order | null> {
+export async function createGroupBuy(input: {
+  title: string;
+  description: string;
+  image_url: string | null;
+  original_price: number;
+  group_price: number;
+  target_count: number;
+  deadline: string;
+}): Promise<GroupBuy | null> {
   if (!isSupabaseConfigured || !supabase) return null;
-  const pointsToUse = Math.max(0, input.pointsToUse ?? 0);
-  const grossTotal = input.items.reduce((s, i) => s + i.qty * i.product.club_price, 0);
-  const total = Math.max(0, grossTotal - pointsToUse);
-
-  const { data: order, error: orderErr } = await supabase
-    .from('orders')
+  const { data, error } = await supabase
+    .from('group_buys')
     .insert({
-      user_id: input.user_id,
-      total_amount: total,
-      status: 'pending',
-      points_used: pointsToUse,
-      recipient_name: input.address.recipient_name,
-      recipient_phone: input.address.recipient_phone,
-      address: input.address.address,
-      address_detail: input.address.address_detail,
+      title: input.title,
+      description: input.description || null,
+      image_url: input.image_url,
+      original_price: input.original_price,
+      group_price: input.group_price,
+      target_count: input.target_count,
+      deadline: input.deadline,
     })
     .select()
     .single();
-  if (orderErr) {
-    console.error('create order error', orderErr);
+  if (error) {
+    console.error('create group buy error', error);
     return null;
   }
-
-  const rows = input.items.map((i) => ({
-    order_id: order.id,
-    product_id: i.product.id,
-    product_name: i.product.name,
-    product_image: i.product.image_url,
-    quantity: i.qty,
-    unit_price: i.product.club_price,
-    original_price: i.product.original_price,
-  }));
-  const { error: itemErr } = await supabase.from('order_items').insert(rows);
-  if (itemErr) console.error('create order items error', itemErr);
-
-  // Deduct buyer's points atomically
-  if (pointsToUse > 0) {
-    const { error: deductErr } = await supabase
-      .rpc('deduct_user_points', { p_user_id: input.user_id, p_amount: pointsToUse });
-    if (deductErr) console.error('deduct points error', deductErr);
-  }
-
-  // Award referral reward to referrer (10% of total on first order)
-  const { error: rewardErr } = await supabase.rpc('process_order_referral_reward', { p_order_id: order.id });
-  if (rewardErr) console.error('referral reward error', rewardErr);
-
-  return order as Order;
+  return data as GroupBuy;
 }
 
-export async function updateOrderStatus(orderId: string, status: string) {
+export async function updateGroupBuy(id: string, patch: Partial<GroupBuy>) {
   if (!isSupabaseConfigured || !supabase) return;
-  const patch: Record<string, unknown> = { status };
-  if (status === 'shipping') patch.shipped_at = new Date().toISOString();
-  const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
-  if (error) console.error('update order status error', error);
+  const { error } = await supabase.from('group_buys').update(patch).eq('id', id);
+  if (error) console.error('update group buy error', error);
 }
 
-export async function updateOrderTracking(
-  orderId: string,
-  carrier: string,
-  trackingNumber: string,
+export async function deleteGroupBuy(id: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  const { error } = await supabase.from('group_buys').delete().eq('id', id);
+  if (error) console.error('delete group buy error', error);
+}
+
+// ============================================================
+// Participant operations
+// ============================================================
+
+export async function joinGroupBuy(groupBuyId: string): Promise<Participant | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase
+    .from('participants')
+    .insert({ group_buy_id: groupBuyId })
+    .select()
+    .single();
+  if (error) {
+    console.error('join group buy error', error);
+    return null;
+  }
+  return data as Participant;
+}
+
+export async function cancelParticipation(participantId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  const { error } = await supabase
+    .from('participants')
+    .update({ status: 'cancelled' })
+    .eq('id', participantId);
+  if (error) console.error('cancel participation error', error);
+}
+
+export async function submitAddress(
+  participantId: string,
+  address: {
+    recipient_name: string;
+    recipient_phone: string;
+    address: string;
+    address_detail: string;
+  },
 ) {
   if (!isSupabaseConfigured || !supabase) return;
   const { error } = await supabase
-    .from('orders')
-    .update({ carrier, tracking_number: trackingNumber, shipped_at: new Date().toISOString(), status: 'shipping' })
-    .eq('id', orderId);
-  if (error) console.error('update tracking error', error);
+    .from('participants')
+    .update({
+      recipient_name: address.recipient_name,
+      recipient_phone: address.recipient_phone,
+      address: address.address,
+      address_detail: address.address_detail,
+      status: 'address_submitted',
+    })
+    .eq('id', participantId);
+  if (error) console.error('submit address error', error);
 }
 
-export async function batchUpdateTracking(
-  updates: { orderId: string; carrier: string; trackingNumber: string }[],
-) {
-  if (!isSupabaseConfigured || !supabase) return;
-  for (const u of updates) {
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        carrier: u.carrier,
-        tracking_number: u.trackingNumber,
-        shipped_at: new Date().toISOString(),
-        status: 'shipping',
-      })
-      .eq('id', u.orderId);
-    if (error) console.error('batch tracking error', error);
-  }
-}
-
-// ============================================================
-// Address operations
-// ============================================================
-
-export async function addAddress(input: Omit<Address, 'id' | 'created_at'>): Promise<Address | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-  const { data, error } = await supabase
-    .from('addresses')
-    .insert(input)
-    .select()
-    .single();
-  if (error) {
-    console.error('add address error', error);
-    return null;
-  }
-  return data as Address;
-}
-
-export async function deleteAddress(id: string) {
-  if (!isSupabaseConfigured || !supabase) return;
-  const { error } = await supabase.from('addresses').delete().eq('id', id);
-  if (error) console.error('delete address error', error);
-}
-
-// ============================================================
-// Referral request operations
-// ============================================================
-
-export async function submitReferralRequest(userId: string, reason: string): Promise<ReferralRequest | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-  const { data, error } = await supabase
-    .from('referral_requests')
-    .insert({ user_id: userId, reason })
-    .select()
-    .single();
-  if (error) {
-    console.error('submit referral request error', error);
-    return null;
-  }
-  return data as ReferralRequest;
-}
-
-export async function approveReferralRequest(requestId: string): Promise<string | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-  const { data, error } = await supabase.rpc('approve_referral_request', { request_id: requestId });
-  if (error) {
-    console.error('approve referral request error', error);
-    return null;
-  }
-  return data as string;
-}
-
-export async function rejectReferralRequest(requestId: string) {
+export async function confirmDeposit(participantId: string) {
   if (!isSupabaseConfigured || !supabase) return;
   const { error } = await supabase
-    .from('referral_requests')
-    .update({ status: 'rejected', approved_at: new Date().toISOString() })
-    .eq('id', requestId);
-  if (error) console.error('reject referral request error', error);
+    .from('participants')
+    .update({
+      status: 'deposited',
+      deposit_confirmed_at: new Date().toISOString(),
+    })
+    .eq('id', participantId);
+  if (error) console.error('confirm deposit error', error);
 }
 
-// ============================================================
-// Category operations (admin)
-// ============================================================
-
-export async function addCategory(name: string, sortOrder: number): Promise<Category | null> {
-  if (!isSupabaseConfigured || !supabase) return null;
-  const { data, error } = await supabase
-    .from('categories')
-    .insert({ name, sort_order: sortOrder })
-    .select()
-    .single();
-  if (error) {
-    console.error('add category error', error);
-    return null;
-  }
-  return data as Category;
-}
-
-export async function deleteCategory(id: string) {
+export async function markShipped(participantId: string) {
   if (!isSupabaseConfigured || !supabase) return;
-  const { error } = await supabase.from('categories').delete().eq('id', id);
-  if (error) console.error('delete category error', error);
+  const { error } = await supabase
+    .from('participants')
+    .update({ status: 'shipped' })
+    .eq('id', participantId);
+  if (error) console.error('mark shipped error', error);
 }
 
 // ============================================================
-// Product operations (admin)
+// Profile operations (admin)
 // ============================================================
+
+export async function setProfileRole(user_id: string, role: 'member' | 'admin') {
+  if (!isSupabaseConfigured || !supabase) return;
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', user_id);
+  if (error) console.error('update role error', error);
+}
+
+export async function deleteProfile(user_id: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  const { error } = await supabase.from('profiles').delete().eq('id', user_id);
+  if (error) console.error('delete profile error', error);
+}
 
 export async function uploadProductImage(file: File): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) return null;
@@ -432,71 +241,4 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   }
   const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
   return data.publicUrl;
-}
-
-export async function addProduct(p: Omit<Product, 'id' | 'created_at'>): Promise<Product | null> {
-  if (!isSupabaseConfigured || !supabase) {
-    return {
-      ...p,
-      id: 'mock-' + Math.random().toString(36).slice(2, 10),
-      created_at: new Date().toISOString(),
-    };
-  }
-  const { data, error } = await supabase.from('products').insert(p).select().single();
-  if (error) {
-    console.error('add product error', error);
-    return null;
-  }
-  return data as Product;
-}
-
-export async function updateProduct(id: string, patch: Partial<Product>) {
-  if (!isSupabaseConfigured || !supabase) return;
-  const { error } = await supabase.from('products').update(patch).eq('id', id);
-  if (error) console.error('update product error', error);
-}
-
-export async function deleteProduct(id: string) {
-  if (!isSupabaseConfigured || !supabase) return;
-  const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) console.error('delete product error', error);
-}
-
-// ============================================================
-// Profile operations (admin)
-// ============================================================
-
-export async function setProfileRole(user_id: string, role: 'member' | 'admin') {
-  if (!isSupabaseConfigured || !supabase) {
-    await mockBackend.updateProfileRole(user_id, role);
-    return;
-  }
-  const { error } = await supabase.from('profiles').update({ role }).eq('id', user_id);
-  if (error) console.error('update role error', error);
-}
-
-export async function deleteProfile(user_id: string) {
-  if (!isSupabaseConfigured || !supabase) {
-    await mockBackend.deleteProfile(user_id);
-    return;
-  }
-  const { error } = await supabase.from('profiles').delete().eq('id', user_id);
-  if (error) console.error('delete profile error', error);
-}
-
-// Legacy export kept for backward compatibility
-export async function createOrder(input: { user_id: string; total_amount: number }): Promise<Order | null> {
-  if (!isSupabaseConfigured || !supabase) {
-    return mockBackend.createOrder(input);
-  }
-  const { data, error } = await supabase
-    .from('orders')
-    .insert({ user_id: input.user_id, total_amount: input.total_amount, status: 'pending' })
-    .select()
-    .single();
-  if (error) {
-    console.error('create order error', error);
-    return null;
-  }
-  return data as Order;
 }

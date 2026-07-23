@@ -21,3 +21,16 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   }).format(d);
 }
+
+export function getTimeRemaining(deadline: string): string | null {
+  const now = Date.now();
+  const end = new Date(deadline).getTime();
+  const diff = end - now;
+  if (diff <= 0) return null;
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (days > 0) return `${days}일 ${hours}시간`;
+  if (hours > 0) return `${hours}시간 ${mins}분`;
+  return `${mins}분`;
+}

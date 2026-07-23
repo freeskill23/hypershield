@@ -1,34 +1,18 @@
 import { useState } from 'react';
-import { Lock, Crown, Mail, KeyRound, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, Mail, KeyRound, User, ArrowRight, Users, TrendingDown, Clock } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
 export default function Gatekeeper() {
-  const { signIn, signUp, error, validateReferralCode } = useAuth();
+  const { signIn, signUp, error } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [referralValid, setReferralValid] = useState<null | boolean>(null);
 
-  // login form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // signup form
   const [fullName, setFullName] = useState('');
-  const [referral, setReferral] = useState('');
 
   const shownError = localError || error;
-
-  async function handleCheckReferral(code: string) {
-    setReferral(code);
-    setReferralValid(null);
-    if (code.trim().length < 8) return;
-    try {
-      const ok = await validateReferralCode(code.trim().toUpperCase());
-      setReferralValid(ok);
-    } catch {
-      setReferralValid(false);
-    }
-  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -52,17 +36,11 @@ export default function Gatekeeper() {
       setBusy(false);
       return;
     }
-    if (referralValid === false) {
-      setLocalError('유효하지 않은 초대 코드입니다.');
-      setBusy(false);
-      return;
-    }
     try {
       await signUp({
         email: email.trim(),
         password,
         full_name: fullName.trim(),
-        referral_code: referral.trim().toUpperCase(),
       });
     } catch (err: any) {
       setLocalError(err.message || '가입 실패');
@@ -92,11 +70,11 @@ export default function Gatekeeper() {
         {/* Header */}
         <header className="relative flex items-center justify-center px-6 py-6 md:px-12">
           <div className="font-gothic text-xl font-bold tracking-tight text-slate-100">
-            하이퍼쉴드 프라이빗 클럽
+            하이퍼쉴드 공동구매
           </div>
           <div className="absolute right-6 hidden items-center gap-2 text-xs text-slate-400 md:flex md:right-12">
             <Lock className="h-3.5 w-3.5 text-cyan" />
-            <span>초대 전용 · 폐쇄형 멤버십</span>
+            <span>베타 서비스 · 계좌이체 결제</span>
           </div>
         </header>
 
@@ -104,18 +82,31 @@ export default function Gatekeeper() {
         <main className="flex flex-1 flex-col items-center justify-center px-6 pb-16 md:px-12">
           <div className="w-full max-w-md animate-fadeIn">
             <div className="mb-8 text-center">
-              <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-4 py-1.5 text-xs font-medium text-gold-light">
-                <Crown className="h-3.5 w-3.5" />
-                Private Club
+              <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-cyan/30 bg-cyan/5 px-4 py-1.5 text-xs font-medium text-cyan">
+                <Users className="h-3.5 w-3.5" />
+                Group Buy Beta
               </div>
               <h1 className="font-gothic text-base font-medium leading-snug text-slate-300 md:text-lg">
-                초대 코드가 있어야만 입장 가능한 클럽
+                함께 모이면 더 저렴하게
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                광고비·유통 거품 0%. 기존 회원의 초대 코드로만 가입할 수 있는
+                목표 인원이 모이면 공동구매 가격으로 구매할 수 있는
                 <br className="hidden md:block" />
-                폐쇄형 상시 최고수준 할인 클럽입니다.
+                베타 서비스입니다. 누구나 자유롭게 가입 가능합니다.
               </p>
+
+              {/* Feature pills */}
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-navy-900/60 px-3 py-1 text-[11px] text-slate-400">
+                  <TrendingDown className="h-3 w-3 text-cyan" /> 공동구매 할인가
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-navy-900/60 px-3 py-1 text-[11px] text-slate-400">
+                  <Clock className="h-3 w-3 text-gold" /> 기한 내 인원 달성
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-navy-900/60 px-3 py-1 text-[11px] text-slate-400">
+                  <Lock className="h-3 w-3 text-slate-500" /> 계좌이체 결제
+                </div>
+              </div>
             </div>
 
             {/* Auth Card */}
@@ -142,13 +133,13 @@ export default function Gatekeeper() {
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  초대 코드 가입
+                  회원가입
                 </button>
               </div>
 
               {shownError && (
                 <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <Mail className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{shownError}</span>
                 </div>
               )}
@@ -164,7 +155,7 @@ export default function Gatekeeper() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@hypershield.club"
+                        placeholder="you@example.com"
                         className="input-field pl-10"
                       />
                     </div>
@@ -211,7 +202,7 @@ export default function Gatekeeper() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@hypershield.club"
+                        placeholder="you@example.com"
                         className="input-field pl-10"
                       />
                     </div>
@@ -231,48 +222,21 @@ export default function Gatekeeper() {
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">
-                      추천인 초대 코드 <span className="text-gold">*필수</span>
-                    </label>
-                    <div className="relative">
-                      <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                      <input
-                        required
-                        value={referral}
-                        onChange={(e) => handleCheckReferral(e.target.value)}
-                        placeholder="HYPER-XXXX"
-                        className="input-field pl-10 pr-10 uppercase"
-                      />
-                      {referralValid === true && (
-                        <CheckCircle2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
-                      )}
-                      {referralValid === false && (
-                        <AlertCircle className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-red-400" />
-                      )}
-                    </div>
-                    {referralValid === false && (
-                      <p className="mt-1.5 text-xs text-red-400">유효하지 않은 초대 코드입니다.</p>
-                    )}
-                    {referralValid === true && (
-                      <p className="mt-1.5 text-xs text-emerald-400">유효한 초대 코드가 확인되었습니다.</p>
-                    )}
-                  </div>
                   <button type="submit" disabled={busy} className="btn-gold w-full">
-                    {busy ? '가입 중...' : <>클럽 가입하기 <ArrowRight className="h-4 w-4" /></>}
+                    {busy ? '가입 중...' : <>가입하고 시작하기 <ArrowRight className="h-4 w-4" /></>}
                   </button>
                 </form>
               )}
             </div>
 
             <p className="mt-5 text-center text-xs text-slate-500">
-              기존 회원의 초대 코드가 있어야만 가입 가능합니다.
+              누구나 자유롭게 가입할 수 있습니다.
             </p>
           </div>
         </main>
 
         <footer className="px-6 pb-6 text-center text-xs text-slate-600 md:px-12">
-          © {new Date().getFullYear()} Hypershield Private Club · 회원 전용 서비스
+          © {new Date().getFullYear()} Hypershield Group Buy · 베타 서비스
         </footer>
       </div>
     </div>

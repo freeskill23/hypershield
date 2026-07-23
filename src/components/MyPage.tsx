@@ -1,269 +1,260 @@
 import { useState } from 'react';
-import { Package, MapPin, Truck, CheckCircle2, Clock, Plus, Trash2, X, ShoppingBag, Coins } from 'lucide-react';
-import { Profile, OrderStatus, Address } from '../lib/types';
-import { formatKRW, formatDateTime } from '../lib/format';
-import { useMyOrders, useAddresses, addAddress, deleteAddress } from '../lib/data';
-import { supabase } from '../lib/supabase';
+import {
+  User, Mail, Calendar, Package, CheckCircle2, Clock, XCircle,
+  MapPin, Banknote, Truck, Phone,
+} from 'lucide-react';
+import { Profile, GroupBuy, Participant, ParticipantStatus } from '../lib/types';
+import { formatKRW, formatDate, formatDateTime } from '../lib/format';
+import { submitAddress } from '../lib/data';
 
 interface Props {
   profile: Profile;
+  myParticipations: Participant[];
+  groupBuys: GroupBuy[];
+  onRefresh: () => void;
 }
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending: '입금대기',
-  shipping_ready: '배송대기',
-  shipping: '배송중',
-  delivered: '배송완료',
-  cancelled: '취소',
-};
+function StatusChip({ status }: { status: ParticipantStatus }) {
+  const config: Record<ParticipantStatus, { label: string; className: string; icon: any }> = {
+    joined: { label: '참여 중', className: 'border-cyan/40 text-cyan', icon: Clock },
+    deposited: { label: '입금 확인', className: 'border-green-500/40 text-green-400', icon: CheckCircle2 },
+    address_submitted: { label: '배송지 제출', className: 'border-cyan/40 text-cyan', icon: MapPin },
+    shipped: { label: '배송 완료', className: 'border-green-500/40 text-green-400', icon: Truck },
+    cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
+  };
+  const c = config[status];
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${c.className}`}>
+      <Icon className="h-3 w-3" />
+      {c.label}
+    </span>
+  );
+}
 
-const STATUS_ICONS: Record<OrderStatus, typeof Clock> = {
-  pending: Clock,
-  shipping_ready: Package,
-  shipping: Truck,
-  delivered: CheckCircle2,
-  cancelled: X,
-};
+function AddressEditor({
+  participation,
+  onSave,
+}: {
+  participation: Participant;
+  onSave: (id: string, data: { recipient_name: string; recipient_phone: string; address: string; address_detail: string }) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    recipient_name: participation.recipient_name ?? '',
+    recipient_phone: participation.recipient_phone ?? '',
+    address: participation.address ?? '',
+    address_detail: participation.address_detail ?? '',
+  });
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  pending: 'text-gold-light border-gold/40',
-  shipping_ready: 'text-cyan border-cyan/40',
-  shipping: 'text-cyan border-cyan/40',
-  delivered: 'text-emerald-400 border-emerald-500/40',
-  cancelled: 'text-red-400 border-red-500/40',
-};
-
-export default function MyPage({ profile }: Props) {
-  const { orders, loading } = useMyOrders(profile.id);
-  const { addresses, refresh } = useAddresses(profile.id);
-  const [tab, setTab] = useState<'orders' | 'addresses' | 'points'>('orders');
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ label: '기본 배송지', recipient_name: profile.full_name, recipient_phone: '', address: '', address_detail: '' });
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!supabase) return;
-    const result = await addAddress({
-      user_id: profile.id,
-      ...form,
-      is_default: addresses.length === 0,
-    });
-    if (result) {
-      setShowForm(false);
-      setForm({ label: '추가 배송지', recipient_name: profile.full_name, recipient_phone: '', address: '', address_detail: '' });
-      refresh();
-    }
+  if (!editing && participation.address) {
+    return (
+      <div className="mt-2 rounded-lg border border-navy-700 bg-navy-950/40 p-3 text-sm">
+        <div className="text-slate-100">{participation.recipient_name} · {participation.recipient_phone}</div>
+        <div className="text-slate-400">{participation.address} {participation.address_detail}</div>
+        <button
+          onClick={() => setEditing(true)}
+          className="mt-2 text-xs text-slate-500 underline hover:text-slate-300"
+        >
+          수정
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-5">
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 rounded-lg bg-navy-950/60 p-1">
-        <button
-          onClick={() => setTab('orders')}
-          className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
-            tab === 'orders' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <ShoppingBag className="h-4 w-4" /> 주문 현황
-        </button>
-        <button
-          onClick={() => setTab('addresses')}
-          className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
-            tab === 'addresses' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <MapPin className="h-4 w-4" /> 배송지 관리
-        </button>
-        <button
-          onClick={() => setTab('points')}
-          className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition ${
-            tab === 'points' ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Coins className="h-4 w-4" /> 포인트
-        </button>
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        await onSave(participation.id, form);
+        setBusy(false);
+        setEditing(false);
+      }}
+      className="mt-2 space-y-2"
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          required
+          placeholder="받는 분"
+          value={form.recipient_name}
+          onChange={(e) => setForm({ ...form, recipient_name: e.target.value })}
+          className="input-field text-sm"
+        />
+        <input
+          required
+          placeholder="연락처"
+          value={form.recipient_phone}
+          onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })}
+          className="input-field text-sm"
+        />
+      </div>
+      <input
+        required
+        placeholder="주소"
+        value={form.address}
+        onChange={(e) => setForm({ ...form, address: e.target.value })}
+        className="input-field text-sm"
+      />
+      <input
+        placeholder="상세 주소"
+        value={form.address_detail}
+        onChange={(e) => setForm({ ...form, address_detail: e.target.value })}
+        className="input-field text-sm"
+      />
+      <button type="submit" disabled={busy} className="btn-primary px-4 py-2 text-xs">
+        {busy ? '저장 중...' : '배송지 저장'}
+      </button>
+    </form>
+  );
+}
+
+export default function MyPage({ profile, myParticipations, groupBuys, onRefresh }: Props) {
+  const [busy, setBusy] = useState(false);
+
+  const handleSaveAddress = async (
+    id: string,
+    data: { recipient_name: string; recipient_phone: string; address: string; address_detail: string },
+  ) => {
+    setBusy(true);
+    await submitAddress(id, data);
+    setBusy(false);
+    onRefresh();
+  };
+
+  const activeParticipations = myParticipations.filter((p) => p.status !== 'cancelled');
+  const cancelledParticipations = myParticipations.filter((p) => p.status === 'cancelled');
+
+  const getGroupBuy = (id: string) => groupBuys.find((g) => g.id === id);
+
+  return (
+    <div className="space-y-6">
+      {/* Profile header */}
+      <div className="card-surface p-6">
+        <div className="flex items-center gap-4">
+          <div className={`grid h-16 w-16 place-items-center rounded-full text-xl font-bold text-navy-950 ${profile.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
+            {profile.full_name.slice(0, 1)}
+          </div>
+          <div>
+            <h1 className="font-gothic text-xl font-bold text-slate-100">{profile.full_name}</h1>
+            <div className="mt-1 flex items-center gap-4 text-sm text-slate-400">
+              <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {profile.email}</span>
+              <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {formatDate(profile.created_at)} 가입</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Points tab */}
-      {tab === 'points' && (
-        <div className="space-y-4">
-          <div className="card-surface flex items-center gap-4 p-5">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-gold/15">
-              <Coins className="h-7 w-7 text-gold" />
-            </div>
-            <div>
-              <div className="text-xs text-slate-400">사용 가능한 포인트</div>
-              <div className="font-display text-2xl font-bold text-gold-light">{formatKRW(profile.points)}</div>
-            </div>
-          </div>
-          <div className="card-surface p-4">
-            <div className="mb-2 text-sm font-medium text-slate-200">포인트 안내</div>
-            <ul className="space-y-1.5 text-xs text-slate-400">
-              <li>• 내 초대 코드로 가입한 회원이 첫 구매를 하면 구매금액의 10%가 포인트로 적립됩니다.</li>
-              <li>• 포인트는 상품 구매 시 현금처럼 사용할 수 있습니다. (1포인트 = 1원)</li>
-              <li>• 포인트는 주문 시 결제 금액에서 차감되며, 남은 포인트는 다음 구매에 사용할 수 있습니다.</li>
-            </ul>
-          </div>
+      {/* My participations */}
+      <section>
+        <div className="mb-4 flex items-center gap-2">
+          <Package className="h-5 w-5 text-cyan" />
+          <h2 className="font-gothic text-lg font-semibold text-slate-100">내 공동구매 참여 현황</h2>
+          <span className="rounded-full bg-cyan/10 px-2 py-0.5 text-xs font-medium text-cyan">
+            {activeParticipations.length}건
+          </span>
         </div>
-      )}
 
-      {/* Orders tab */}
-      {tab === 'orders' && (
-        <div className="space-y-3">
-          {loading && (
-            <div className="grid place-items-center py-16 text-slate-500">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan border-t-transparent" />
-            </div>
-          )}
-          {!loading && orders.length === 0 && (
-            <div className="grid place-items-center py-16 text-center text-slate-500">
-              <div className="mb-3 rounded-full bg-navy-800 p-4">
-                <ShoppingBag className="h-8 w-8 text-slate-600" />
-              </div>
-              <p className="text-sm">주문 내역이 없습니다.</p>
-            </div>
-          )}
-          {orders.map((o) => {
-            const Icon = STATUS_ICONS[o.status] ?? Clock;
-            return (
-              <div key={o.id} className="card-surface overflow-hidden">
-                <div className="flex items-center justify-between border-b border-navy-700 px-5 py-3">
-                  <div>
-                    <div className="text-xs text-slate-500">주문번호 {o.id.slice(-6).toUpperCase()}</div>
-                    <div className="text-xs text-slate-500">{formatDateTime(o.created_at)}</div>
-                  </div>
-                  <span className={`chip ${STATUS_COLORS[o.status]}`}>
-                    <Icon className="h-3 w-3" /> {STATUS_LABELS[o.status]}
-                  </span>
-                </div>
-                <div className="px-5 py-3">
-                  {/* Items */}
-                  {o.order_items && o.order_items.length > 0 ? (
-                    <div className="space-y-2">
-                      {o.order_items.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3">
-                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-navy-950">
-                            {item.product_image && (
-                              <img src={item.product_image} alt="" className="h-full w-full object-cover" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-sm text-slate-100">{item.product_name}</div>
-                            <div className="text-xs text-slate-500">
-                              {formatKRW(item.unit_price)} × {item.quantity}
-                            </div>
-                          </div>
-                          <div className="text-sm font-medium text-slate-100">
-                            {formatKRW(item.unit_price * item.quantity)}
-                          </div>
+        {activeParticipations.length === 0 ? (
+          <div className="card-surface grid place-items-center py-16 text-center">
+            <Package className="mb-3 h-10 w-10 text-slate-700" />
+            <p className="text-sm text-slate-500">참여한 공동구매가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activeParticipations.map((p) => {
+              const gb = getGroupBuy(p.group_buy_id);
+              if (!gb) return null;
+              const isSucceeded = gb.status === 'succeeded';
+
+              return (
+                <div key={p.id} className="card-surface p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      {gb.image_url ? (
+                        <img src={gb.image_url} alt={gb.title} className="h-16 w-16 rounded-lg object-cover" />
+                      ) : (
+                        <div className="grid h-16 w-16 place-items-center rounded-lg bg-navy-800">
+                          <Package className="h-6 w-6 text-slate-600" />
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-slate-500">주문 상품 정보 없음</div>
-                  )}
-
-                  {/* Address */}
-                  {o.address && (
-                    <div className="mt-3 flex items-start gap-2 border-t border-navy-700 pt-3 text-xs text-slate-400">
-                      <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+                      )}
                       <div>
-                        {o.recipient_name} · {o.recipient_phone}<br />
-                        {o.address} {o.address_detail}
+                        <h3 className="font-gothic text-base font-semibold text-slate-100">{gb.title}</h3>
+                        <div className="mt-1 text-sm text-slate-400">
+                          공동구매가 <span className="font-medium text-cyan">{formatKRW(gb.group_price)}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          참여일: {formatDateTime(p.created_at)}
+                        </div>
                       </div>
                     </div>
-                  )}
-
-                  {/* Tracking */}
-                  {o.tracking_number && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-cyan">
-                      <Truck className="h-3.5 w-3.5" />
-                      {o.carrier} · 송장번호 {o.tracking_number}
-                    </div>
-                  )}
-
-                  {/* Total */}
-                  <div className="mt-3 space-y-1 border-t border-navy-700 pt-3">
-                    {o.points_used > 0 && (
-                      <div className="flex justify-between text-xs text-gold-light">
-                        <span>포인트 사용</span>
-                        <span>- {formatKRW(o.points_used)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-xs text-slate-400">총 결제 금액</span>
-                      <span className="font-display text-base font-bold text-cyan">{formatKRW(o.total_amount)}</span>
-                    </div>
+                    <StatusChip status={p.status} />
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Addresses tab */}
-      {tab === 'addresses' && (
-        <div className="space-y-3">
-          {addresses.length === 0 && !showForm && (
-            <p className="text-sm text-slate-500">저장된 배송지가 없습니다. 새 배송지를 등록해주세요.</p>
-          )}
-          {addresses.map((a) => (
-            <div key={a.id} className="card-surface flex items-start gap-3 p-4">
-              <MapPin className="mt-1 h-4 w-4 shrink-0 text-cyan" />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-100">{a.label}</span>
-                  {a.is_default && <span className="chip border-gold/40 text-gold-light">기본</span>}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{a.recipient_name} · {a.recipient_phone}</div>
-                <div className="mt-0.5 text-xs text-slate-500">{a.address} {a.address_detail}</div>
-              </div>
-              <button
-                onClick={() => deleteAddress(a.id).then(refresh)}
-                className="text-slate-600 hover:text-red-400"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+                  {/* Bank info for succeeded group buys */}
+                  {isSucceeded && gb.bank_account && (
+                    <div className="mt-3 rounded-lg border border-gold/30 bg-gold/5 p-3">
+                      <div className="flex items-center gap-2 text-sm text-slate-300">
+                        <Banknote className="h-4 w-4 text-gold" />
+                        <span>입금 계좌: <strong className="text-gold-light">{gb.bank_account}</strong></span>
+                        {gb.bank_holder && <span className="text-slate-500">({gb.bank_holder})</span>}
+                      </div>
+                      <div className="mt-1 text-sm text-slate-400">
+                        입금액: <span className="font-bold text-gold-light">{formatKRW(gb.group_price)}</span>
+                      </div>
+                      <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
+                        <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>입금자명을 '이름 + 공동구매명'으로 입금해 주세요. 관리자 확인 후 배송이 진행됩니다.</span>
+                      </div>
+                    </div>
+                  )}
 
-          {showForm ? (
-            <form onSubmit={handleAdd} className="card-surface space-y-3 p-4">
-              <div>
-                <label className="mb-1 block text-xs text-slate-400">배송지 이름</label>
-                <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} className="input-field" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs text-slate-400">받는분</label>
-                  <input value={form.recipient_name} onChange={(e) => setForm({ ...form, recipient_name: e.target.value })} className="input-field" />
+                  {/* Address editor for succeeded group buys */}
+                  {isSucceeded && (
+                    <div className="mt-3 border-t border-navy-700 pt-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                        <MapPin className="h-4 w-4 text-cyan" /> 배송지
+                      </div>
+                      <AddressEditor participation={p} onSave={handleSaveAddress} />
+                    </div>
+                  )}
+
+                  {/* Deposit status */}
+                  {p.status === 'deposited' && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
+                      <CheckCircle2 className="h-4 w-4" /> 입금이 확인되었습니다. 배송 준비 중입니다.
+                    </div>
+                  )}
+                  {p.status === 'shipped' && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
+                      <Truck className="h-4 w-4" /> 배송이 완료되었습니다.
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs text-slate-400">연락처</label>
-                  <input value={form.recipient_phone} onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })} placeholder="010-0000-0000" className="input-field" />
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Cancelled */}
+      {cancelledParticipations.length > 0 && (
+        <section>
+          <h3 className="mb-3 font-gothic text-sm font-medium text-slate-500">취소한 공동구매</h3>
+          <div className="space-y-2">
+            {cancelledParticipations.map((p) => {
+              const gb = getGroupBuy(p.group_buy_id);
+              if (!gb) return null;
+              return (
+                <div key={p.id} className="card-surface flex items-center justify-between p-4 opacity-60">
+                  <span className="text-sm text-slate-400">{gb.title}</span>
+                  <StatusChip status={p.status} />
                 </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-slate-400">주소</label>
-                <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="도로명 주소" className="input-field" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-slate-400">상세주소</label>
-                <input value={form.address_detail} onChange={(e) => setForm({ ...form, address_detail: e.target.value })} placeholder="건물, 호수 등" className="input-field" />
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1">배송지 저장</button>
-                <button type="button" onClick={() => setShowForm(false)} className="btn-ghost">취소</button>
-              </div>
-            </form>
-          ) : (
-            <button onClick={() => setShowForm(true)} className="btn-ghost w-full">
-              <Plus className="h-4 w-4" /> 새 배송지 추가
-            </button>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );
