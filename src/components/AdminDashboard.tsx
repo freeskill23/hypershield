@@ -330,9 +330,16 @@ export default function AdminDashboard({ profile, groupBuys, participants, profi
                     </button>
                   </div>
                   {fetchError && (
-                    <div className="mt-2 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>{fetchError}</span>
+                    <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>{fetchError}</span>
+                      </div>
+                      {fetchError.includes('429') && (
+                        <div className="mt-1.5 pl-5 text-[11px] text-amber-300">
+                          네이버가 서버 요청을 차단한 것입니다. 잠시 후 다시 시도하거나, 아래 입력칸에 직접 정보를 입력해 주세요.
+                        </div>
+                      )}
                     </div>
                   )}
                   {fetchSuccess && (

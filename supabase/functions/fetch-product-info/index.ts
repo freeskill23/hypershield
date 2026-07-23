@@ -42,31 +42,128 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-async function scrapeProductPage(url: string): Promise<ProductInfo> {
-  // Fetch the page HTML
-  const response = await fetch(url, {
+// -- URL helpers --
+
+function toMobileUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "smartstore.naver.com") {
+      return `https://m.smartstore.naver.com${u.pathname}${u.search}`;
+    }
+    if (u.hostname === "search.shopping.naver.com") {
+      u.hostname = "m.search.shopping.naver.com";
+      return u.href;
+    }
+    if (u.hostname === "cr2.shopping.naver.com") {
+      return url;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+function toDesktopUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "m.smartstore.naver.com") {
+      return `https://smartstore.naver.com${u.pathname}${u.search}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
+// -- Fetch strategies --
+
+async function fetchWithHeaders(
+  url: string,
+  userAgent: string,
+  referer?: string,
+): Promise<Response> {
+  return fetch(url, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+      "User-Agent": userAgent,
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+      "Sec-Ch-Ua": '"Chromium";v="120", "Not(A:Brand";v="24", "Google Chrome";v="120"',
+      "Sec-Ch-Ua-Mobile": "?1",
+      "Sec-Ch-Ua-Platform": '"Android"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
+      ...(referer ? { Referer: referer } : {}),
     },
     redirect: "follow",
   });
+}
 
-  if (!response.ok) {
-    throw new Error(`페이지를 불러오지 못했습니다. (HTTP ${response.status})`);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const MOBILE_UA =
+  "Mozilla/5.0 (Linux; Android 14; SM-S928N Build/UQ1A.240205.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const DESKTOP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+async function scrapeProductPage(originalUrl: string): Promise<ProductInfo> {
+  const urls = new Set<string>();
+  urls.add(originalUrl);
+  urls.add(toMobileUrl(originalUrl));
+  urls.add(toDesktopUrl(originalUrl));
+
+  const userAgents = [MOBILE_UA, DESKTOP_UA];
+  const referers = [
+    undefined,
+    "https://www.naver.com/",
+    "https://m.naver.com/",
+  ];
+
+  let lastError = "";
+
+  // Try each (url, UA, referer) combo, with small delays
+  for (const url of urls) {
+    for (const ua of userAgents) {
+      for (const ref of referers) {
+        try {
+          const resp = await fetchWithHeaders(url, ua, ref);
+          if (resp.ok) {
+            const html = await resp.text();
+            if (html && html.length > 500) {
+              const info = parseProductInfo(html, url);
+              // Only return if we got at least a title or image
+              if (info.title || info.image_url) {
+                return info;
+              }
+            }
+          }
+          if (resp.status === 429) {
+            lastError = `HTTP 429 (요청이 너무 많음) — 잠시 후 다시 시도해 주세요.`;
+            await sleep(800);
+            continue;
+          }
+          lastError = `HTTP ${resp.status}`;
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+    }
   }
 
-  const html = await response.text();
-
-  return parseProductInfo(html, url);
+  throw new Error(
+    `상품 페이지를 불러오지 못했습니다. ${lastError}\n잠시 후 다시 시도하거나, 수동으로 정보를 입력해 주세요.`,
+  );
 }
 
 function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
-  // Extract Open Graph meta tags (works for most smart stores / e-commerce sites)
   const getMeta = (property: string): string | null => {
-    // Try property attribute first, then name attribute
     const propRegex = new RegExp(
       `<meta[^>]+(?:property|name)=["']${property}["'][^>]+content=["']([^"']*)["']`,
       "i",
@@ -74,7 +171,6 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
     const propMatch = html.match(propRegex);
     if (propMatch) return decodeEntities(propMatch[1]);
 
-    // Try reversed order (content before property)
     const revRegex = new RegExp(
       `<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${property}["']`,
       "i",
@@ -85,7 +181,6 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
     return null;
   };
 
-  // Extract JSON-LD structured data
   const jsonLdMatch = html.match(
     /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i,
   );
@@ -94,7 +189,6 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
     try {
       jsonLd = JSON.parse(jsonLdMatch[1].trim());
     } catch {
-      // try to find array
       try {
         const arr = JSON.parse(jsonLdMatch[1].trim());
         if (Array.isArray(arr)) {
@@ -110,44 +204,38 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
     }
   }
 
-  // Title: og:title > jsonLd name > <title>
   let title: string | null = null;
   const ogTitle = getMeta("og:title");
   if (ogTitle) {
-    title = ogTitle.replace(/\s*[|\-–]\s*네이버.*$/i, "").replace(/\s*[|\-–]\s*스마트스토어.*$/i, "").trim();
+    title = ogTitle
+      .replace(/\s*[|\-–]\s*네이버.*$/i, "")
+      .replace(/\s*[|\-–]\s*스마트스토어.*$/i, "")
+      .replace(/\s*[|\-–]\s*Naver.*$/i, "")
+      .trim();
   }
-  if (!title && jsonLd?.name) {
-    title = jsonLd.name;
-  }
+  if (!title && jsonLd?.name) title = jsonLd.name;
   if (!title) {
     const titleTag = html.match(/<title[^>]*>([^<]*)<\/title>/i);
     if (titleTag) {
-      title = decodeEntities(titleTag[1]).replace(/\s*[|\-–]\s*네이버.*$/i, "").trim();
+      title = decodeEntities(titleTag[1])
+        .replace(/\s*[|\-–]\s*네이버.*$/i, "")
+        .trim();
     }
   }
 
-  // Description: og:description > jsonLd description > meta description
   let description: string | null = null;
   description = getMeta("og:description") || null;
-  if (!description && jsonLd?.description) {
-    description = jsonLd.description;
-  }
-  if (!description) {
-    description = getMeta("description");
-  }
+  if (!description && jsonLd?.description) description = jsonLd.description;
+  if (!description) description = getMeta("description");
 
-  // Image: og:image > jsonLd image
   let image_url: string | null = null;
   image_url = getMeta("og:image") || null;
+  // Try twitter:image as fallback
+  if (!image_url) image_url = getMeta("twitter:image");
   if (!image_url && jsonLd?.image) {
-    if (Array.isArray(jsonLd.image)) {
-      image_url = jsonLd.image[0];
-    } else {
-      image_url = jsonLd.image;
-    }
+    if (Array.isArray(jsonLd.image)) image_url = jsonLd.image[0];
+    else image_url = jsonLd.image;
   }
-
-  // Make image URL absolute
   if (image_url && !image_url.startsWith("http")) {
     try {
       image_url = new URL(image_url, sourceUrl).href;
@@ -156,7 +244,6 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
     }
   }
 
-  // Price: jsonLd offers.price > meta product:price:amount
   let original_price: number | null = null;
   if (jsonLd?.offers?.price) {
     original_price = Number(jsonLd.offers.price);
@@ -165,20 +252,13 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
   }
   if (!original_price) {
     const priceMeta = getMeta("product:price:amount");
-    if (priceMeta) {
-      original_price = Number(priceMeta);
-    }
+    if (priceMeta) original_price = Number(priceMeta);
   }
-  if (original_price && isNaN(original_price)) {
-    original_price = null;
-  }
+  if (original_price && isNaN(original_price)) original_price = null;
 
-  // Store name: og:site_name or jsonLd seller
   let store_name: string | null = null;
   store_name = getMeta("og:site_name") || null;
-  if (!store_name && jsonLd?.seller?.name) {
-    store_name = jsonLd.seller.name;
-  }
+  if (!store_name && jsonLd?.seller?.name) store_name = jsonLd.seller.name;
 
   return { title, description, image_url, original_price, store_name };
 }
