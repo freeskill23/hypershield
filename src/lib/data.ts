@@ -242,3 +242,43 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
   return data.publicUrl;
 }
+
+// ============================================================
+// Product info scraping (via edge function)
+// ============================================================
+
+export interface ScrapedProductInfo {
+  title: string | null;
+  description: string | null;
+  image_url: string | null;
+  original_price: number | null;
+  store_name: string | null;
+}
+
+export async function fetchProductInfo(url: string): Promise<ScrapedProductInfo> {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
+  }
+  const apiUrl = `${(supabase as any).supabaseUrl}/functions/v1/fetch-product-info`;
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${(supabase as any).supabaseKey}`,
+      apikey: (supabase as any).supabaseKey,
+    },
+    body: JSON.stringify({ url }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    throw new Error(errBody.error || `상품 정보를 가져오지 못했습니다. (${response.status})`);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+
+  return data as ScrapedProductInfo;
+}

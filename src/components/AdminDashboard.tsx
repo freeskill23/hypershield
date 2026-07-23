@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react';
 import {
   Plus, Users, Package, ShoppingBag, TrendingUp, Clock, CheckCircle2,
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
-  AlertCircle, Building2, Phone, User as UserIcon,
+  AlertCircle, Building2, Phone, User as UserIcon, Link2, Loader2, Search,
 } from 'lucide-react';
 import { Profile, GroupBuy, Participant, GroupBuyStatus, ParticipantStatus } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getTimeRemaining } from '../lib/format';
 import {
   createGroupBuy, updateGroupBuy, deleteGroupBuy,
   confirmDeposit, markShipped, setProfileRole, deleteProfile,
+  fetchProductInfo,
 } from '../lib/data';
 
 type Tab = 'overview' | 'groupbuys' | 'participants' | 'members';
@@ -51,6 +52,10 @@ export default function AdminDashboard({ profile, groupBuys, participants, profi
   const [editTarget, setEditTarget] = useState<GroupBuy | null>(null);
   const [form, setForm] = useState<GBFormState>(emptyForm);
   const [busy, setBusy] = useState(false);
+  const [productUrl, setProductUrl] = useState('');
+  const [fetchingProduct, setFetchingProduct] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchSuccess, setFetchSuccess] = useState(false);
 
   const switchTab = (t: Tab) => {
     setTab(t);
@@ -120,6 +125,28 @@ export default function AdminDashboard({ profile, groupBuys, participants, profi
       refresh();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleFetchProduct() {
+    if (!productUrl.trim()) return;
+    setFetchingProduct(true);
+    setFetchError(null);
+    setFetchSuccess(false);
+    try {
+      const info = await fetchProductInfo(productUrl.trim());
+      setForm((prev) => ({
+        ...prev,
+        title: prev.title || info.title || '',
+        description: prev.description || info.description || '',
+        image_url: prev.image_url || info.image_url || '',
+        original_price: prev.original_price || (info.original_price ? String(info.original_price) : ''),
+      }));
+      setFetchSuccess(true);
+    } catch (e: any) {
+      setFetchError(e.message || '상품 정보를 가져오지 못했습니다.');
+    } finally {
+      setFetchingProduct(false);
     }
   }
 
@@ -273,6 +300,52 @@ export default function AdminDashboard({ profile, groupBuys, participants, profi
                   <XCircle className="h-5 w-5" />
                 </button>
               </div>
+
+              {/* Smart store URL fetcher */}
+              {!editTarget && (
+                <div className="rounded-lg border border-cyan/20 bg-cyan/5 p-4">
+                  <label className="mb-1.5 block text-xs font-medium text-cyan">스마트스토어 상품 URL에서 자동 가져오기</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <input
+                        value={productUrl}
+                        onChange={(e) => setProductUrl(e.target.value)}
+                        placeholder="https://smartstore.naver.com/... 또는 상품 상세 페이지 URL"
+                        className="input-field pl-9 text-sm"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFetchProduct(); } }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleFetchProduct}
+                      disabled={fetchingProduct || !productUrl.trim()}
+                      className="btn-primary px-4 py-2.5 text-sm whitespace-nowrap"
+                    >
+                      {fetchingProduct ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> 가져오는 중...</>
+                      ) : (
+                        <><Search className="h-4 w-4" /> 정보 가져오기</>
+                      )}
+                    </button>
+                  </div>
+                  {fetchError && (
+                    <div className="mt-2 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{fetchError}</span>
+                    </div>
+                  )}
+                  {fetchSuccess && (
+                    <div className="mt-2 flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-xs text-green-400">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      상품 정보를 성공적으로 가져왔습니다. 필요한 부분을 수정하세요.
+                    </div>
+                  )}
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    네이버 스마트스토어, 쿠팡, 11번가 등 쇼핑몰 상품 페이지 URL을 입력하면 상품명, 설명, 이미지, 가격을 자동으로 채워줍니다.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
