@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { LogOut, Home, User, Shield, ShoppingCart, Megaphone } from 'lucide-react';
+import { LogOut, Home, User, ShoppingCart, Megaphone } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
   useProducts, useCategories, useOrders, useProfiles, usePosts,
@@ -15,7 +15,7 @@ import ProductDetail from './components/ProductDetail';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import MyPage from './components/MyPage';
-import AdminDashboard from './components/AdminDashboard';
+import AdminApp from './components/AdminApp';
 import ErrorBoundary from './components/ErrorBoundary';
 
 type Route =
@@ -26,21 +26,44 @@ type Route =
   | { name: 'product'; productId: string }
   | { name: 'cart' }
   | { name: 'checkout' }
-  | { name: 'mypage' }
-  | { name: 'admin' };
+  | { name: 'mypage' };
+
+function routeToHash(r: Route): string {
+  switch (r.name) {
+    case 'landing': return '';
+    case 'board': return '#board';
+    case 'post': return `#post/${r.postId}`;
+    case 'shop': return '#shop';
+    case 'product': return `#product/${r.productId}`;
+    case 'cart': return '#cart';
+    case 'checkout': return '#checkout';
+    case 'mypage': return '#mypage';
+  }
+}
+
+function hashToRoute(hash: string): Route {
+  const h = hash.replace('#', '');
+  if (h === 'board') return { name: 'board' };
+  if (h.startsWith('post/')) return { name: 'post', postId: h.slice(5) };
+  if (h === 'shop') return { name: 'shop' };
+  if (h.startsWith('product/')) return { name: 'product', productId: h.slice(8) };
+  if (h === 'cart') return { name: 'cart' };
+  if (h === 'checkout') return { name: 'checkout' };
+  if (h === 'mypage') return { name: 'mypage' };
+  return { name: 'landing' };
+}
 
 function Shell() {
   const { profile, loading, signOut } = useAuth();
-  const [route, setRoute] = useState<Route>({ name: 'landing' });
+  const [route, setRoute] = useState<Route>(() => hashToRoute(window.location.hash));
   const [showAuth, setShowAuth] = useState(false);
 
   const authReady = !loading && !!profile;
-  const isAdmin = profile?.role === 'admin';
 
   const productsHook = useProducts(authReady);
   const categoriesHook = useCategories(authReady);
   const ordersHook = useOrders(authReady);
-  const profilesHook = useProfiles(authReady && isAdmin);
+  const profilesHook = useProfiles(authReady && profile?.role === 'admin');
   const postsHook = usePosts(true);
   const plansHook = useSubscriptionPlans(true);
   const settingsHook = useSettings(true);
@@ -62,9 +85,19 @@ function Shell() {
   const navigate = useCallback((r: Route) => {
     setRoute(r);
     setShowAuth(false);
-    if (r.name === 'landing') window.history.pushState({}, '', '#');
-    else if (r.name === 'board') window.history.pushState({}, '', '#board');
-    else if (r.name === 'post') window.history.pushState({}, '', `#post/${r.postId}`);
+    const hash = routeToHash(r);
+    if (window.location.hash !== hash) {
+      window.history.pushState({}, '', hash || '#');
+    }
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setRoute(hashToRoute(window.location.hash));
+      setShowAuth(false);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   useEffect(() => {
@@ -87,12 +120,10 @@ function Shell() {
     );
   }
 
-  // Show auth gatekeeper (login/signup overlay)
   if (showAuth && !profile) {
     return <Gatekeeper />;
   }
 
-  // Not logged in — show landing / board / post
   if (!profile) {
     if (route.name === 'board') {
       return (
@@ -124,12 +155,10 @@ function Shell() {
     );
   }
 
-  // Logged in — enter directly (payment integration will be added later)
   return (
     <ErrorBoundary>
       <ShellContent
         profile={profile}
-        isAdmin={!!isAdmin}
         route={route}
         navigate={navigate}
         signOut={signOut}
@@ -151,12 +180,11 @@ function Shell() {
 }
 
 function ShellContent({
-  profile, isAdmin, route, navigate, signOut, refreshAll,
+  profile, route, navigate, signOut, refreshAll,
   products, categories, orders, profiles, posts, plans, settings,
   cartItems, addresses, onRefreshCart, cartCount,
 }: {
   profile: Profile;
-  isAdmin: boolean;
   route: Route;
   navigate: (r: Route) => void;
   signOut: () => Promise<void>;
@@ -180,7 +208,7 @@ function ShellContent({
       <header className="sticky top-0 z-40 border-b border-navy-700 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
           <button
-            onClick={() => navigate(isAdmin ? { name: 'admin' } : { name: 'shop' })}
+            onClick={() => navigate({ name: 'shop' })}
             className="text-left transition hover:text-cyan"
           >
             <div className="text-[9px] font-medium uppercase tracking-[0.3em] text-slate-500">HYPERSHIELD</div>
@@ -188,51 +216,42 @@ function ShellContent({
           </button>
 
           <div className="flex items-center gap-3">
-            {!isAdmin && (
-              <>
-                <button
-                  onClick={() => navigate({ name: 'board' })}
-                  className="hidden items-center gap-1.5 px-3 py-2 text-sm text-slate-400 hover:text-slate-700 md:flex"
-                >
-                  <Megaphone className="h-4 w-4" /> 하이퍼쉴드의 생각
-                </button>
-                <button
-                  onClick={() => navigate({ name: 'shop' })}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    route.name === 'shop' || route.name === 'product' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
-                  }`}
-                >
-                  <Home className="h-4 w-4" /> 쇼핑몰
-                </button>
-                <button
-                  onClick={() => navigate({ name: 'cart' })}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    route.name === 'cart' || route.name === 'checkout' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
-                  }`}
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  {cartCount > 0 && (
-                    <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-cyan px-1 text-[10px] font-bold text-white">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => navigate({ name: 'mypage' })}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    route.name === 'mypage' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
-                  }`}
-                >
-                  <User className="h-4 w-4" /> 마이
-                </button>
-              </>
-            )}
-            {isAdmin && (
-              <span className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-medium text-gold-light">
-                <Shield className="h-3.5 w-3.5" /> ADMIN
-              </span>
-            )}
-            <div className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold text-white ${isAdmin ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
+            <button
+              onClick={() => navigate({ name: 'board' })}
+              className="hidden items-center gap-1.5 px-3 py-2 text-sm text-slate-400 hover:text-slate-700 md:flex"
+            >
+              <Megaphone className="h-4 w-4" /> 하이퍼쉴드의 생각
+            </button>
+            <button
+              onClick={() => navigate({ name: 'shop' })}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                route.name === 'shop' || route.name === 'product' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              <Home className="h-4 w-4" /> 쇼핑몰
+            </button>
+            <button
+              onClick={() => navigate({ name: 'cart' })}
+              className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                route.name === 'cart' || route.name === 'checkout' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {cartCount > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-cyan px-1 text-[10px] font-bold text-white">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => navigate({ name: 'mypage' })}
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                route.name === 'mypage' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              <User className="h-4 w-4" /> 마이
+            </button>
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-cyan-sheen text-sm font-bold text-white">
               {profile.full_name.slice(0, 1)}
             </div>
             <button onClick={async () => { await signOut(); }} className="btn-ghost px-3 py-2" title="로그아웃">
@@ -243,19 +262,7 @@ function ShellContent({
       </header>
 
       <main className="mx-auto max-w-7xl px-5 py-6 md:px-8 md:py-8">
-        {isAdmin ? (
-          <AdminDashboard
-            profile={profile}
-            products={products}
-            categories={categories}
-            orders={orders}
-            profiles={profiles}
-            posts={posts}
-            plans={plans}
-            settings={settings}
-            refresh={refreshAll}
-          />
-        ) : route.name === 'board' ? (
+        {route.name === 'board' ? (
           <BoardList
             posts={posts}
             onSelectPost={(id) => navigate({ name: 'post', postId: id })}
@@ -312,16 +319,38 @@ function ShellContent({
       </main>
 
       <footer className="border-t border-navy-700 px-5 py-5 text-center text-xs text-slate-600 md:px-8">
-        © {new Date().getFullYear()} Hypershield · 노애드 세차클럽
+        <div className="flex items-center justify-center gap-4">
+          <span>© {new Date().getFullYear()} Hypershield · 노애드 세차클럽</span>
+          <a href="#admin" className="text-slate-500 transition hover:text-slate-400">관리자</a>
+        </div>
       </footer>
     </div>
   );
 }
 
-export default function App() {
+function AppRouter() {
+  const [isAdminRoute, setIsAdminRoute] = useState(
+    () => window.location.hash.replace('#', '') === 'admin',
+  );
+
+  useEffect(() => {
+    const onHashChange = () => {
+      setIsAdminRoute(window.location.hash.replace('#', '') === 'admin');
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  if (isAdminRoute) {
+    return <AdminApp onBackToSite={() => { window.location.hash = ''; }} />;
+  }
   return (
     <AuthProvider>
       <Shell />
     </AuthProvider>
   );
+}
+
+export default function App() {
+  return <AppRouter />;
 }

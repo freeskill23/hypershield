@@ -232,7 +232,10 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
       </div>
 
       <footer className="border-t border-navy-700 px-6 py-6 text-center text-xs text-slate-600 md:px-8">
-        © {new Date().getFullYear()} Hypershield · 노애드 세차클럽
+        <div className="flex items-center justify-center gap-4">
+          <span>© {new Date().getFullYear()} Hypershield · 노애드 세차클럽</span>
+          <a href="#admin" className="text-slate-700 transition hover:text-slate-500">관리자</a>
+        </div>
       </footer>
     </div>
   );

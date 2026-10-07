@@ -17,7 +17,7 @@ import {
   updateOrderStatus, setProfileRole, deleteProfile,
   activateSubscription, deactivateSubscription, fetchProductInfo,
   updateSetting, getSettingValue,
-} from '../lib/data';
+} from '../lib/adminData';
 
 type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans';
 
