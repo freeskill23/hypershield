@@ -101,13 +101,14 @@ function Shell() {
   }, []);
 
   useEffect(() => {
+    if (loading) return;
+    if (profile) return;
+    if (showAuth) return;
     const hash = window.location.hash.replace('#', '');
-    if (!profile && !showAuth) {
-      if (hash === 'board') setRoute({ name: 'board' });
-      else if (hash.startsWith('post/')) setRoute({ name: 'post', postId: hash.slice(5) });
-      else setRoute({ name: 'landing' });
-    }
-  }, [profile, showAuth]);
+    if (hash === 'board') setRoute({ name: 'board' });
+    else if (hash.startsWith('post/')) setRoute({ name: 'post', postId: hash.slice(5) });
+    else setRoute({ name: 'landing' });
+  }, [profile, showAuth, loading]);
 
   if (loading) {
     return (
@@ -279,7 +280,8 @@ function ShellContent({
           <ProductDetail
             product={products.find((p) => p.id === route.productId) ?? null}
             onBack={() => navigate({ name: 'shop' })}
-            onGoCart={() => navigate({ name: 'cart' })}
+            onGoCart={() => { onRefreshCart(); navigate({ name: 'cart' }); }}
+            onAddedToCart={onRefreshCart}
           />
         ) : route.name === 'cart' ? (
           <Cart

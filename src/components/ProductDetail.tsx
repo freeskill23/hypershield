@@ -10,9 +10,10 @@ interface Props {
   product: Product | null;
   onBack: () => void;
   onGoCart: () => void;
+  onAddedToCart?: () => void;
 }
 
-export default function ProductDetail({ product, onBack, onGoCart }: Props) {
+export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart }: Props) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,6 +42,7 @@ export default function ProductDetail({ product, onBack, onGoCart }: Props) {
     try {
       await addToCart(product.id, qty);
       setAdded(true);
+      onAddedToCart?.();
       setTimeout(() => setAdded(false), 2000);
     } finally {
       setBusy(false);
