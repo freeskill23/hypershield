@@ -64,6 +64,11 @@ const IconBtn = ({ onClick, title, icon: Icon, hover }: any) => (
   </button>
 );
 
+const CARRIERS = [
+  'CJ대한통운', '롯데택배', '로젠택배', '한진택배', '우체국택배',
+  'CU편의점택배', 'GS편의점택배', '대신택배', '경동택배', '천일택배',
+];
+
 const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: string; value: string; onSave: (v: string) => void; type?: string; hint?: string }) => {
   const [v, setV] = useState(value);
   return (
@@ -442,15 +447,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               <ShippingField label="도서산간 추가배송료 (원)" value={shipIslandFee} onSave={v => handleSaveShipping('shipping_island_fee', v)} type="number" />
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-500">기본 배송업체</label>
-                <div className="flex gap-2">
-                  <input defaultValue={shipDefaultCarrier} onBlur={e => { if (e.target.value.trim() && e.target.value !== shipDefaultCarrier) handleSaveShipping('shipping_default_carrier', e.target.value.trim()); }} className="input-field h-9 text-sm" placeholder="CJ대한통운" />
-                </div>
+                <select value={shipDefaultCarrier} onChange={e => handleSaveShipping('shipping_default_carrier', e.target.value)} className="input-field h-9 text-sm">
+                  {CARRIERS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-500">기본 배송비 결제 방식</label>
-                <select defaultValue={shipDefaultType} onChange={e => handleSaveShipping('shipping_default_type', e.target.value)} className="input-field h-9 text-sm">
-                  <option value="prepaid">선불 (판매자 부담)</option>
-                  <option value="collect">착불 (구매자 부담)</option>
+                <select value={shipDefaultType} onChange={e => handleSaveShipping('shipping_default_type', e.target.value)} className="input-field h-9 text-sm">
+                  <option value="prepaid">선불 (주문금액에 합산)</option>
+                  <option value="collect">착불 (수령 시 기사에게 결제)</option>
                 </select>
               </div>
             </div>
@@ -645,8 +650,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         <label className="mb-1 block text-xs font-medium text-slate-400">배송비 결제 방식</label>
                         <select value={pf.shipping_type} onChange={e => setPf({ ...pf, shipping_type: e.target.value })} className="input-field">
                           <option value="default">기본 설정 따름</option>
-                          <option value="prepaid">선불 (판매자 부담)</option>
-                          <option value="collect">착불 (구매자 부담)</option>
+                          <option value="prepaid">선불 (주문금액에 합산)</option>
+                          <option value="collect">착불 (수령 시 기사에게 결제)</option>
                         </select>
                       </div>
                     </div>

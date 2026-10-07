@@ -61,8 +61,17 @@ export default function Checkout({ cartItems, addresses, userId, settings, onBac
   const shippingAddress = shippingData.address || '';
   const isFreeShipping = totalAmount >= freeThreshold;
 
+  const effectiveShipType = (() => {
+    const products = cartItems.map(i => i.product).filter(Boolean);
+    const customTypes = products.filter(p => !p!.use_default_shipping && p!.shipping_type && p!.shipping_type !== 'default');
+    if (customTypes.length > 0) return customTypes[0]!.shipping_type as string;
+    return defaultShipType;
+  })();
+  const isCollect = effectiveShipType === 'collect';
+
   const shippingFee = (() => {
     if (isFreeShipping) return 0;
+    if (isCollect) return 0;
     let fee = defaultFee;
     const products = cartItems.map(i => i.product).filter(Boolean);
     const hasCustomShipping = products.some(p => !p!.use_default_shipping);
@@ -241,17 +250,18 @@ export default function Checkout({ cartItems, addresses, userId, settings, onBac
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">배송비 결제 방식</span>
-                <span className="text-slate-800">{defaultShipType === 'prepaid' ? '선불 (판매자 부담)' : '착불 (구매자 부담)'}</span>
+                <span className="text-slate-800">{isCollect ? '착불 (수령 시 기사에게 결제)' : '선불 (주문금액에 합산)'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">배송료</span>
-                <span className={`font-medium ${isFreeShipping ? 'text-green-500' : 'text-slate-800'}`}>
-                  {isFreeShipping ? '무료배송' : formatKRW(shippingFee)}
+                <span className={`font-medium ${isFreeShipping ? 'text-green-500' : isCollect ? 'text-gold' : 'text-slate-800'}`}>
+                  {isFreeShipping ? '무료배송' : isCollect ? `착불 ${formatKRW(shippingFee || defaultFee)}` : formatKRW(shippingFee)}
                 </span>
               </div>
               {!isFreeShipping && (
                 <p className="text-xs text-slate-500">
                   {formatKRW(freeThreshold)} 이상 주문 시 무료배송
+                  {isCollect && ' · 착불: 수령 시 택배 기사에게 배송비를 직접 결제합니다'}
                   {isJeju(shippingAddress) && ` · 제주도 추가 ${formatKRW(jejuFee)}`}
                   {isIsland(shippingAddress) && !isJeju(shippingAddress) && ` · 도서산간 추가 ${formatKRW(islandFee)}`}
                 </p>
@@ -300,8 +310,8 @@ export default function Checkout({ cartItems, addresses, userId, settings, onBac
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">배송료</span>
-                <span className={isFreeShipping ? 'text-green-500' : 'text-slate-800'}>
-                  {isFreeShipping ? '무료배송' : formatKRW(shippingFee)}
+                <span className={isFreeShipping ? 'text-green-500' : isCollect ? 'text-gold' : 'text-slate-800'}>
+                  {isFreeShipping ? '무료배송' : isCollect ? `착불 ${formatKRW(shippingFee || defaultFee)}` : formatKRW(shippingFee)}
                 </span>
               </div>
               <div className="flex justify-between border-t border-navy-700 pt-2">
