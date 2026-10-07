@@ -86,6 +86,7 @@ export async function createProduct(input: {
   original_price: number; club_price: number; description?: string;
   image_url?: string | null; sub_images?: string[] | null;
   sku?: string | null; stock?: number; sort_order?: number;
+  detail_link?: string | null;
 }): Promise<Product | null> {
   if (!isAdminSupabaseConfigured || !adminSupabase) return null;
   const { data, error } = await adminSupabase.from('products').insert({
@@ -94,6 +95,7 @@ export async function createProduct(input: {
     description: input.description || null, image_url: input.image_url ?? null,
     sub_images: input.sub_images ?? null, sku: input.sku ?? null,
     stock: input.stock ?? 100, sort_order: input.sort_order ?? 0, is_active: true,
+    detail_link: input.detail_link ?? null,
   }).select().single();
   if (error) { console.error('create product error', error); return null; }
   return data as Product;
@@ -111,9 +113,9 @@ export async function deleteProduct(id: string) {
   if (error) console.error('delete product error', error);
 }
 
-export async function createCategory(name: string, sortOrder: number = 0) {
+export async function createCategory(name: string, sortOrder: number = 0, visibleGrades: string[] | null = null) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
-  await adminSupabase.from('categories').insert({ name, sort_order: sortOrder });
+  await adminSupabase.from('categories').insert({ name, sort_order: sortOrder, visible_grades: visibleGrades });
 }
 export async function updateCategory(id: string, patch: Partial<Category>) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;

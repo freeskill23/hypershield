@@ -36,6 +36,7 @@ export interface Category {
   id: string;
   name: string;
   sort_order: number;
+  visible_grades: string[] | null;
   created_at: string;
 }
 
@@ -53,6 +54,7 @@ export interface Product {
   stock: number;
   is_active: boolean;
   sort_order: number;
+  detail_link: string | null;
   created_at: string;
 }
 

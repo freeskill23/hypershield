@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck,
+  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink,
 } from 'lucide-react';
 import { Product } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
@@ -120,6 +120,13 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
               <Truck className="h-3.5 w-3.5" />
               <span>재고: {product.stock}개</span>
             </div>
+
+            {product.detail_link && (
+              <a href={product.detail_link} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-2.5 text-sm font-medium text-cyan transition hover:bg-cyan/10">
+                <ExternalLink className="h-4 w-4" />
+                상품 정보 자세히 보기
+              </a>
+            )}
           </div>
 
           {/* Quantity + cart */}

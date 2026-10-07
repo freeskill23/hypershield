@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Package, TrendingDown } from 'lucide-react';
 import { Product, Category } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
@@ -6,6 +6,7 @@ import { formatKRW, calcDiscountRate } from '../lib/format';
 interface Props {
   products: Product[];
   categories: Category[];
+  userTier: string | null;
   onSelectProduct: (id: string) => void;
   onSelectCategory: (categoryId: string | null) => void;
   selectedCategoryId: string | null;
@@ -14,11 +15,19 @@ interface Props {
 export default function ShopMain({
   products,
   categories,
+  userTier,
   onSelectProduct,
   onSelectCategory,
   selectedCategoryId,
 }: Props) {
   const [search, setSearch] = useState('');
+
+  const visibleCategories = useMemo(() => {
+    return categories.filter(cat => {
+      if (!cat.visible_grades || cat.visible_grades.length === 0) return true;
+      return userTier ? cat.visible_grades.includes(userTier) : false;
+    });
+  }, [categories, userTier]);
 
   const filtered = useMemo(() => {
     let list = products.filter((p) => p.is_active);
@@ -32,7 +41,14 @@ export default function ShopMain({
       );
     }
     return list;
-  }, [products, selectedCategoryId, search]);
+  }, [products, selectedCategoryId, search, visibleCategories]);
+
+  // Reset selected category if it becomes invisible
+  useEffect(() => {
+    if (selectedCategoryId && !visibleCategories.some(c => c.id === selectedCategoryId)) {
+      onSelectCategory(null);
+    }
+  }, [visibleCategories, selectedCategoryId, onSelectCategory]);
 
   return (
     <div className="space-y-6">
@@ -72,7 +88,7 @@ export default function ShopMain({
           >
             전체
           </button>
-          {categories.map((cat) => (
+          {visibleCategories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onSelectCategory(cat.id)}

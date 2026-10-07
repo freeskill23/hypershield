@@ -313,6 +313,7 @@ function ShellContent({
           <ShopMain
             products={products}
             categories={categories}
+            userTier={profile.subscription_tier}
             onSelectProduct={(id) => navigate({ name: 'product', productId: id })}
             onSelectCategory={setSelectedCategoryId}
             selectedCategoryId={selectedCategoryId}

@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import {
   Plus, Package, Users, ShoppingBag, TrendingUp, Clock, CheckCircle2,
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
-  AlertCircle, Building2, Crown, Megaphone, Eye, Lock, Pin, Link2,
-  Loader2, Search, User as UserIcon, Flame, KeyRound,
+  Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
+  Loader2, User as UserIcon, Flame, KeyRound,
 } from 'lucide-react';
 import {
   Profile, Product, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
@@ -15,10 +15,9 @@ import {
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
   updateOrderStatus, setProfileRole, deleteProfile,
-  activateSubscription, deactivateSubscription, fetchProductInfo,
+  activateSubscription, deactivateSubscription,
   updateSetting, getSettingValue,
   batchActivateSubscription, resetMemberPassword,
-  ScrapedProductInfo,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
 
@@ -29,8 +28,8 @@ interface Props {
   profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; refresh: () => void;
 }
 
-interface ProductForm { name: string; category_id: string; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; sku: string; stock: string; is_active: boolean; sort_order: string; }
-const emptyProductForm: ProductForm = { name: '', category_id: '', original_price: '', club_price: '', description: '', image_url: '', sub_images: [], sku: '', stock: '100', is_active: true, sort_order: '0' };
+interface ProductForm { name: string; category_id: string; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; }
+const emptyProductForm: ProductForm = { name: '', category_id: '', original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0' };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -76,15 +75,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [showProductForm, setShowProductForm] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [pf, setPf] = useState<ProductForm>(emptyProductForm);
-  const [productUrl, setProductUrl] = useState('');
-  const [fetching, setFetching] = useState(false);
-  const [fetchErr, setFetchErr] = useState<string | null>(null);
-  const [fetchStore, setFetchStore] = useState<string | null>(null);
-  const [fetchReviews, setFetchReviews] = useState<ScrapedProductInfo['review_images']>([]);
+
 
   const [newCat, setNewCat] = useState('');
+  const [newCatGrades, setNewCatGrades] = useState<Set<string>>(new Set());
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState('');
+  const [editCatGrades, setEditCatGrades] = useState<Set<string>>(new Set());
 
   const [showPostForm, setShowPostForm] = useState(false);
   const [editPost, setEditPost] = useState<Post | null>(null);
@@ -113,10 +110,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   }), [profiles, orders]);
 
   // ── Product ──
-  function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setProductUrl(''); setFetchErr(null); setFetchStore(null); setFetchReviews([]); setShowProductForm(true); }
+  function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setShowProductForm(true); }
   function openEditProduct(p: Product) {
     setEditProduct(p);
-    setPf({ name: p.name, category_id: p.category_id ?? '', original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
+    setPf({ name: p.name, category_id: p.category_id ?? '', original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
     setShowProductForm(true);
   }
   async function handleProductSubmit(e: React.FormEvent) {
@@ -130,37 +127,43 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         original_price: Number(pf.original_price) || 0, club_price: Number(pf.club_price) || 0,
         image_url: pf.image_url.trim() || null, sub_images: subVal, sku: pf.sku.trim() || null,
         stock: Number(pf.stock) || 0, sort_order: Number(pf.sort_order) || 0,
+        detail_link: pf.detail_link.trim() || null,
       };
       if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active });
       else await createProduct({ ...common, description: pf.description.trim() || undefined });
       setShowProductForm(false); refresh();
     } finally { setBusy(false); }
   }
-  async function handleFetchProduct() {
-    if (!productUrl.trim()) return;
-    setFetching(true); setFetchErr(null);
-    try {
-      const info = await fetchProductInfo(productUrl.trim());
-      setPf(prev => ({
-        ...prev,
-        name: prev.name || info.title || '',
-        description: prev.description || info.description || '',
-        image_url: prev.image_url || info.image_url || '',
-        original_price: prev.original_price || (info.original_price ? String(info.original_price) : ''),
-        sub_images: info.review_images?.length ? [...prev.sub_images, ...info.review_images.map(r => r.url)] : prev.sub_images,
-      }));
-      setFetchStore(info.store_name ?? null);
-      setFetchReviews(info.review_images ?? []);
-    } catch (e: any) { setFetchErr(e.message || '상품 정보를 가져오지 못했습니다.'); }
-    finally { setFetching(false); }
-  }
   async function handleDeleteProduct(p: Product) { if (confirm(`'${p.name}' 상품을 삭제하시겠습니까?`)) { await deleteProduct(p.id); refresh(); } }
   async function handleToggleActive(p: Product) { await updateProduct(p.id, { is_active: !p.is_active }); refresh(); }
 
   // ── Category ──
-  async function handleAddCategory() { if (newCat.trim()) { await createCategory(newCat.trim(), categories.length); setNewCat(''); refresh(); } }
+  const activePlans = plans.filter(pl => pl.is_active);
+  function toggleNewCatGrade(tier: string) {
+    setNewCatGrades(prev => { const n = new Set(prev); if (n.has(tier)) n.delete(tier); else n.add(tier); return n; });
+  }
+  function toggleEditCatGrade(tier: string) {
+    setEditCatGrades(prev => { const n = new Set(prev); if (n.has(tier)) n.delete(tier); else n.add(tier); return n; });
+  }
+  async function handleAddCategory() {
+    if (newCat.trim()) {
+      const grades = newCatGrades.size > 0 ? [...newCatGrades] : null;
+      await createCategory(newCat.trim(), categories.length, grades);
+      setNewCat(''); setNewCatGrades(new Set()); refresh();
+    }
+  }
   async function handleDeleteCategory(c: Category) { if (confirm(`'${c.name}' 카테고리를 삭제하시겠습니까?`)) { await deleteCategory(c.id); refresh(); } }
-  async function handleRenameCategory(c: Category) { if (editCatName.trim()) { await updateCategory(c.id, { name: editCatName.trim() }); setEditCatId(null); setEditCatName(''); refresh(); } }
+  async function handleRenameCategory(c: Category) {
+    if (editCatName.trim()) {
+      const grades = editCatGrades.size > 0 ? [...editCatGrades] : null;
+      await updateCategory(c.id, { name: editCatName.trim(), visible_grades: grades });
+      setEditCatId(null); setEditCatName(''); setEditCatGrades(new Set()); refresh();
+    }
+  }
+  function openEditCategory(c: Category) {
+    setEditCatId(c.id); setEditCatName(c.name);
+    setEditCatGrades(new Set(c.visible_grades ?? []));
+  }
 
   // ── Order ──
   async function handleOrderStatus(o: Order, status: OrderStatus, extra?: Partial<Order>) { await updateOrderStatus(o.id, status, extra); refresh(); }
@@ -357,22 +360,53 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             <div className="mb-3 flex items-center gap-2 font-gothic text-sm font-semibold text-slate-700"><Tag className="h-4 w-4 text-cyan" /> 카테고리 관리</div>
             <div className="flex flex-wrap items-center gap-2">
               {categories.map(c => (
-                <div key={c.id} className="flex items-center gap-1">
+                <div key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-navy-700 p-2">
                   {editCatId === c.id ? (
-                    <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(c); if (e.key === 'Escape') { setEditCatId(null); setEditCatName(''); } }}
-                      onBlur={() => { if (editCatId === c.id) handleRenameCategory(c); }} autoFocus className="input-field h-7 w-28 px-2 py-1 text-xs" />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-1">
+                        <input value={editCatName} onChange={e => setEditCatName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleRenameCategory(c); if (e.key === 'Escape') { setEditCatId(null); setEditCatName(''); setEditCatGrades(new Set()); } }}
+                          autoFocus className="input-field h-7 w-28 px-2 py-1 text-xs" />
+                        <button onClick={() => handleRenameCategory(c)} className="text-xs text-cyan hover:underline">저장</button>
+                        <button onClick={() => { setEditCatId(null); setEditCatName(''); setEditCatGrades(new Set()); }} className="text-slate-500 hover:text-slate-600"><XCircle className="h-3.5 w-3.5" /></button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {activePlans.map(pl => (
+                          <label key={pl.id} className={`cursor-pointer rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${editCatGrades.has(pl.tier) ? 'border-cyan bg-cyan/10 text-cyan' : 'border-navy-700 text-slate-500 hover:text-slate-700'}`}>
+                            <input type="checkbox" checked={editCatGrades.has(pl.tier)} onChange={() => toggleEditCatGrade(pl.tier)} className="hidden" />
+                            {pl.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
-                    <span onClick={() => { setEditCatId(c.id); setEditCatName(c.name); }} className="chip cursor-pointer hover:border-cyan hover:text-cyan">{c.name}</span>
+                    <div className="flex items-center gap-1">
+                      <span onClick={() => openEditCategory(c)} className="chip cursor-pointer hover:border-cyan hover:text-cyan">{c.name}</span>
+                      {c.visible_grades && c.visible_grades.length > 0 && (
+                        <span className="text-[10px] text-slate-500">({c.visible_grades.map(t => activePlans.find(p => p.tier === t)?.name ?? t).join(', ')})</span>
+                      )}
+                      <button onClick={() => handleDeleteCategory(c)} className="text-slate-600 hover:text-red-400"><XCircle className="h-3.5 w-3.5" /></button>
+                    </div>
                   )}
-                  <button onClick={() => handleDeleteCategory(c)} className="text-slate-600 hover:text-red-400"><XCircle className="h-3.5 w-3.5" /></button>
                 </div>
               ))}
               {categories.length === 0 && <span className="text-xs text-slate-600">카테고리가 없습니다.</span>}
             </div>
-            <div className="mt-3 flex gap-2">
-              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} placeholder="새 카테고리 이름" className="input-field h-9 w-48 py-2 text-sm" />
-              <button onClick={handleAddCategory} disabled={!newCat.trim()} className="btn-ghost h-9 px-3 py-2 text-sm"><Plus className="h-4 w-4" /> 추가</button>
+            <div className="mt-3 flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }} placeholder="새 카테고리 이름" className="input-field h-9 w-48 py-2 text-sm" />
+                <button onClick={handleAddCategory} disabled={!newCat.trim()} className="btn-ghost h-9 px-3 py-2 text-sm"><Plus className="h-4 w-4" /> 추가</button>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-slate-500">공개 등급:</span>
+                {activePlans.map(pl => (
+                  <label key={pl.id} className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition ${newCatGrades.has(pl.tier) ? 'border-cyan bg-cyan/10 text-cyan' : 'border-navy-700 text-slate-500 hover:text-slate-700'}`}>
+                    <input type="checkbox" checked={newCatGrades.has(pl.tier)} onChange={() => toggleNewCatGrade(pl.tier)} className="hidden" />
+                    {pl.name}
+                  </label>
+                ))}
+                {newCatGrades.size === 0 && <span className="text-[10px] text-slate-400">선택 안 함 = 전체 공개</span>}
+              </div>
             </div>
           </div>
 
@@ -387,34 +421,6 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <h3 className="font-gothic text-base font-semibold text-slate-800">{editProduct ? '상품 수정' : '새 상품 등록'}</h3>
                 <button type="button" onClick={() => setShowProductForm(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
               </div>
-
-              {/* Smart store URL fetch */}
-              {!editProduct && (
-                <div className="rounded-lg border border-cyan/20 bg-cyan/5 p-4">
-                  <label className="mb-1.5 block text-xs font-medium text-cyan">스마트스토어 URL에서 가져오기</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                      <input value={productUrl} onChange={e => setProductUrl(e.target.value)} placeholder="https://smartstore.naver.com/..." className="input-field pl-9 text-sm" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleFetchProduct(); } }} />
-                    </div>
-                    <button type="button" onClick={handleFetchProduct} disabled={fetching || !productUrl.trim()} className="btn-primary px-4 py-2.5 text-sm whitespace-nowrap">
-                      {fetching ? <><Loader2 className="h-4 w-4 animate-spin" /> 가져오는 중...</> : <><Search className="h-4 w-4" /> 가져오기</>}
-                    </button>
-                  </div>
-                  {fetchErr && <div className="mt-2 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{fetchErr}</span></div>}
-                  {fetchStore && <div className="mt-2 flex items-center gap-2 text-xs text-green-400"><Building2 className="h-3.5 w-3.5" /> 스토어: {fetchStore}</div>}
-                  {fetchReviews.length > 0 && (
-                    <div className="mt-3">
-                      <div className="mb-2 text-xs font-medium text-slate-500">상품 후기 이미지 ({fetchReviews.length}장) — 서브 이미지로 추가됩니다</div>
-                      <div className="flex flex-wrap gap-2">
-                        {fetchReviews.map((r, i) => (
-                          <img key={i} src={r.url} alt="" className="h-14 w-14 rounded-lg object-cover border border-navy-700" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2"><Field label="상품명"><input required value={pf.name} onChange={e => setPf({ ...pf, name: e.target.value })} className="input-field" /></Field></div>
@@ -442,6 +448,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     )}
                   </div>
                 </div>
+                <div className="md:col-span-2"><Field label="상품 정보 자세히 보기 링크 (스마트스토어 등)"><input value={pf.detail_link} onChange={e => setPf({ ...pf, detail_link: e.target.value })} placeholder="https://smartstore.naver.com/..." className="input-field" /></Field></div>
                 <Field label="재고"><input type="number" value={pf.stock} onChange={e => setPf({ ...pf, stock: e.target.value })} className="input-field" /></Field>
                 <Field label="정렬 순서"><input type="number" value={pf.sort_order} onChange={e => setPf({ ...pf, sort_order: e.target.value })} className="input-field" /></Field>
                 {editProduct && (
@@ -473,6 +480,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           <span className="text-cyan">{formatKRW(p.club_price)}</span>
                           {discount > 0 && <span className="text-red-400">{discount}%</span>}
                           <span>재고 {p.stock}</span>
+                          {p.detail_link && <a href={p.detail_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-cyan hover:underline"><ExternalLink className="h-3 w-3" /> 원본 보기</a>}
                           {!p.is_active && <span className="text-red-400">판매 중단</span>}
                         </div>
                       </div>
