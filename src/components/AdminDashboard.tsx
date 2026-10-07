@@ -3,7 +3,7 @@ import {
   Plus, Package, Users, ShoppingBag, TrendingUp, Clock, CheckCircle2,
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
-  Loader2, User as UserIcon, Flame, KeyRound,
+  Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import {
   Profile, Product, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
@@ -15,9 +15,9 @@ import {
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
   updateOrderStatus, setProfileRole, deleteProfile,
-  activateSubscription, deactivateSubscription,
+  changeMemberGrade, batchChangeMemberGrade,
   updateSetting, getSettingValue,
-  batchActivateSubscription, resetMemberPassword,
+  resetMemberPassword,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
 
@@ -28,8 +28,8 @@ interface Props {
   profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; refresh: () => void;
 }
 
-interface ProductForm { name: string; category_id: string; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; }
-const emptyProductForm: ProductForm = { name: '', category_id: '', original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0' };
+interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; }
+const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0' };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -92,8 +92,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [planF, setPlanF] = useState<PlanForm>(emptyPlanForm);
 
   const [tracking, setTracking] = useState<Record<string, { carrier: string; number: string }>>({});
-  const [actMemberId, setActMemberId] = useState<string | null>(null);
-  const [actPlanId, setActPlanId] = useState('');
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPlanId, setBatchPlanId] = useState('');
   const [pwModalId, setPwModalId] = useState<string | null>(null);
@@ -113,17 +112,27 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setShowProductForm(true); }
   function openEditProduct(p: Product) {
     setEditProduct(p);
-    setPf({ name: p.name, category_id: p.category_id ?? '', original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
+    const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
+    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
     setShowProductForm(true);
+  }
+  function toggleProductCategory(catId: string) {
+    setPf(prev => {
+      const has = prev.category_ids.includes(catId);
+      return { ...prev, category_ids: has ? prev.category_ids.filter(id => id !== catId) : [...prev.category_ids, catId] };
+    });
   }
   async function handleProductSubmit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
-      const cat = categories.find(c => c.id === pf.category_id);
+      const selectedCats = categories.filter(c => pf.category_ids.includes(c.id));
+      const primaryCat = selectedCats[0];
       const sub = pf.sub_images.filter(s => s.trim());
       const subVal = sub.length > 0 ? sub : null;
+      const catIdsVal = pf.category_ids.length > 0 ? pf.category_ids : null;
       const common = {
-        name: pf.name.trim(), category: cat?.name ?? '', category_id: pf.category_id || null,
+        name: pf.name.trim(), category: primaryCat?.name ?? '', category_id: primaryCat?.id ?? null,
+        category_ids: catIdsVal,
         original_price: Number(pf.original_price) || 0, club_price: Number(pf.club_price) || 0,
         image_url: pf.image_url.trim() || null, sub_images: subVal, sku: pf.sku.trim() || null,
         stock: Number(pf.stock) || 0, sort_order: Number(pf.sort_order) || 0,
@@ -136,6 +145,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   }
   async function handleDeleteProduct(p: Product) { if (confirm(`'${p.name}' 상품을 삭제하시겠습니까?`)) { await deleteProduct(p.id); refresh(); } }
   async function handleToggleActive(p: Product) { await updateProduct(p.id, { is_active: !p.is_active }); refresh(); }
+  async function handleMoveProduct(fromIndex: number, toIndex: number) {
+    if (toIndex < 0 || toIndex >= products.length) return;
+    const reordered = [...products];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    const updates = reordered.map((p, i) => ({ id: p.id, sort_order: i }));
+    await Promise.all(updates.map(u => updateProduct(u.id, { sort_order: u.sort_order })));
+    refresh();
+  }
 
   // ── Category ──
   const activePlans = plans.filter(pl => pl.is_active);
@@ -176,11 +194,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   // ── Member ──
   async function handleToggleRole(p: Profile) { await setProfileRole(p.id, p.role === 'admin' ? 'member' : 'admin'); refresh(); }
   async function handleDeleteProfileAction(p: Profile) { if (confirm(`${p.full_name} 회원을 삭제하시겠습니까?`)) { await deleteProfile(p.id); refresh(); } }
-  async function handleActivateSub(p: Profile) {
-    const plan = plans.find(pl => pl.id === actPlanId); if (!plan) return;
-    await activateSubscription(p.id, plan.id, plan.tier, 1); setActMemberId(null); setActPlanId(''); refresh();
+  async function handleChangeGrade(p: Profile, planId: string) {
+    const plan = plans.find(pl => pl.id === planId); if (!plan) return;
+    await changeMemberGrade(p.id, plan.id, plan.tier); refresh();
   }
-  async function handleDeactivateSub(p: Profile) { if (confirm(`${p.full_name}의 구독을 비활성화하시겠습니까?`)) { await deactivateSubscription(p.id); refresh(); } }
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -188,12 +205,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   function toggleSelectAll() {
     setSelectedIds(prev => prev.size === profiles.length ? new Set() : new Set(profiles.map(p => p.id)));
   }
-  async function handleBatchActivate() {
+  async function handleBatchChangeGrade() {
     if (!batchPlanId || selectedIds.size === 0) return;
     const plan = plans.find(pl => pl.id === batchPlanId); if (!plan) return;
     setBusy(true);
     try {
-      await batchActivateSubscription([...selectedIds], plan.id, plan.tier, 1);
+      await batchChangeMemberGrade([...selectedIds], plan.id, plan.tier);
       setSelectedIds(new Set()); setBatchPlanId(''); refresh();
     } finally { setBusy(false); }
   }
@@ -251,6 +268,18 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     refresh();
   }
 
+  function setTabAndReset(t: Tab) {
+    setTab(t);
+    setShowProductForm(false); setEditProduct(null); setPf(emptyProductForm);
+    setShowPostForm(false); setEditPost(null); setPostF(emptyPostForm);
+    setShowPlanForm(false); setEditPlan(null); setPlanF(emptyPlanForm);
+    setEditCatId(null); setEditCatName(''); setEditCatGrades(new Set());
+    setNewCat(''); setNewCatGrades(new Set());
+    setSelectedIds(new Set()); setBatchPlanId('');
+    setTracking({});
+    setPwModalId(null);
+  }
+
   const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급']];
 
   return (
@@ -266,7 +295,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* Tabs */}
       <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
         {tabs.map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-400 hover:text-slate-700'}`}>{label}</button>
+          <button key={k} onClick={() => setTabAndReset(k)} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-400 hover:text-slate-700'}`}>{label}</button>
         ))}
       </div>
 
@@ -424,8 +453,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2"><Field label="상품명"><input required value={pf.name} onChange={e => setPf({ ...pf, name: e.target.value })} className="input-field" /></Field></div>
-                <Field label="카테고리">
-                  <select value={pf.category_id} onChange={e => setPf({ ...pf, category_id: e.target.value })} className="input-field"><option value="">카테고리 선택</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                <Field label="카테고리 (복수 선택)">
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map(c => (
+                      <button key={c.id} type="button" onClick={() => toggleProductCategory(c.id)} className={`cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium transition ${pf.category_ids.includes(c.id) ? 'border-cyan bg-cyan/10 text-cyan' : 'border-navy-700 text-slate-500 hover:text-slate-700'}`}>
+                        {c.name}
+                      </button>
+                    ))}
+                    {categories.length === 0 && <span className="text-xs text-slate-500">카테고리를 먼저 추가하세요.</span>}
+                  </div>
                 </Field>
                 <Field label="SKU"><input value={pf.sku} onChange={e => setPf({ ...pf, sku: e.target.value })} placeholder="SKU-001" className="input-field" /></Field>
                 <Field label="정상가 (원)"><input required type="number" value={pf.original_price} onChange={e => setPf({ ...pf, original_price: e.target.value })} placeholder="89000" className="input-field" /></Field>
@@ -450,7 +486,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 </div>
                 <div className="md:col-span-2"><Field label="상품 정보 자세히 보기 링크 (스마트스토어 등)"><input value={pf.detail_link} onChange={e => setPf({ ...pf, detail_link: e.target.value })} placeholder="https://smartstore.naver.com/..." className="input-field" /></Field></div>
                 <Field label="재고"><input type="number" value={pf.stock} onChange={e => setPf({ ...pf, stock: e.target.value })} className="input-field" /></Field>
-                <Field label="정렬 순서"><input type="number" value={pf.sort_order} onChange={e => setPf({ ...pf, sort_order: e.target.value })} className="input-field" /></Field>
+                <div className="md:col-span-2"><span className="text-xs text-slate-500">정렬 순서는 상품 목록에서 드래그하여 변경할 수 있습니다.</span></div>
                 {editProduct && (
                   <div className="md:col-span-2">
                     <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.is_active} onChange={e => setPf({ ...pf, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 판매 중</label>
@@ -466,17 +502,24 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
           {/* Product list */}
           <div className="space-y-3">
-            {products.map(p => {
+            {products.map((p, idx) => {
               const discount = calcDiscountRate(p.original_price, p.club_price);
+              const productCatIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
+              const productCatNames = productCatIds.map(id => categories.find(c => c.id === id)?.name).filter(Boolean);
               return (
-                <div key={p.id} className="card-surface p-4">
+                <div key={p.id} className="card-surface p-4" draggable onDragStart={e => { e.dataTransfer.setData('text/plain', String(idx)); }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const from = parseInt(e.dataTransfer.getData('text/plain'), 10); if (!isNaN(from)) handleMoveProduct(from, idx); }}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center gap-0.5 pt-1">
+                        <GripVertical className="h-4 w-4 cursor-grab text-slate-400 hover:text-slate-600" />
+                        <button onClick={() => handleMoveProduct(idx, idx - 1)} disabled={idx === 0} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handleMoveProduct(idx, idx + 1)} disabled={idx === products.length - 1} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+                      </div>
                       {p.image_url ? <img src={p.image_url} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <div className="grid h-12 w-12 place-items-center rounded-lg bg-navy-800"><Package className="h-5 w-5 text-slate-600" /></div>}
                       <div>
                         <h3 className="font-gothic text-base font-semibold text-slate-800">{p.name}</h3>
                         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                          <span className="flex items-center gap-1"><Tag className="h-3 w-3" /> {p.category || '미분류'}</span>
+                          <span className="flex items-center gap-1"><Tag className="h-3 w-3" /> {productCatNames.length > 0 ? productCatNames.join(', ') : '미분류'}</span>
                           <span className="text-cyan">{formatKRW(p.club_price)}</span>
                           {discount > 0 && <span className="text-red-400">{discount}%</span>}
                           <span>재고 {p.stock}</span>
@@ -563,6 +606,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* ── Members ── */}
       {tab === 'members' && (
         <div className="space-y-4">
+          <p className="text-xs text-slate-500">회원의 구독 활성/비활성 및 기간은 PG 결제 연동 후 결제일에 따라 자동으로 처리됩니다. 관리자는 회원의 등급만 변경할 수 있습니다.</p>
           <div className="flex items-center justify-between">
             <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 관리</h2>
             {selectedIds.size > 0 && (
@@ -572,8 +616,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   <option value="">등급 선택</option>
                   {plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
                 </select>
-                <button onClick={handleBatchActivate} disabled={!batchPlanId || busy} className="btn-primary px-4 py-2 text-sm">
-                  {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> 변경 중...</> : <><Crown className="h-4 w-4" /> 일괄 등급 부여</>}
+                <button onClick={handleBatchChangeGrade} disabled={!batchPlanId || busy} className="btn-primary px-4 py-2 text-sm">
+                  {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> 변경 중...</> : <><Crown className="h-4 w-4" /> 일괄 등급 변경</>}
                 </button>
                 <button onClick={() => { setSelectedIds(new Set()); setBatchPlanId(''); }} className="btn-ghost px-3 py-2 text-sm">선택 해제</button>
               </div>
@@ -603,7 +647,6 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   {profiles.map(p => {
                     const sc = subStatusConfig[p.subscription_status] ?? subStatusConfig.none;
                     const plan = plans.find(pl => pl.id === p.subscription_plan_id);
-                    const isActive = p.subscription_status === 'active';
                     const selected = selectedIds.has(p.id);
                     return (
                       <tr key={p.id} className={`transition hover:bg-slate-100 ${selected ? 'bg-cyan/5' : ''}`}>
@@ -635,17 +678,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
                             <IconBtn onClick={() => handleToggleRole(p)} title={p.role === 'admin' ? '정회원으로 강등' : '관리자로 승격'} icon={p.role === 'admin' ? UserIcon : Crown} hover="hover:border-gold hover:text-gold" />
                             {p.id !== profile.id && <IconBtn onClick={() => { setPwModalId(p.id); setPwValue(''); setPwErr(null); setPwSuccess(false); }} title="비밀번호 변경" icon={KeyRound} hover="hover:border-cyan hover:text-cyan" />}
-                            {isActive ? (
-                              <button onClick={() => handleDeactivateSub(p)} className="btn-ghost h-7 px-2 py-1 text-xs hover:text-red-400">비활성화</button>
-                            ) : actMemberId === p.id ? (
-                              <div className="flex items-center gap-1">
-                                <select value={actPlanId} onChange={e => setActPlanId(e.target.value)} className="input-field h-7 w-24 px-1 py-0.5 text-xs"><option value="">등급 선택</option>{plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}</select>
-                                <button onClick={() => handleActivateSub(p)} disabled={!actPlanId} className="btn-primary h-7 px-2 py-1 text-xs">활성화</button>
-                                <button onClick={() => { setActMemberId(null); setActPlanId(''); }} className="text-slate-500 hover:text-slate-600"><XCircle className="h-3.5 w-3.5" /></button>
-                              </div>
-                            ) : (
-                              <button onClick={() => { setActMemberId(p.id); setActPlanId(p.subscription_plan_id ?? plans.find(pl => pl.is_active)?.id ?? ''); }} className="btn-ghost h-7 px-2 py-1 text-xs">등급 부여</button>
-                            )}
+                            <select value={p.subscription_plan_id ?? ''} onChange={e => handleChangeGrade(p, e.target.value)} className="input-field h-7 w-24 px-1 py-0.5 text-xs" disabled={!plans.filter(pl => pl.is_active).length}>
+                              <option value="" disabled>등급 선택</option>
+                              {plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                            </select>
                             {p.id !== profile.id && <IconBtn onClick={() => handleDeleteProfileAction(p)} title="회원 삭제" icon={Trash2} hover="hover:border-red-500 hover:text-red-400" />}
                           </div>
                         </td>

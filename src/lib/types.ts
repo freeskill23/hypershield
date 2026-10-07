@@ -45,6 +45,7 @@ export interface Product {
   name: string;
   category: string;
   category_id: string | null;
+  category_ids: string[] | null;
   original_price: number;
   club_price: number;
   description: string | null;

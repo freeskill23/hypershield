@@ -32,7 +32,10 @@ export default function ShopMain({
   const filtered = useMemo(() => {
     let list = products.filter((p) => p.is_active);
     if (selectedCategoryId) {
-      list = list.filter((p) => p.category_id === selectedCategoryId);
+      list = list.filter((p) => {
+        const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
+        return catIds.includes(selectedCategoryId);
+      });
     }
     if (search.trim()) {
       list = list.filter((p) =>

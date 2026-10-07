@@ -82,7 +82,7 @@ export async function updateSetting(key: string, value: string) {
 }
 
 export async function createProduct(input: {
-  name: string; category: string; category_id?: string | null;
+  name: string; category: string; category_id?: string | null; category_ids?: string[] | null;
   original_price: number; club_price: number; description?: string;
   image_url?: string | null; sub_images?: string[] | null;
   sku?: string | null; stock?: number; sort_order?: number;
@@ -91,6 +91,7 @@ export async function createProduct(input: {
   if (!isAdminSupabaseConfigured || !adminSupabase) return null;
   const { data, error } = await adminSupabase.from('products').insert({
     name: input.name, category: input.category, category_id: input.category_id ?? null,
+    category_ids: input.category_ids ?? null,
     original_price: input.original_price, club_price: input.club_price,
     description: input.description || null, image_url: input.image_url ?? null,
     sub_images: input.sub_images ?? null, sku: input.sku ?? null,
@@ -179,33 +180,19 @@ export async function deleteProfile(user_id: string) {
   await adminSupabase.from('profiles').delete().eq('id', user_id);
 }
 
-export async function activateSubscription(userId: string, planId: string, tier: string, months: number = 1) {
+export async function changeMemberGrade(userId: string, planId: string, tier: string) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
-  const now = new Date();
-  const expires = new Date(now);
-  expires.setMonth(expires.getMonth() + months);
   await adminSupabase.from('profiles').update({
     subscription_plan_id: planId, subscription_tier: tier,
-    subscription_status: 'active', subscription_expires_at: expires.toISOString(),
-    subscription_started_at: now.toISOString(),
   }).eq('id', userId);
 }
-export async function deactivateSubscription(userId: string) {
-  if (!isAdminSupabaseConfigured || !adminSupabase) return;
-  await adminSupabase.from('profiles').update({ subscription_status: 'expired' }).eq('id', userId);
-}
 
-export async function batchActivateSubscription(userIds: string[], planId: string, tier: string, months: number = 1) {
+export async function batchChangeMemberGrade(userIds: string[], planId: string, tier: string) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
-  const now = new Date();
-  const expires = new Date(now);
-  expires.setMonth(expires.getMonth() + months);
   const { error } = await adminSupabase.from('profiles').update({
     subscription_plan_id: planId, subscription_tier: tier,
-    subscription_status: 'active', subscription_expires_at: expires.toISOString(),
-    subscription_started_at: now.toISOString(),
   }).in('id', userIds);
-  if (error) console.error('batch activate subscription error', error);
+  if (error) console.error('batch change grade error', error);
 }
 
 export async function resetMemberPassword(userId: string, newPassword: string, adminId: string) {
