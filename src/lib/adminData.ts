@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminSupabase, isAdminSupabaseConfigured } from './adminSupabase';
 import {
-  Profile, SubscriptionPlan, Category, Product, Order, Post, Setting,
+  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, Post, Setting,
 } from './types';
 
 function useAdminCollection<T>(
@@ -86,7 +86,7 @@ export async function createProduct(input: {
   original_price: number; club_price: number; description?: string;
   image_url?: string | null; sub_images?: string[] | null;
   sku?: string | null; stock?: number; sort_order?: number;
-  detail_link?: string | null;
+  detail_link?: string | null; options?: ProductOption[] | null;
 }): Promise<Product | null> {
   if (!isAdminSupabaseConfigured || !adminSupabase) return null;
   const { data, error } = await adminSupabase.from('products').insert({
@@ -97,6 +97,7 @@ export async function createProduct(input: {
     sub_images: input.sub_images ?? null, sku: input.sku ?? null,
     stock: input.stock ?? 100, sort_order: input.sort_order ?? 0, is_active: true,
     detail_link: input.detail_link ?? null,
+    options: input.options ?? null,
   }).select().single();
   if (error) { console.error('create product error', error); return null; }
   return data as Product;

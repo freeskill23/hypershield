@@ -6,7 +6,7 @@ import {
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import {
-  Profile, Product, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
+  Profile, Product, ProductOption, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
 } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, calcDiscountRate } from '../lib/format';
 import {
@@ -28,8 +28,9 @@ interface Props {
   profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; refresh: () => void;
 }
 
-interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; }
-const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0' };
+interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
+interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; options: OptionFormRow[]; }
+const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0', options: [] };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -113,7 +114,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   function openEditProduct(p: Product) {
     setEditProduct(p);
     const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
-    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
+    const opts: OptionFormRow[] = (p.options ?? []).map(o => ({ name: o.name, values: o.values.map(v => ({ label: v.label, price_addition: String(v.price_addition) })) }));
+    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order), options: opts });
     setShowProductForm(true);
   }
   function toggleProductCategory(catId: string) {
@@ -121,6 +123,24 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       const has = prev.category_ids.includes(catId);
       return { ...prev, category_ids: has ? prev.category_ids.filter(id => id !== catId) : [...prev.category_ids, catId] };
     });
+  }
+  function addOptionRow() {
+    setPf(prev => ({ ...prev, options: [...prev.options, { name: '', values: [{ label: '', price_addition: '0' }] }] }));
+  }
+  function removeOptionRow(idx: number) {
+    setPf(prev => ({ ...prev, options: prev.options.filter((_, i) => i !== idx) }));
+  }
+  function setOptionName(idx: number, name: string) {
+    setPf(prev => ({ ...prev, options: prev.options.map((o, i) => i === idx ? { ...o, name } : o) }));
+  }
+  function addOptionValue(idx: number) {
+    setPf(prev => ({ ...prev, options: prev.options.map((o, i) => i === idx ? { ...o, values: [...o.values, { label: '', price_addition: '0' }] } : o) }));
+  }
+  function removeOptionValue(idx: number, vIdx: number) {
+    setPf(prev => ({ ...prev, options: prev.options.map((o, i) => i === idx ? { ...o, values: o.values.filter((_, j) => j !== vIdx) } : o) }));
+  }
+  function setOptionValue(idx: number, vIdx: number, field: 'label' | 'price_addition', val: string) {
+    setPf(prev => ({ ...prev, options: prev.options.map((o, i) => i === idx ? { ...o, values: o.values.map((v, j) => j === vIdx ? { ...v, [field]: val } : v) } : o) }));
   }
   async function handleProductSubmit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
@@ -130,6 +150,16 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       const sub = pf.sub_images.filter(s => s.trim());
       const subVal = sub.length > 0 ? sub : null;
       const catIdsVal = pf.category_ids.length > 0 ? pf.category_ids : null;
+      const cleanOptions: ProductOption[] | null = (() => {
+        const opts = pf.options
+          .filter(o => o.name.trim())
+          .map(o => ({
+            name: o.name.trim(),
+            values: o.values.filter(v => v.label.trim()).map(v => ({ label: v.label.trim(), price_addition: Number(v.price_addition) || 0 })),
+          }))
+          .filter(o => o.values.length > 0);
+        return opts.length > 0 ? opts : null;
+      })();
       const common = {
         name: pf.name.trim(), category: primaryCat?.name ?? '', category_id: primaryCat?.id ?? null,
         category_ids: catIdsVal,
@@ -137,6 +167,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         image_url: pf.image_url.trim() || null, sub_images: subVal, sku: pf.sku.trim() || null,
         stock: Number(pf.stock) || 0, sort_order: Number(pf.sort_order) || 0,
         detail_link: pf.detail_link.trim() || null,
+        options: cleanOptions,
       };
       if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active });
       else await createProduct({ ...common, description: pf.description.trim() || undefined });
@@ -171,6 +202,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     }
   }
   async function handleDeleteCategory(c: Category) { if (confirm(`'${c.name}' 카테고리를 삭제하시겠습니까?`)) { await deleteCategory(c.id); refresh(); } }
+  async function handleMoveCategory(fromIndex: number, toIndex: number) {
+    if (toIndex < 0 || toIndex >= categories.length) return;
+    const reordered = [...categories];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    const updates = reordered.map((c, i) => ({ id: c.id, sort_order: i }));
+    await Promise.all(updates.map(u => updateCategory(u.id, { sort_order: u.sort_order })));
+    refresh();
+  }
   async function handleRenameCategory(c: Category) {
     if (editCatName.trim()) {
       const grades = editCatGrades.size > 0 ? [...editCatGrades] : null;
@@ -387,8 +427,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           {/* Categories */}
           <div className="card-surface p-4">
             <div className="mb-3 flex items-center gap-2 font-gothic text-sm font-semibold text-slate-700"><Tag className="h-4 w-4 text-cyan" /> 카테고리 관리</div>
-            <div className="flex flex-wrap items-center gap-2">
-              {categories.map(c => (
+            <div className="flex flex-wrap items-start gap-2">
+              {categories.map((c, idx) => (
                 <div key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-navy-700 p-2">
                   {editCatId === c.id ? (
                     <div className="flex flex-col gap-2">
@@ -410,6 +450,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     </div>
                   ) : (
                     <div className="flex items-center gap-1">
+                      <div className="flex flex-col gap-0.5">
+                        <button onClick={() => handleMoveCategory(idx, idx - 1)} disabled={idx === 0} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
+                        <button onClick={() => handleMoveCategory(idx, idx + 1)} disabled={idx === categories.length - 1} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
+                      </div>
                       <span onClick={() => openEditCategory(c)} className="chip cursor-pointer hover:border-cyan hover:text-cyan">{c.name}</span>
                       {c.visible_grades && c.visible_grades.length > 0 && (
                         <span className="text-[10px] text-slate-500">({c.visible_grades.map(t => activePlans.find(p => p.tier === t)?.name ?? t).join(', ')})</span>
@@ -487,6 +531,35 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <div className="md:col-span-2"><Field label="상품 정보 자세히 보기 링크 (스마트스토어 등)"><input value={pf.detail_link} onChange={e => setPf({ ...pf, detail_link: e.target.value })} placeholder="https://smartstore.naver.com/..." className="input-field" /></Field></div>
                 <Field label="재고"><input type="number" value={pf.stock} onChange={e => setPf({ ...pf, stock: e.target.value })} className="input-field" /></Field>
                 <div className="md:col-span-2"><span className="text-xs text-slate-500">정렬 순서는 상품 목록에서 드래그하여 변경할 수 있습니다.</span></div>
+
+                {/* Options */}
+                <div className="md:col-span-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-400">상품 옵션 (복수 등록 가능)</label>
+                    <button type="button" onClick={addOptionRow} className="btn-ghost px-3 py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> 옵션 추가</button>
+                  </div>
+                  {pf.options.map((opt, oi) => (
+                    <div key={oi} className="rounded-lg border border-navy-700 bg-slate-50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input value={opt.name} onChange={e => setOptionName(oi, e.target.value)} placeholder="옵션명 (예: 색상, 사이즈)" className="input-field h-8 flex-1 text-sm" />
+                        <button type="button" onClick={() => removeOptionRow(oi)} className="grid h-7 w-7 place-items-center rounded-md border border-navy-700 text-slate-400 hover:border-red-500 hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {opt.values.map((v, vi) => (
+                          <div key={vi} className="flex items-center gap-2">
+                            <input value={v.label} onChange={e => setOptionValue(oi, vi, 'label', e.target.value)} placeholder="옵션값 (예: 블랙, L)" className="input-field h-8 flex-1 text-sm" />
+                            <input type="number" value={v.price_addition} onChange={e => setOptionValue(oi, vi, 'price_addition', e.target.value)} placeholder="추가 금액" className="input-field h-8 w-28 text-sm" />
+                            <span className="text-xs text-slate-500">원</span>
+                            {opt.values.length > 1 && <button type="button" onClick={() => removeOptionValue(oi, vi)} className="grid h-7 w-7 place-items-center rounded-md border border-navy-700 text-slate-400 hover:border-red-500 hover:text-red-400"><XCircle className="h-3.5 w-3.5" /></button>}
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => addOptionValue(oi)} className="text-xs text-cyan hover:underline"><Plus className="inline h-3 w-3" /> 옵션값 추가</button>
+                      </div>
+                    </div>
+                  ))}
+                  {pf.options.length === 0 && <p className="text-xs text-slate-500">옵션이 없는 상품은 기본 가격으로만 판매됩니다.</p>}
+                </div>
+
                 {editProduct && (
                   <div className="md:col-span-2">
                     <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.is_active} onChange={e => setPf({ ...pf, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 판매 중</label>
@@ -523,6 +596,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           <span className="text-cyan">{formatKRW(p.club_price)}</span>
                           {discount > 0 && <span className="text-red-400">{discount}%</span>}
                           <span>재고 {p.stock}</span>
+                          {p.options && p.options.length > 0 && <span className="text-slate-600">옵션 {p.options.length}개</span>}
                           {p.detail_link && <a href={p.detail_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-cyan hover:underline"><ExternalLink className="h-3 w-3" /> 원본 보기</a>}
                           {!p.is_active && <span className="text-red-400">판매 중단</span>}
                         </div>

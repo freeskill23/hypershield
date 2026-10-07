@@ -40,6 +40,16 @@ export interface Category {
   created_at: string;
 }
 
+export interface ProductOptionValue {
+  label: string;
+  price_addition: number;
+}
+
+export interface ProductOption {
+  name: string;
+  values: ProductOptionValue[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -56,6 +66,7 @@ export interface Product {
   is_active: boolean;
   sort_order: number;
   detail_link: string | null;
+  options: ProductOption[] | null;
   created_at: string;
 }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink,
 } from 'lucide-react';
-import { Product } from '../lib/types';
+import { Product, ProductOption } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
 import { addToCart } from '../lib/data';
 
@@ -18,6 +18,7 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
 
   if (!product) {
     return (
@@ -36,8 +37,19 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
     ...(product.sub_images ?? []),
   ].filter(Boolean) as string[];
 
+  const options: ProductOption[] = product.options ?? [];
+  const optionAddition = options.reduce((sum, opt, oi) => {
+    const vi = selectedOptions[oi];
+    if (vi === undefined) return sum;
+    return sum + (opt.values[vi]?.price_addition ?? 0);
+  }, 0);
+  const allOptionsSelected = options.length === 0 || options.every((_, oi) => selectedOptions[oi] !== undefined);
+  const unitPrice = product.club_price + optionAddition;
+  const totalPrice = unitPrice * qty;
+
   async function handleAddToCart() {
     if (!product) return;
+    if (!allOptionsSelected) return;
     setBusy(true);
     try {
       await addToCart(product.id, qty);
@@ -121,6 +133,25 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
               <span>재고: {product.stock}개</span>
             </div>
 
+            {options.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {options.map((opt, oi) => (
+                  <div key={oi}>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-400">{opt.name}</label>
+                    <div className="flex flex-wrap gap-2">
+                      {opt.values.map((v, vi) => {
+ const isSel = selectedOptions[oi] === vi; const extra = v.price_addition !== 0 ? ` (+${formatKRW(v.price_addition)})` : ''; return (
+                        <button key={vi} onClick={() => setSelectedOptions(prev => ({ ...prev, [oi]: vi }))} className={`rounded-md border px-3 py-1.5 text-sm font-medium transition ${isSel ? 'border-cyan bg-cyan/10 text-cyan' : 'border-navy-700 text-slate-500 hover:text-slate-700'}`}>
+                          {v.label}{extra}
+                        </button>
+ );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {product.detail_link && (
               <a href={product.detail_link} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-2.5 text-sm font-medium text-cyan transition hover:bg-cyan/10">
                 <ExternalLink className="h-4 w-4" />
@@ -153,13 +184,18 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
             <div className="mt-4 border-t border-navy-700 pt-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-400">총 상품 금액</span>
-                <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(product.club_price * qty)}</span>
+                <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(totalPrice)}</span>
               </div>
+              {optionAddition !== 0 && (
+                <div className="mt-1 text-right text-xs text-slate-500">옵션 추가 금액: {formatKRW(optionAddition * qty)}</div>
+              )}
             </div>
 
             <div className="mt-4 flex gap-2">
-              <button onClick={handleAddToCart} disabled={busy} className="btn-primary flex-1">
-                {added ? (
+              <button onClick={handleAddToCart} disabled={busy || !allOptionsSelected} className="btn-primary flex-1">
+                {!allOptionsSelected ? (
+                  <><Package className="h-4 w-4" /> 옵션을 선택하세요</>
+                ) : added ? (
                   <><Check className="h-4 w-4" /> 장바구니 추가됨</>
                 ) : (
                   <><ShoppingCart className="h-4 w-4" /> 장바구니 담기</>
