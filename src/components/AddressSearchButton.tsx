@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Search } from 'lucide-react';
 
 declare global {
@@ -16,11 +17,16 @@ function loadDaumPostcode(): Promise<void> {
     const script = document.createElement('script');
     script.src = 'https://t1.daumcdn.net/map/jsapi/postcode/v2/postcode.v2.js';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('주소 검색 스크립트를 불러오지 못했습니다.'));
+    script.onerror = () => {
+      scriptPromise = null;
+      reject(new Error('주소 검색 스크립트를 불러오지 못했습니다.'));
+    };
     document.head.appendChild(script);
   });
   return scriptPromise;
 }
+
+let containerIdCounter = 0;
 
 interface Props {
   onSelect: (address: string) => void;
@@ -28,9 +34,14 @@ interface Props {
 }
 
 export default function AddressSearchButton({ onSelect, disabled }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerIdRef = useRef<string>(`addr-search-${++containerIdCounter}`);
+
   async function handleSearch() {
     try {
       await loadDaumPostcode();
+      if (!containerRef.current) return;
+      containerRef.current.innerHTML = '';
       const postcode = new window.daum.Postcode({
         oncomplete: (data: any) => {
           let addr = '';
@@ -40,28 +51,36 @@ export default function AddressSearchButton({ onSelect, disabled }: Props) {
             addr = data.jibunAddress;
           }
           onSelect(addr);
+          if (containerRef.current) containerRef.current.innerHTML = '';
+        },
+        onclose: () => {
+          if (containerRef.current) containerRef.current.innerHTML = '';
         },
         width: '100%',
         height: '100%',
         maxSuggestHeight: 300,
       });
-      postcode.open({
-        popupName: 'addressSearch',
-        popupKey: 'addressSearch',
+      postcode.embed({
+        q: containerRef.current,
+        autoClose: true,
       });
     } catch (e) {
       console.error('address search error', e);
+      alert('주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
     }
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleSearch}
-      disabled={disabled}
-      className="flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/5 px-4 py-2 text-sm font-medium text-cyan transition hover:bg-cyan/10 disabled:opacity-50"
-    >
-      <Search className="h-4 w-4" /> 도로명 주소 검색
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleSearch}
+        disabled={disabled}
+        className="flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/5 px-4 py-2 text-sm font-medium text-cyan transition hover:bg-cyan/10 disabled:opacity-50"
+      >
+        <Search className="h-4 w-4" /> 도로명 주소 검색
+      </button>
+      <div id={containerIdRef.current} ref={containerRef} className="w-full" />
+    </>
   );
 }
