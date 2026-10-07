@@ -44,6 +44,8 @@ const orderStatusConfig: Record<OrderStatus, { label: string; cls: string }> = {
   cancelled: { label: '주문 취소', cls: 'border-slate-600 text-slate-500 bg-slate-700/20' },
 };
 
+const fallbackOrderStatus = { label: '상태 확인 필요', cls: 'border-slate-600 text-slate-500 bg-slate-700/20' };
+
 const subStatusConfig: Record<string, { label: string; cls: string }> = {
   none: { label: '미가입', cls: 'border-slate-600 text-slate-400' },
   active: { label: '활성', cls: 'border-green-500/40 text-green-400 bg-green-500/5' },
@@ -278,7 +280,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800"><ShoppingBag className="h-4 w-4 text-cyan" /> 최근 주문</div>
             <div className="space-y-2">
               {orders.slice(0, 6).map(o => {
-                const sc = orderStatusConfig[o.status];
+                const sc = orderStatusConfig[o.status] ?? fallbackOrderStatus;
                 return (
                   <div key={o.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-slate-50 px-3 py-2.5">
                     <div><div className="text-sm font-medium text-slate-800">{o.recipient_name ?? '알 수 없음'}</div><div className="text-xs text-slate-500">{formatKRW(o.total_amount)} · {formatDate(o.created_at)}</div></div>
@@ -443,7 +445,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           ) : (
             <div className="space-y-3">
               {orders.map(o => {
-                const sc = orderStatusConfig[o.status];
+                const sc = orderStatusConfig[o.status] ?? fallbackOrderStatus;
                 const ti = tracking[o.id];
                 return (
                   <div key={o.id} className="card-surface p-4">
