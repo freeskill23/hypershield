@@ -1,10 +1,21 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink,
+  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube,
 } from 'lucide-react';
 import { Product, ProductOption } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
 import { addToCart } from '../lib/data';
+
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
 
 interface Props {
   product: Product | null;
@@ -208,6 +219,34 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
           </div>
         </div>
       </div>
+
+      {/* YouTube videos */}
+      {product.youtube_urls && product.youtube_urls.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="font-gothic text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Youtube className="h-5 w-5 text-red-500" /> 영상
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {product.youtube_urls.map((url, i) => {
+              const videoId = extractYouTubeId(url);
+              if (!videoId) return null;
+              return (
+                <div key={i} className="card-surface overflow-hidden">
+                  <div className="relative aspect-video w-full bg-navy-900">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoId}`}
+                      title={`YouTube video ${i + 1}`}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="h-full w-full"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

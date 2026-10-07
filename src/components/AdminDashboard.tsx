@@ -3,7 +3,7 @@ import {
   Plus, Package, Users, ShoppingBag, TrendingUp, Clock, CheckCircle2,
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
-  Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown,
+  Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
 } from 'lucide-react';
 import {
   Profile, Product, ProductOption, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
@@ -29,8 +29,8 @@ interface Props {
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
-interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; options: OptionFormRow[]; }
-const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0', options: [] };
+interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; }
+const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0', options: [], youtube_urls: [] };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -115,7 +115,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setEditProduct(p);
     const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
     const opts: OptionFormRow[] = (p.options ?? []).map(o => ({ name: o.name, values: o.values.map(v => ({ label: v.label, price_addition: String(v.price_addition) })) }));
-    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order), options: opts });
+    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [] });
     setShowProductForm(true);
   }
   function toggleProductCategory(catId: string) {
@@ -160,6 +160,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           .filter(o => o.values.length > 0);
         return opts.length > 0 ? opts : null;
       })();
+      const cleanYt = pf.youtube_urls.filter(u => u.trim());
+      const ytVal = cleanYt.length > 0 ? cleanYt : null;
       const common = {
         name: pf.name.trim(), category: primaryCat?.name ?? '', category_id: primaryCat?.id ?? null,
         category_ids: catIdsVal,
@@ -168,6 +170,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         stock: Number(pf.stock) || 0, sort_order: Number(pf.sort_order) || 0,
         detail_link: pf.detail_link.trim() || null,
         options: cleanOptions,
+        youtube_urls: ytVal,
       };
       if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active });
       else await createProduct({ ...common, description: pf.description.trim() || undefined });
@@ -175,6 +178,23 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     } finally { setBusy(false); }
   }
   async function handleDeleteProduct(p: Product) { if (confirm(`'${p.name}' 상품을 삭제하시겠습니까?`)) { await deleteProduct(p.id); refresh(); } }
+  async function handleCopyProduct(p: Product) {
+    if (!confirm(`'${p.name}' 상품을 복사하시겠습니까?`)) return;
+    const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
+    const primaryCat = catIds.length > 0 ? categories.find(c => c.id === catIds[0]) : undefined;
+    await createProduct({
+      name: `${p.name} (복사)`, category: primaryCat?.name ?? '', category_id: primaryCat?.id ?? null,
+      category_ids: catIds.length > 0 ? catIds : null,
+      original_price: p.original_price, club_price: p.club_price,
+      description: p.description ?? undefined,
+      image_url: p.image_url, sub_images: p.sub_images ?? undefined,
+      sku: p.sku ?? undefined, stock: p.stock, sort_order: products.length,
+      detail_link: p.detail_link ?? undefined,
+      options: p.options ?? null,
+      youtube_urls: p.youtube_urls ?? undefined,
+    });
+    refresh();
+  }
   async function handleToggleActive(p: Product) { await updateProduct(p.id, { is_active: !p.is_active }); refresh(); }
   async function handleMoveProduct(fromIndex: number, toIndex: number) {
     if (toIndex < 0 || toIndex >= products.length) return;
@@ -560,6 +580,18 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   {pf.options.length === 0 && <p className="text-xs text-slate-500">옵션이 없는 상품은 기본 가격으로만 판매됩니다.</p>}
                 </div>
 
+                {/* YouTube URLs */}
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-xs font-medium text-slate-400">유튜브 영상 URL (여러 개 등록 가능)</label>
+                  {pf.youtube_urls.map((url, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input value={url} onChange={e => setPf(prev => ({ ...prev, youtube_urls: prev.youtube_urls.map((u, j) => j === i ? e.target.value : u) }))} placeholder="https://www.youtube.com/watch?v=..." className="input-field h-9 flex-1 text-sm" />
+                      {pf.youtube_urls.length > 1 && <button type="button" onClick={() => setPf(prev => ({ ...prev, youtube_urls: prev.youtube_urls.filter((_, j) => j !== i) }))} className="grid h-7 w-7 place-items-center rounded-md border border-navy-700 text-slate-400 hover:border-red-500 hover:text-red-400"><XCircle className="h-3.5 w-3.5" /></button>}
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setPf(prev => ({ ...prev, youtube_urls: [...prev.youtube_urls, ''] }))} className="text-xs text-cyan hover:underline"><Plus className="inline h-3 w-3" /> 영상 추가</button>
+                </div>
+
                 {editProduct && (
                   <div className="md:col-span-2">
                     <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.is_active} onChange={e => setPf({ ...pf, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 판매 중</label>
@@ -605,6 +637,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     <div className="flex items-center gap-1.5">
                       <IconBtn onClick={() => handleToggleActive(p)} title={p.is_active ? '판매 중단' : '판매 시작'} icon={p.is_active ? CheckCircle2 : XCircle} hover="hover:border-cyan hover:text-cyan" />
                       <IconBtn onClick={() => openEditProduct(p)} title="수정" icon={Edit2} hover="hover:border-cyan hover:text-cyan" />
+                      <IconBtn onClick={() => handleCopyProduct(p)} title="복사" icon={Copy} hover="hover:border-cyan hover:text-cyan" />
                       <IconBtn onClick={() => handleDeleteProduct(p)} title="삭제" icon={Trash2} hover="hover:border-red-500 hover:text-red-400" />
                     </div>
                   </div>

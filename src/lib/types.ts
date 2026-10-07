@@ -67,6 +67,7 @@ export interface Product {
   sort_order: number;
   detail_link: string | null;
   options: ProductOption[] | null;
+  youtube_urls: string[] | null;
   created_at: string;
 }
 
