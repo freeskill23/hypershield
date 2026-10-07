@@ -144,7 +144,6 @@ function Shell() {
         cartItems={cartHook.items}
         addresses={addressesHook.items}
         onRefreshCart={cartHook.refresh}
-        onRefreshAddresses={addressesHook.refresh}
         cartCount={cartHook.items.length}
       />
     </ErrorBoundary>
