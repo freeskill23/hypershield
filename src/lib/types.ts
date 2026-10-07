@@ -7,6 +7,7 @@ export interface Profile {
   email: string;
   full_name: string;
   role: Role;
+  cafe_nickname: string | null;
   phone: string | null;
   subscription_plan_id: string | null;
   subscription_tier: string | null;

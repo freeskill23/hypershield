@@ -92,7 +92,7 @@ export default function ProductDetail({ product, onBack, onGoCart }: Props) {
         {/* Info */}
         <div className="space-y-4">
           <div className="card-surface p-5">
-            <h1 className="font-gothic text-xl font-bold text-slate-100">{product.name}</h1>
+            <h1 className="font-gothic text-xl font-bold text-slate-800">{product.name}</h1>
             {product.sku && <p className="mt-1 text-xs text-slate-500">SKU: {product.sku}</p>}
 
             <div className="mt-4 flex items-baseline gap-3">
@@ -123,7 +123,7 @@ export default function ProductDetail({ product, onBack, onGoCart }: Props) {
           {/* Quantity + cart */}
           <div className="card-surface p-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-300">수량</span>
+              <span className="text-sm font-medium text-slate-600">수량</span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
@@ -131,7 +131,7 @@ export default function ProductDetail({ product, onBack, onGoCart }: Props) {
                 >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="font-gothic text-lg font-bold text-slate-100 w-8 text-center">{qty}</span>
+                <span className="font-gothic text-lg font-bold text-slate-800 w-8 text-center">{qty}</span>
                 <button
                   onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
                   className="grid h-8 w-8 place-items-center rounded-lg border border-navy-700 text-slate-400 hover:border-cyan hover:text-cyan"

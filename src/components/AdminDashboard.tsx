@@ -223,9 +223,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 rounded-lg bg-navy-950/60 p-1">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
         {tabs.map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === k ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'}`}>{label}</button>
+          <button key={k} onClick={() => setTab(k)} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-400 hover:text-slate-700'}`}>{label}</button>
         ))}
       </div>
 
@@ -235,7 +235,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           {/* Recruitment status */}
           <div className="card-surface p-5">
             <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+              <div className="flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
                 <Flame className="h-4 w-4 text-gold" /> 구독자 모집 설정
               </div>
               <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${recruitmentOpen ? 'border-green-500/40 text-green-400 bg-green-500/5' : 'border-red-500/40 text-red-400 bg-red-500/5'}`}>
@@ -243,15 +243,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               </span>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-lg border border-navy-700 bg-navy-950/40 p-4 text-center">
+              <div className="rounded-lg border border-navy-700 bg-slate-50 p-4 text-center">
                 <div className="text-xs text-slate-500">현재 차수</div>
-                <div className="font-gothic text-2xl font-bold text-slate-100">{recruitmentBatch}차</div>
+                <div className="font-gothic text-2xl font-bold text-slate-800">{recruitmentBatch}차</div>
               </div>
-              <div className="rounded-lg border border-navy-700 bg-navy-950/40 p-4 text-center">
+              <div className="rounded-lg border border-navy-700 bg-slate-50 p-4 text-center">
                 <div className="text-xs text-slate-500">모집 정원</div>
-                <div className="font-gothic text-2xl font-bold text-slate-100">{recruitmentLimit}명</div>
+                <div className="font-gothic text-2xl font-bold text-slate-800">{recruitmentLimit}명</div>
               </div>
-              <div className="rounded-lg border border-navy-700 bg-navy-950/40 p-4 text-center">
+              <div className="rounded-lg border border-navy-700 bg-slate-50 p-4 text-center">
                 <div className="text-xs text-slate-500">현재 구독자</div>
                 <div className="font-gothic text-2xl font-bold text-cyan">{activeSubs}명</div>
               </div>
@@ -275,13 +275,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="card-surface p-5">
-            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100"><ShoppingBag className="h-4 w-4 text-cyan" /> 최근 주문</div>
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800"><ShoppingBag className="h-4 w-4 text-cyan" /> 최근 주문</div>
             <div className="space-y-2">
               {orders.slice(0, 6).map(o => {
                 const sc = orderStatusConfig[o.status];
                 return (
-                  <div key={o.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-navy-950/40 px-3 py-2.5">
-                    <div><div className="text-sm font-medium text-slate-100">{o.recipient_name ?? '알 수 없음'}</div><div className="text-xs text-slate-500">{formatKRW(o.total_amount)} · {formatDate(o.created_at)}</div></div>
+                  <div key={o.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-slate-50 px-3 py-2.5">
+                    <div><div className="text-sm font-medium text-slate-800">{o.recipient_name ?? '알 수 없음'}</div><div className="text-xs text-slate-500">{formatKRW(o.total_amount)} · {formatDate(o.created_at)}</div></div>
                     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${sc.cls}`}>{o.status === 'pending' && <Clock className="h-3 w-3" />}{sc.label}</span>
                   </div>
                 );
@@ -290,15 +290,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             </div>
           </div>
           <div className="card-surface p-5">
-            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100"><Users className="h-4 w-4 text-gold" /> 최근 가입 회원</div>
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800"><Users className="h-4 w-4 text-gold" /> 최근 가입 회원</div>
             <div className="space-y-2">
               {profiles.slice(0, 6).map(p => {
                 const sc = subStatusConfig[p.subscription_status] ?? subStatusConfig.none;
                 return (
-                  <div key={p.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-navy-950/40 px-3 py-2.5">
+                  <div key={p.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-slate-50 px-3 py-2.5">
                     <div className="flex items-center gap-3">
-                      <div className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-navy-950 ${p.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>{p.full_name.slice(0, 1)}</div>
-                      <div><div className="text-sm font-medium text-slate-100">{p.full_name}</div><div className="text-xs text-slate-500">{p.email}</div></div>
+                      <div className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white ${p.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>{p.full_name.slice(0, 1)}</div>
+                      <div><div className="text-sm font-medium text-slate-800">{p.full_name}</div><div className="text-xs text-slate-500">{p.email}</div></div>
                     </div>
                     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${sc.cls}`}>{sc.label}</span>
                   </div>
@@ -316,7 +316,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         <div className="space-y-4">
           {/* Categories */}
           <div className="card-surface p-4">
-            <div className="mb-3 flex items-center gap-2 font-gothic text-sm font-semibold text-slate-200"><Tag className="h-4 w-4 text-cyan" /> 카테고리 관리</div>
+            <div className="mb-3 flex items-center gap-2 font-gothic text-sm font-semibold text-slate-700"><Tag className="h-4 w-4 text-cyan" /> 카테고리 관리</div>
             <div className="flex flex-wrap items-center gap-2">
               {categories.map(c => (
                 <div key={c.id} className="flex items-center gap-1">
@@ -339,15 +339,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           </div>
 
           <div className="flex items-center justify-between">
-            <h2 className="font-gothic text-lg font-semibold text-slate-100">상품 관리</h2>
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">상품 관리</h2>
             <button onClick={openCreateProduct} className="btn-primary px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 상품 등록</button>
           </div>
 
           {showProductForm && (
             <form onSubmit={handleProductSubmit} className="card-surface space-y-4 p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-gothic text-base font-semibold text-slate-100">{editProduct ? '상품 수정' : '새 상품 등록'}</h3>
-                <button type="button" onClick={() => setShowProductForm(false)} className="text-slate-500 hover:text-slate-300"><XCircle className="h-5 w-5" /></button>
+                <h3 className="font-gothic text-base font-semibold text-slate-800">{editProduct ? '상품 수정' : '새 상품 등록'}</h3>
+                <button type="button" onClick={() => setShowProductForm(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
               </div>
 
               {/* Smart store URL fetch */}
@@ -383,7 +383,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <Field label="정렬 순서"><input type="number" value={pf.sort_order} onChange={e => setPf({ ...pf, sort_order: e.target.value })} className="input-field" /></Field>
                 {editProduct && (
                   <div className="md:col-span-2">
-                    <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={pf.is_active} onChange={e => setPf({ ...pf, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 판매 중</label>
+                    <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.is_active} onChange={e => setPf({ ...pf, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 판매 중</label>
                   </div>
                 )}
               </div>
@@ -404,7 +404,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     <div className="flex items-start gap-3">
                       {p.image_url ? <img src={p.image_url} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <div className="grid h-12 w-12 place-items-center rounded-lg bg-navy-800"><Package className="h-5 w-5 text-slate-600" /></div>}
                       <div>
-                        <h3 className="font-gothic text-base font-semibold text-slate-100">{p.name}</h3>
+                        <h3 className="font-gothic text-base font-semibold text-slate-800">{p.name}</h3>
                         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           <span className="flex items-center gap-1"><Tag className="h-3 w-3" /> {p.category || '미분류'}</span>
                           <span className="text-cyan">{formatKRW(p.club_price)}</span>
@@ -437,7 +437,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* ── Orders ── */}
       {tab === 'orders' && (
         <div className="space-y-4">
-          <h2 className="font-gothic text-lg font-semibold text-slate-100">주문 관리</h2>
+          <h2 className="font-gothic text-lg font-semibold text-slate-800">주문 관리</h2>
           {orders.length === 0 ? (
             <div className="card-surface grid place-items-center py-16 text-center"><ShoppingBag className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">주문이 없습니다。</p></div>
           ) : (
@@ -450,7 +450,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-gothic text-base font-semibold text-slate-100">{o.recipient_name ?? '알 수 없음'}</h3>
+                          <h3 className="font-gothic text-base font-semibold text-slate-800">{o.recipient_name ?? '알 수 없음'}</h3>
                           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${sc.cls}`}>{o.status === 'pending' && <Clock className="h-3 w-3" />}{sc.label}</span>
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -492,14 +492,14 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* ── Members ── */}
       {tab === 'members' && (
         <div className="space-y-4">
-          <h2 className="font-gothic text-lg font-semibold text-slate-100">회원 관리</h2>
+          <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 관리</h2>
           {profiles.length === 0 ? (
             <div className="card-surface grid place-items-center py-16 text-center"><Users className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">가입한 회원이 없습니다.</p></div>
           ) : (
             <div className="card-surface overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-navy-950/40 text-xs uppercase tracking-wider text-slate-500">
-                  <tr><th className="px-5 py-3 font-medium">회원</th><th className="px-5 py-3 font-medium">구독 상태</th><th className="px-5 py-3 font-medium">등급</th><th className="px-5 py-3 font-medium">역할</th><th className="px-5 py-3 font-medium text-right">관리</th></tr>
+                <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                  <tr><th className="px-5 py-3 font-medium">회원</th><th className="px-5 py-3 font-medium">카페 닉네임</th><th className="px-5 py-3 font-medium">구독 상태</th><th className="px-5 py-3 font-medium">등급</th><th className="px-5 py-3 font-medium">역할</th><th className="px-5 py-3 font-medium text-right">관리</th></tr>
                 </thead>
                 <tbody className="divide-y divide-navy-700">
                   {profiles.map(p => {
@@ -507,12 +507,19 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     const plan = plans.find(pl => pl.id === p.subscription_plan_id);
                     const isActive = p.subscription_status === 'active';
                     return (
-                      <tr key={p.id} className="transition hover:bg-navy-800/40">
+                      <tr key={p.id} className="transition hover:bg-slate-100">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
-                            <div className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-navy-950 ${p.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>{p.full_name.slice(0, 1)}</div>
-                            <div><div className="font-medium text-slate-100">{p.full_name}</div><div className="text-xs text-slate-500">{p.email}</div></div>
+                            <div className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white ${p.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>{p.full_name.slice(0, 1)}</div>
+                            <div><div className="font-medium text-slate-800">{p.full_name}</div><div className="text-xs text-slate-400">{p.email}</div></div>
                           </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          {p.cafe_nickname ? (
+                            <span className="text-sm font-medium text-gold-deep">{p.cafe_nickname}</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">미입력</span>
+                          )}
                         </td>
                         <td className="px-5 py-3">
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${sc.cls}`}>{sc.label}</span>
@@ -529,7 +536,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                               <div className="flex items-center gap-1">
                                 <select value={actPlanId} onChange={e => setActPlanId(e.target.value)} className="input-field h-7 w-24 px-1 py-0.5 text-xs"><option value="">등급 선택</option>{plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}</select>
                                 <button onClick={() => handleActivateSub(p)} disabled={!actPlanId} className="btn-primary h-7 px-2 py-1 text-xs">활성화</button>
-                                <button onClick={() => { setActMemberId(null); setActPlanId(''); }} className="text-slate-500 hover:text-slate-300"><XCircle className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => { setActMemberId(null); setActPlanId(''); }} className="text-slate-500 hover:text-slate-600"><XCircle className="h-3.5 w-3.5" /></button>
                               </div>
                             ) : (
                               <button onClick={() => { setActMemberId(p.id); setActPlanId(p.subscription_plan_id ?? plans.find(pl => pl.is_active)?.id ?? ''); }} className="btn-ghost h-7 px-2 py-1 text-xs">등급 부여</button>
@@ -551,14 +558,14 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {tab === 'posts' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-gothic text-lg font-semibold text-slate-100">게시판 관리</h2>
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">게시판 관리</h2>
             <button onClick={openCreatePost} className="btn-primary px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 게시글 등록</button>
           </div>
           {showPostForm && (
             <form onSubmit={handlePostSubmit} className="card-surface space-y-4 p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-gothic text-base font-semibold text-slate-100">{editPost ? '게시글 수정' : '새 게시글 등록'}</h3>
-                <button type="button" onClick={() => setShowPostForm(false)} className="text-slate-500 hover:text-slate-300"><XCircle className="h-5 w-5" /></button>
+                <h3 className="font-gothic text-base font-semibold text-slate-800">{editPost ? '게시글 수정' : '새 게시글 등록'}</h3>
+                <button type="button" onClick={() => setShowPostForm(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
               </div>
               <div className="grid grid-cols-1 gap-4">
                 <Field label="제목"><input required value={postF.title} onChange={e => setPostF({ ...postF, title: e.target.value })} className="input-field" /></Field>
@@ -571,13 +578,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-400">공개 범위</label>
                     <div className="flex gap-3">
-                      <label className="flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer"><input type="radio" checked={postF.visibility === 'public'} onChange={() => setPostF({ ...postF, visibility: 'public' })} className="h-4 w-4" /><Eye className="h-3.5 w-3.5" /> 전체 공개</label>
-                      <label className="flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer"><input type="radio" checked={postF.visibility === 'members'} onChange={() => setPostF({ ...postF, visibility: 'members' })} className="h-4 w-4" /><Lock className="h-3.5 w-3.5" /> 회원 전용</label>
+                      <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer"><input type="radio" checked={postF.visibility === 'public'} onChange={() => setPostF({ ...postF, visibility: 'public' })} className="h-4 w-4" /><Eye className="h-3.5 w-3.5" /> 전체 공개</label>
+                      <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer"><input type="radio" checked={postF.visibility === 'members'} onChange={() => setPostF({ ...postF, visibility: 'members' })} className="h-4 w-4" /><Lock className="h-3.5 w-3.5" /> 회원 전용</label>
                     </div>
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-400">고정</label>
-                    <label className="flex items-center gap-1.5 text-sm text-slate-300 cursor-pointer"><input type="checkbox" checked={postF.is_pinned} onChange={e => setPostF({ ...postF, is_pinned: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /><Pin className="h-3.5 w-3.5" /> 상단 고정</label>
+                    <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer"><input type="checkbox" checked={postF.is_pinned} onChange={e => setPostF({ ...postF, is_pinned: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /><Pin className="h-3.5 w-3.5" /> 상단 고정</label>
                   </div>
                 </div>
               </div>
@@ -594,7 +601,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   <div className="flex items-start gap-3">
                     <div className="grid h-10 w-10 place-items-center rounded-lg bg-navy-800"><Megaphone className="h-5 w-5 text-slate-600" /></div>
                     <div>
-                      <div className="flex items-center gap-2">{p.is_pinned && <Pin className="h-3.5 w-3.5 text-gold" />}<h3 className="font-gothic text-base font-semibold text-slate-100">{p.title}</h3></div>
+                      <div className="flex items-center gap-2">{p.is_pinned && <Pin className="h-3.5 w-3.5 text-gold" />}<h3 className="font-gothic text-base font-semibold text-slate-800">{p.title}</h3></div>
                       <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                         {p.category && <span className="flex items-center gap-1"><Tag className="h-3 w-3" /> {p.category}</span>}
                         <span className="flex items-center gap-1">{p.visibility === 'public' ? <><Eye className="h-3 w-3" /> 전체 공개</> : <><Lock className="h-3 w-3" /> 회원 전용</>}</span>
@@ -622,14 +629,14 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {tab === 'plans' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-gothic text-lg font-semibold text-slate-100">회원 등급 관리</h2>
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 등급 관리</h2>
             <button onClick={openCreatePlan} className="btn-primary px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 등급 추가</button>
           </div>
           {showPlanForm && (
             <form onSubmit={handlePlanSubmit} className="card-surface space-y-4 p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-gothic text-base font-semibold text-slate-100">{editPlan ? '회원 등급 수정' : '새 회원 등급 추가'}</h3>
-                <button type="button" onClick={() => setShowPlanForm(false)} className="text-slate-500 hover:text-slate-300"><XCircle className="h-5 w-5" /></button>
+                <h3 className="font-gothic text-base font-semibold text-slate-800">{editPlan ? '회원 등급 수정' : '새 회원 등급 추가'}</h3>
+                <button type="button" onClick={() => setShowPlanForm(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="등급 이름"><input required value={planF.name} onChange={e => setPlanF({ ...planF, name: e.target.value })} placeholder="예: 일반회원, 특별회원, VIP회원" className="input-field" /></Field>
@@ -640,7 +647,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <Field label="정렬 순서"><input type="number" value={planF.sort_order} onChange={e => setPlanF({ ...planF, sort_order: e.target.value })} className="input-field" /></Field>
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-slate-400">상태</label>
-                  <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={planF.is_active} onChange={e => setPlanF({ ...planF, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 활성</label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={planF.is_active} onChange={e => setPlanF({ ...planF, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 활성</label>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -654,9 +661,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               <div key={p.id} className="card-surface p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <div className={`grid h-12 w-12 place-items-center rounded-lg ${p.is_active ? 'bg-gold-sheen' : 'bg-navy-800'}`}><Crown className={`h-5 w-5 ${p.is_active ? 'text-navy-950' : 'text-slate-600'}`} /></div>
+                    <div className={`grid h-12 w-12 place-items-center rounded-lg ${p.is_active ? 'bg-gold-sheen' : 'bg-navy-800'}`}><Crown className={`h-5 w-5 ${p.is_active ? 'text-white' : 'text-slate-600'}`} /></div>
                     <div>
-                      <div className="flex items-center gap-2"><h3 className="font-gothic text-base font-semibold text-slate-100">{p.name}</h3>{!p.is_active && <span className="chip border-slate-600 text-slate-500">비활성</span>}</div>
+                      <div className="flex items-center gap-2"><h3 className="font-gothic text-base font-semibold text-slate-800">{p.name}</h3>{!p.is_active && <span className="chip border-slate-600 text-slate-500">비활성</span>}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500"><span className="text-gold-light">{formatKRW(p.monthly_price)}/월</span><span>할인 {p.discount_rate}%</span></div>
                       {p.description && <p className="mt-1.5 text-sm text-slate-400">{p.description}</p>}
                     </div>
@@ -684,7 +691,7 @@ function KpiCard({ icon: Icon, label, value, accent }: { icon: any; label: strin
   return (
     <div className="card-surface p-4">
       <div className={`mb-2 inline-grid h-9 w-9 place-items-center rounded-lg ${bg}`}><Icon className={`h-4 w-4 ${color}`} /></div>
-      <div className="font-gothic text-xl font-bold text-slate-100">{value}</div>
+      <div className="font-gothic text-xl font-bold text-slate-800">{value}</div>
       <div className="text-xs text-slate-500">{label}</div>
     </div>
   );

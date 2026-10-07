@@ -35,7 +35,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             <div className="mb-2 text-sm font-medium uppercase tracking-[0.3em] text-slate-500">
               HYPERSHIELD
             </div>
-            <h2 className="font-gothic text-3xl font-bold text-slate-300 md:text-4xl">
+            <h2 className="font-gothic text-3xl font-bold text-slate-600 md:text-4xl">
               노애드 세차클럽
             </h2>
           </div>
@@ -47,7 +47,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
           </div>
 
           {/* Main title */}
-          <h1 className="text-center font-gothic text-3xl font-bold leading-tight text-slate-100 md:text-5xl">
+          <h1 className="text-center font-gothic text-3xl font-bold leading-tight text-slate-800 md:text-5xl">
             광고비를 지불하는 대신
             <br />
             <span className="text-cyan">더 좋은 품질을 더 저렴하게</span>
@@ -71,7 +71,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                     <Flame className="h-4 w-4" />
                     {recruitmentBatch}차 구독자 모집
                   </div>
-                  <div className="font-gothic text-2xl font-bold text-slate-100">
+                  <div className="font-gothic text-2xl font-bold text-slate-800">
                     선착순 {recruitmentLimit}명
                   </div>
                   <p className="mt-1 text-xs text-slate-400">
@@ -86,7 +86,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                     <Ban className="h-4 w-4" />
                     모집 마감
                   </div>
-                  <div className="font-gothic text-xl font-bold text-slate-300">
+                  <div className="font-gothic text-xl font-bold text-slate-600">
                     {recruitmentBatch}차 구독자 모집이 마감되었습니다
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
@@ -116,7 +116,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             <div className="mb-4 inline-grid h-12 w-12 place-items-center rounded-xl bg-cyan/10">
               <TrendingDown className="h-6 w-6 text-cyan" />
             </div>
-            <h3 className="font-gothic text-lg font-semibold text-slate-100">최소 50% 할인</h3>
+            <h3 className="font-gothic text-lg font-semibold text-slate-800">최소 50% 할인</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
               광고비를 지불하지 않고, 그 비용을 제품 품질과 가격에 반영합니다.
               회원제 구독으로 기존 판매가 대비 최소 50% 이상 저렴하게 구매할 수 있습니다.
@@ -127,7 +127,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             <div className="mb-4 inline-grid h-12 w-12 place-items-center rounded-xl bg-gold/10">
               <Sparkles className="h-6 w-6 text-gold" />
             </div>
-            <h3 className="font-gothic text-lg font-semibold text-slate-100">더 좋은 품질, 더 낮은 가격</h3>
+            <h3 className="font-gothic text-lg font-semibold text-slate-800">더 좋은 품질, 더 낮은 가격</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
               광고비를 지불하는 대신, 더 좋은 원재료와 공정에 투자합니다.
               회원이 지불하는 구독료는 제품 품질 향상과 개발에 사용됩니다.
@@ -138,7 +138,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             <div className="mb-4 inline-grid h-12 w-12 place-items-center rounded-xl bg-cyan/10">
               <Shield className="h-6 w-6 text-cyan" />
             </div>
-            <h3 className="font-gothic text-lg font-semibold text-slate-100">회원제 쇼핑몰</h3>
+            <h3 className="font-gothic text-lg font-semibold text-slate-800">회원제 쇼핑몰</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
               구독 결제가 완료된 회원만 쇼핑몰을 이용할 수 있습니다.
               정기결제로 매월 자동 갱신됩니다.
@@ -158,7 +158,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                   <Users className="h-7 w-7 text-gold" />
                 </div>
                 <div>
-                  <div className="font-gothic text-lg font-bold text-slate-100">
+                  <div className="font-gothic text-lg font-bold text-slate-800">
                     {recruitmentBatch}차 구독자 선착순 {recruitmentLimit}명 모집
                   </div>
                   <p className="mt-1 text-sm text-slate-400">
@@ -179,7 +179,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
         <div className="mx-auto max-w-5xl px-6 py-16 md:px-8">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="font-gothic text-2xl font-bold text-slate-100">하이퍼쉴드의 생각</h2>
+              <h2 className="font-gothic text-2xl font-bold text-slate-800">하이퍼쉴드의 생각</h2>
               <p className="mt-1 text-sm text-slate-500">광고비 zero, 품질 up</p>
             </div>
             <button onClick={onViewBoard} className="btn-ghost px-4 py-2 text-sm">
@@ -203,7 +203,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                   )}
                   <span className="text-xs text-slate-500">{formatDate(post.created_at)}</span>
                 </div>
-                <h3 className="mt-3 font-gothic text-lg font-semibold text-slate-100">{post.title}</h3>
+                <h3 className="mt-3 font-gothic text-lg font-semibold text-slate-800">{post.title}</h3>
                 {post.excerpt && (
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-400">{post.excerpt}</p>
                 )}
@@ -218,7 +218,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
         <div className="card-surface relative overflow-hidden p-10 text-center">
           <div className="pointer-events-none absolute -top-16 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-cyan/10 blur-3xl" />
           <div className="relative">
-            <h2 className="font-gothic text-2xl font-bold text-slate-100 md:text-3xl">
+            <h2 className="font-gothic text-2xl font-bold text-slate-800 md:text-3xl">
               더 좋은 품질을 더 저렴하게
             </h2>
             <p className="mt-3 text-sm text-slate-400 md:text-base">

@@ -5,14 +5,14 @@ export default {
     extend: {
       colors: {
         navy: {
-          950: '#0f172a',
-          900: '#111c33',
-          800: '#1e293b',
-          700: '#27364d',
+          950: '#f8fafc',
+          900: '#ffffff',
+          800: '#f1f5f9',
+          700: '#e2e8f0',
         },
         cyan: {
-          DEFAULT: '#38bdf8',
-          glow: '#7dd3fc',
+          DEFAULT: '#0ea5e9',
+          glow: '#38bdf8',
         },
         gold: {
           DEFAULT: '#f59e0b',
@@ -26,13 +26,13 @@ export default {
         gothic: ['Noto Sans KR', 'Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        glow: '0 0 24px rgba(56, 189, 248, 0.35)',
-        gold: '0 0 24px rgba(245, 158, 11, 0.35)',
-        card: '0 10px 40px -10px rgba(0,0,0,0.6)',
+        glow: '0 0 24px rgba(14, 165, 233, 0.25)',
+        gold: '0 0 24px rgba(245, 158, 11, 0.25)',
+        card: '0 4px 24px -8px rgba(0,0,0,0.1)',
       },
       backgroundImage: {
         'gold-sheen': 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 40%, #b45309 100%)',
-        'cyan-sheen': 'linear-gradient(135deg, #38bdf8 0%, #7dd3fc 50%, #0ea5e9 100%)',
+        'cyan-sheen': 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 50%, #0284c7 100%)',
         'vip-card': 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e293b 100%)',
       },
       keyframes: {

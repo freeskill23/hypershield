@@ -81,13 +81,13 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
         <ArrowLeft className="h-4 w-4" /> 장바구니
       </button>
 
-      <h1 className="font-gothic text-2xl font-bold text-slate-100">주문/결제</h1>
+      <h1 className="font-gothic text-2xl font-bold text-slate-800">주문/결제</h1>
 
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {/* Shipping address */}
           <div className="card-surface p-5">
-            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
               <MapPin className="h-4 w-4 text-cyan" /> 배송지
             </div>
 
@@ -105,7 +105,7 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-100">{addr.label}</span>
+                      <span className="text-sm font-medium text-slate-800">{addr.label}</span>
                       {addr.is_default && (
                         <span className="rounded-full bg-cyan/20 px-2 py-0.5 text-xs text-cyan">기본</span>
                       )}
@@ -188,13 +188,13 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
 
           {/* Payment method placeholder */}
           <div className="card-surface p-5">
-            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
               <CreditCard className="h-4 w-4 text-gold" /> 결제 수단
             </div>
             <div className="rounded-lg border border-gold/30 bg-gold/5 p-4 text-sm text-gold-light">
               NHN KCP 결제 연동 예정
             </div>
-            <div className="mt-3 flex items-start gap-2 rounded-lg bg-navy-950/40 p-3 text-xs text-slate-500">
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
               <span>
                 현재는 주문 생성만 가능합니다. 결제 연동은 추후 NHN KCP 연동 후 적용됩니다.
@@ -207,14 +207,14 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
         {/* Summary */}
         <div className="space-y-4">
           <div className="card-surface p-5">
-            <h3 className="font-gothic text-base font-semibold text-slate-100">주문 요약</h3>
+            <h3 className="font-gothic text-base font-semibold text-slate-800">주문 요약</h3>
             <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
               {cartItems.map((item) => (
                 <div key={item.id} className="flex items-center justify-between text-sm">
                   <span className="text-slate-400">
                     {item.product?.name ?? '—'} × {item.quantity}
                   </span>
-                  <span className="text-slate-100">
+                  <span className="text-slate-800">
                     {formatKRW((item.product?.club_price ?? 0) * item.quantity)}
                   </span>
                 </div>
@@ -222,7 +222,7 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
             </div>
             <div className="mt-4 border-t border-navy-700 pt-3">
               <div className="flex justify-between">
-                <span className="font-medium text-slate-100">결제 금액</span>
+                <span className="font-medium text-slate-800">결제 금액</span>
                 <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(totalAmount)}</span>
               </div>
             </div>

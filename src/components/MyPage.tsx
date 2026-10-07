@@ -66,11 +66,11 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
       {/* Profile header */}
       <div className="card-surface p-6">
         <div className="flex items-center gap-4">
-          <div className={`grid h-16 w-16 place-items-center rounded-full text-xl font-bold text-navy-950 ${profile.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
+          <div className={`grid h-16 w-16 place-items-center rounded-full text-xl font-bold text-white ${profile.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
             {profile.full_name.slice(0, 1)}
           </div>
           <div className="flex-1">
-            <h1 className="font-gothic text-xl font-bold text-slate-100">{profile.full_name}</h1>
+            <h1 className="font-gothic text-xl font-bold text-slate-800">{profile.full_name}</h1>
             <div className="mt-1 flex items-center gap-4 text-sm text-slate-400">
               <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {profile.email}</span>
               <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {formatDate(profile.created_at)} 가입</span>
@@ -86,7 +86,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
       </div>
 
       {/* Tab nav */}
-      <div className="flex gap-1 rounded-lg bg-navy-950/60 p-1">
+      <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
         {([
           ['overview', '개요'],
           ['orders', '주문 내역'],
@@ -96,7 +96,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
             key={k}
             onClick={() => setTab(k)}
             className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-              tab === k ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
+              tab === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
             {label}
@@ -109,7 +109,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Subscription status */}
           <div className="card-surface p-5">
-            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
               <Crown className="h-4 w-4 text-gold" /> 구독 상태
             </div>
             {isActive ? (
@@ -120,11 +120,11 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-400">회원 등급</span>
-                    <span className="text-slate-100">{currentPlan?.name ?? '—'}</span>
+                    <span className="text-slate-800">{currentPlan?.name ?? '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">월 구독료</span>
-                    <span className="text-slate-100">{formatKRW(currentPlan?.monthly_price ?? 0)}</span>
+                    <span className="text-slate-800">{formatKRW(currentPlan?.monthly_price ?? 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">할인율</span>
@@ -132,12 +132,12 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">만료일</span>
-                    <span className="text-slate-100">{formatDate(profile.subscription_expires_at ?? '')}</span>
+                    <span className="text-slate-800">{formatDate(profile.subscription_expires_at ?? '')}</span>
                   </div>
                   {remainingDays !== null && (
                     <div className="flex justify-between">
                       <span className="text-slate-400">남은 일수</span>
-                      <span className={remainingDays > 7 ? 'text-slate-100' : 'text-gold'}>
+                      <span className={remainingDays > 7 ? 'text-slate-800' : 'text-gold'}>
                         {remainingDays > 0 ? `${remainingDays}일` : '만료됨'}
                       </span>
                     </div>
@@ -158,7 +158,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
 
           {/* Quick stats */}
           <div className="card-surface p-5">
-            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
               <Package className="h-4 w-4 text-cyan" /> 주문 현황
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -167,8 +167,8 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                 ['배송 중', orders.filter((o) => o.status === 'shipped').length],
                 ['완료', orders.filter((o) => o.status === 'delivered').length],
               ].map(([label, count]) => (
-                <div key={label as string} className="rounded-lg border border-navy-700 bg-navy-950/40 p-3 text-center">
-                  <div className="font-gothic text-xl font-bold text-slate-100">{count}</div>
+                <div key={label as string} className="rounded-lg border border-navy-700 bg-slate-50 p-3 text-center">
+                  <div className="font-gothic text-xl font-bold text-slate-800">{count}</div>
                   <div className="text-xs text-slate-500">{label}</div>
                 </div>
               ))}
@@ -201,7 +201,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                 <div key={order.id} className="card-surface p-5">
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-sm font-medium text-slate-100">
+                      <div className="text-sm font-medium text-slate-800">
                         주문 #{order.id.slice(0, 8)}
                       </div>
                       <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.created_at)}</div>
@@ -234,7 +234,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
       {tab === 'addresses' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-gothic text-lg font-semibold text-slate-100">배송지 관리</h2>
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">배송지 관리</h2>
             <button onClick={() => setShowAddrForm(!showAddrForm)} className="btn-primary px-4 py-2 text-sm">
               <Plus className="h-4 w-4" /> 배송지 추가
             </button>
@@ -318,7 +318,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-100">{addr.label}</span>
+                        <span className="text-sm font-medium text-slate-800">{addr.label}</span>
                         {addr.is_default && (
                           <span className="rounded-full bg-cyan/20 px-2 py-0.5 text-xs text-cyan">기본</span>
                         )}

@@ -49,7 +49,7 @@ export default function BoardDetail({ post, onBack, onEnter, isAuthenticated }: 
               <Eye className="h-3 w-3" /> 공개
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-navy-900/60 px-2.5 py-1 text-xs text-slate-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-slate-100 px-2.5 py-1 text-xs text-slate-400">
               <Lock className="h-3 w-3" /> 회원전용
             </span>
           )}
@@ -59,13 +59,13 @@ export default function BoardDetail({ post, onBack, onEnter, isAuthenticated }: 
             </span>
           )}
           {post.category && (
-            <span className="rounded-full bg-navy-900/60 px-2.5 py-1 text-xs text-slate-500">{post.category}</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500">{post.category}</span>
           )}
           <span className="ml-auto text-xs text-slate-500">{formatDateTime(post.created_at)}</span>
         </div>
 
         {/* Title */}
-        <h1 className="mt-4 font-gothic text-3xl font-bold leading-tight text-slate-100">{post.title}</h1>
+        <h1 className="mt-4 font-gothic text-3xl font-bold leading-tight text-slate-800">{post.title}</h1>
 
         {/* Content */}
         {isLocked ? (
@@ -80,7 +80,7 @@ export default function BoardDetail({ post, onBack, onEnter, isAuthenticated }: 
             )}
           </div>
         ) : (
-          <div className="mt-6 whitespace-pre-line text-base leading-relaxed text-slate-300">
+          <div className="mt-6 whitespace-pre-line text-base leading-relaxed text-slate-600">
             {post.content}
           </div>
         )}

@@ -16,7 +16,6 @@ import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import MyPage from './components/MyPage';
 import AdminDashboard from './components/AdminDashboard';
-import SubscriptionGate from './components/SubscriptionGate';
 import ErrorBoundary from './components/ErrorBoundary';
 
 type Route =
@@ -31,14 +30,14 @@ type Route =
   | { name: 'admin' };
 
 function Shell() {
-  const { profile, loading, signOut, hasActiveSubscription } = useAuth();
+  const { profile, loading, signOut } = useAuth();
   const [route, setRoute] = useState<Route>({ name: 'landing' });
   const [showAuth, setShowAuth] = useState(false);
 
   const authReady = !loading && !!profile;
   const isAdmin = profile?.role === 'admin';
 
-  const productsHook = useProducts(authReady && hasActiveSubscription);
+  const productsHook = useProducts(authReady);
   const categoriesHook = useCategories(authReady);
   const ordersHook = useOrders(authReady);
   const profilesHook = useProfiles(authReady && isAdmin);
@@ -125,12 +124,7 @@ function Shell() {
     );
   }
 
-  // Logged in but no active subscription (and not admin) — show subscription gate
-  if (!hasActiveSubscription && !isAdmin) {
-    return <SubscriptionGate profile={profile} plans={plansHook.items} onSignOut={async () => { await signOut(); }} />;
-  }
-
-  // Logged in with subscription (or admin)
+  // Logged in — enter directly (payment integration will be added later)
   return (
     <ErrorBoundary>
       <ShellContent
@@ -184,14 +178,14 @@ function ShellContent({
 
   return (
     <div className="min-h-screen bg-navy-950">
-      <header className="sticky top-0 z-40 border-b border-navy-700 bg-navy-950/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-navy-700 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
           <button
             onClick={() => navigate(isAdmin ? { name: 'admin' } : { name: 'shop' })}
             className="text-left transition hover:text-cyan"
           >
             <div className="text-[9px] font-medium uppercase tracking-[0.3em] text-slate-500">HYPERSHIELD</div>
-            <div className="font-gothic text-base font-bold tracking-tight text-slate-100">노애드 세차클럽</div>
+            <div className="font-gothic text-base font-bold tracking-tight text-slate-800">노애드 세차클럽</div>
           </button>
 
           <div className="flex items-center gap-3">
@@ -199,14 +193,14 @@ function ShellContent({
               <>
                 <button
                   onClick={() => navigate({ name: 'board' })}
-                  className="hidden items-center gap-1.5 px-3 py-2 text-sm text-slate-400 hover:text-slate-200 md:flex"
+                  className="hidden items-center gap-1.5 px-3 py-2 text-sm text-slate-400 hover:text-slate-700 md:flex"
                 >
                   <Megaphone className="h-4 w-4" /> 하이퍼쉴드의 생각
                 </button>
                 <button
                   onClick={() => navigate({ name: 'shop' })}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    route.name === 'shop' || route.name === 'product' ? 'text-cyan' : 'text-slate-400 hover:text-slate-200'
+                    route.name === 'shop' || route.name === 'product' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
                   <Home className="h-4 w-4" /> 쇼핑몰
@@ -214,12 +208,12 @@ function ShellContent({
                 <button
                   onClick={() => navigate({ name: 'cart' })}
                   className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    route.name === 'cart' || route.name === 'checkout' ? 'text-cyan' : 'text-slate-400 hover:text-slate-200'
+                    route.name === 'cart' || route.name === 'checkout' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
                   <ShoppingCart className="h-4 w-4" />
                   {cartCount > 0 && (
-                    <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-cyan px-1 text-[10px] font-bold text-navy-950">
+                    <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-cyan px-1 text-[10px] font-bold text-white">
                       {cartCount}
                     </span>
                   )}
@@ -227,7 +221,7 @@ function ShellContent({
                 <button
                   onClick={() => navigate({ name: 'mypage' })}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                    route.name === 'mypage' ? 'text-cyan' : 'text-slate-400 hover:text-slate-200'
+                    route.name === 'mypage' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
                   }`}
                 >
                   <User className="h-4 w-4" /> 마이
@@ -239,7 +233,7 @@ function ShellContent({
                 <Shield className="h-3.5 w-3.5" /> ADMIN
               </span>
             )}
-            <div className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold text-navy-950 ${isAdmin ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
+            <div className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold text-white ${isAdmin ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
               {profile.full_name.slice(0, 1)}
             </div>
             <button onClick={async () => { await signOut(); }} className="btn-ghost px-3 py-2" title="로그아웃">

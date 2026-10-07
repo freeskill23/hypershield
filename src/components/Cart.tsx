@@ -46,7 +46,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
         <ArrowLeft className="h-4 w-4" /> 쇼핑몰
       </button>
 
-      <h1 className="font-gothic text-2xl font-bold text-slate-100">장바구니</h1>
+      <h1 className="font-gothic text-2xl font-bold text-slate-800">장바구니</h1>
 
       {cartItems.length === 0 ? (
         <div className="card-surface grid place-items-center py-20 text-center">
@@ -77,7 +77,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                       )}
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-slate-100">{product.name}</h3>
+                      <h3 className="text-sm font-medium text-slate-800">{product.name}</h3>
                       <div className="mt-1 flex items-baseline gap-2">
                         <span className="font-gothic text-base font-bold text-cyan">
                           {formatKRW(product.club_price)}
@@ -97,7 +97,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                           >
                             <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="w-8 text-center text-sm font-medium text-slate-100">{item.quantity}</span>
+                          <span className="w-8 text-center text-sm font-medium text-slate-800">{item.quantity}</span>
                           <button
                             onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
                             disabled={busy}
@@ -116,7 +116,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-gothic text-base font-bold text-slate-100">
+                      <div className="font-gothic text-base font-bold text-slate-800">
                         {formatKRW(product.club_price * item.quantity)}
                       </div>
                     </div>
@@ -129,7 +129,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
           {/* Summary */}
           <div className="space-y-4">
             <div className="card-surface p-5">
-              <h3 className="font-gothic text-base font-semibold text-slate-100">결제 요약</h3>
+              <h3 className="font-gothic text-base font-semibold text-slate-800">결제 요약</h3>
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between text-slate-400">
                   <span>정상가 합계</span>
@@ -141,7 +141,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                 </div>
                 <div className="border-t border-navy-700 pt-2">
                   <div className="flex justify-between">
-                    <span className="font-medium text-slate-100">결제 금액</span>
+                    <span className="font-medium text-slate-800">결제 금액</span>
                     <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(totalAmount)}</span>
                   </div>
                 </div>
@@ -157,7 +157,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                   <Check className="h-5 w-5 text-cyan" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-slate-100">
+                  <div className="text-sm font-medium text-slate-800">
                     {formatKRW(totalSavings)} 절약
                   </div>
                   <div className="text-xs text-slate-500">회원가로 절약한 금액</div>

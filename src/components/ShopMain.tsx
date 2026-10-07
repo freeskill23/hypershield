@@ -43,7 +43,7 @@ export default function ShopMain({
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan/30 bg-cyan/5 px-3 py-1 text-xs font-medium text-cyan">
             <TrendingDown className="h-3.5 w-3.5" /> 노애드 멤버십
           </div>
-          <h1 className="font-gothic text-2xl font-bold text-slate-100">쇼핑몰</h1>
+          <h1 className="font-gothic text-2xl font-bold text-slate-800">쇼핑몰</h1>
           <p className="mt-2 text-sm text-slate-400">
             회원 전용 가격으로 구매하세요. 광고비를 지불하지 않은 만큼 더 낮은 가격에.
           </p>
@@ -66,8 +66,8 @@ export default function ShopMain({
             onClick={() => onSelectCategory(null)}
             className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
               !selectedCategoryId
-                ? 'border-cyan bg-cyan text-navy-950'
-                : 'border-navy-700 text-slate-400 hover:text-slate-200'
+                ? 'border-cyan bg-cyan text-white'
+                : 'border-navy-700 text-slate-400 hover:text-slate-700'
             }`}
           >
             전체
@@ -78,8 +78,8 @@ export default function ShopMain({
               onClick={() => onSelectCategory(cat.id)}
               className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                 selectedCategoryId === cat.id
-                  ? 'border-cyan bg-cyan text-navy-950'
-                  : 'border-navy-700 text-slate-400 hover:text-slate-200'
+                  ? 'border-cyan bg-cyan text-white'
+                  : 'border-navy-700 text-slate-400 hover:text-slate-700'
               }`}
             >
               {cat.name}
@@ -123,7 +123,7 @@ export default function ShopMain({
                   )}
                 </div>
                 <div className="p-3">
-                  <h3 className="line-clamp-2 text-sm font-medium text-slate-100 transition group-hover:text-cyan">
+                  <h3 className="line-clamp-2 text-sm font-medium text-slate-800 transition group-hover:text-cyan">
                     {product.name}
                   </h3>
                   <div className="mt-2 flex items-baseline gap-1.5">

@@ -34,7 +34,7 @@ export default function BoardList({ posts, onSelectPost, onBack, isAuthenticated
           <button onClick={onBack} className="btn-ghost px-3 py-2 text-sm">
             <ArrowLeft className="h-4 w-4" /> 홈
           </button>
-          <div className="font-gothic text-lg font-bold text-slate-100">하이퍼쉴드의 생각</div>
+          <div className="font-gothic text-lg font-bold text-slate-800">하이퍼쉴드의 생각</div>
           <div className="w-20" />
         </div>
       </header>
@@ -99,16 +99,16 @@ function PostCard({ post, onClick }: { post: Post; onClick: () => void }) {
             <Eye className="h-3 w-3" /> 공개
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-navy-900/60 px-2.5 py-1 text-xs text-slate-400">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-navy-700 bg-slate-100 px-2.5 py-1 text-xs text-slate-400">
             <Lock className="h-3 w-3" /> 회원전용
           </span>
         )}
         {post.category && (
-          <span className="rounded-full bg-navy-900/60 px-2.5 py-1 text-xs text-slate-500">{post.category}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500">{post.category}</span>
         )}
         <span className="ml-auto text-xs text-slate-500">{formatDate(post.created_at)}</span>
       </div>
-      <h3 className="mt-3 font-gothic text-lg font-semibold text-slate-100 transition group-hover:text-cyan">
+      <h3 className="mt-3 font-gothic text-lg font-semibold text-slate-800 transition group-hover:text-cyan">
         {post.title}
       </h3>
       {post.excerpt && (

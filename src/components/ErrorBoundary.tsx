@@ -29,7 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <p className="mt-2 text-sm text-slate-400">
               페이지를 표시하는 중 오류가 발생했습니다.
             </p>
-            <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-navy-950 p-3 text-xs text-slate-300">
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-navy-950 p-3 text-xs text-slate-600">
               {this.state.error?.message}
               {'\n'}
               {this.state.error?.stack}
