@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { mockBackend, ensureMockSeed } from './mockBackend';
-import { Profile } from './types';
+import { Profile, SubscriptionStatus } from './types';
 
 interface AuthState {
   profile: Profile | null;
@@ -14,6 +13,7 @@ interface AuthContextValue extends AuthState {
   signIn: (input: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
+  hasActiveSubscription: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -37,8 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) {
-      const s = mockBackend.getSession();
-      setState({ profile: s?.profile ?? null, loading: false, error: null });
+      setState({ profile: null, loading: false, error: null });
       return;
     }
     const { data } = await supabase.auth.getSession();
@@ -52,9 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
-      ensureMockSeed();
-      const s = mockBackend.getSession();
-      setState({ profile: s?.profile ?? null, loading: false, error: null });
+      setState({ profile: null, loading: false, error: null });
       return;
     }
     let mounted = true;
@@ -99,28 +96,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (input: { email: string; password: string; full_name: string }) => {
       setState((s) => ({ ...s, error: null }));
       try {
-        if (!isSupabaseConfigured || !supabase) {
-          const { profile } = await mockBackend.signUp(input);
-          setState({ profile, loading: false, error: null });
-          return;
-        }
+        if (!isSupabaseConfigured || !supabase) throw new Error('Supabase가 설정되지 않았습니다.');
         const { data, error } = await supabase.auth.signUp({
           email: input.email,
           password: input.password,
-          options: {
-            data: { full_name: input.full_name },
-          },
+          options: { data: { full_name: input.full_name } },
         });
         if (error) throw error;
         if (!data.user) throw new Error('가입에 실패했습니다.');
-
         if (!data.session) {
           setState({ profile: null, loading: false, error: null });
-          throw new Error(
-            '가입이 완료되었습니다. 이메일함(스팸함 포함)에서 인증 메일을 확인한 후 로그인해 주세요.',
-          );
+          throw new Error('가입이 완료되었습니다. 이메일함에서 인증 메일을 확인한 후 로그인해 주세요.');
         }
-
         const profile = await loadProfile(data.user.id);
         setState({ profile, loading: false, error: null });
       } catch (e: any) {
@@ -135,11 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (input: { email: string; password: string }) => {
       setState((s) => ({ ...s, error: null }));
       try {
-        if (!isSupabaseConfigured || !supabase) {
-          const { profile } = await mockBackend.signIn(input);
-          setState({ profile, loading: false, error: null });
-          return;
-        }
+        if (!isSupabaseConfigured || !supabase) throw new Error('Supabase가 설정되지 않았습니다.');
         const { data, error } = await supabase.auth.signInWithPassword(input);
         if (error) throw error;
         const profile = await loadProfile(data.user.id);
@@ -154,7 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) {
-      await mockBackend.signOut();
       setState({ profile: null, loading: false, error: null });
       return;
     }
@@ -167,8 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const hasActiveSubscription = state.profile?.subscription_status === 'active';
+
   return (
-    <AuthContext.Provider value={{ ...state, signUp, signIn, signOut, refresh }}>
+    <AuthContext.Provider
+      value={{ ...state, signUp, signIn, signOut, refresh, hasActiveSubscription }}
+    >
       {children}
     </AuthContext.Provider>
   );

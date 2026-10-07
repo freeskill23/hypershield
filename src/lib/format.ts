@@ -2,6 +2,11 @@ export function formatKRW(n: number): string {
   return new Intl.NumberFormat('ko-KR').format(n) + '원';
 }
 
+export function formatKRWShort(n: number): string {
+  if (n >= 10000) return new Intl.NumberFormat('ko-KR').format(n) + '원';
+  return new Intl.NumberFormat('ko-KR').format(n) + '원';
+}
+
 export function formatDate(iso: string): string {
   const d = new Date(iso);
   return new Intl.DateTimeFormat('ko-KR', {
@@ -22,15 +27,25 @@ export function formatDateTime(iso: string): string {
   }).format(d);
 }
 
-export function getTimeRemaining(deadline: string): string | null {
-  const now = Date.now();
-  const end = new Date(deadline).getTime();
-  const diff = end - now;
-  if (diff <= 0) return null;
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  if (days > 0) return `${days}일 ${hours}시간`;
-  if (hours > 0) return `${hours}시간 ${mins}분`;
-  return `${mins}분`;
+export function formatDateShort(iso: string): string {
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+  }).format(d);
+}
+
+export function calcDiscountRate(original: number, club: number): number {
+  if (original <= 0) return 0;
+  return Math.round((1 - club / original) * 100);
+}
+
+export function calcDiscountedPrice(original: number, discountRate: number): number {
+  return Math.round(original * (1 - discountRate / 100));
+}
+
+export function getRemainingDays(iso: string | null): number | null {
+  if (!iso) return null;
+  const diff = new Date(iso).getTime() - Date.now();
+  return Math.ceil(diff / 86400000);
 }

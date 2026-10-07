@@ -1,132 +1,65 @@
 import { useState } from 'react';
 import {
-  User, Mail, Calendar, Package, CheckCircle2, Clock, XCircle,
-  MapPin, Banknote, Truck, Phone,
+  User as UserIcon, Mail, Calendar, Package, MapPin, Plus, Trash2,
+  CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
 } from 'lucide-react';
-import { Profile, GroupBuy, Participant, ParticipantStatus } from '../lib/types';
-import { formatKRW, formatDate, formatDateTime } from '../lib/format';
-import { submitAddress } from '../lib/data';
+import { Profile, Order, Address, SubscriptionPlan } from '../lib/types';
+import { formatKRW, formatDate, formatDateTime, getRemainingDays } from '../lib/format';
+import { addAddress, deleteAddress } from '../lib/data';
 
 interface Props {
   profile: Profile;
-  myParticipations: Participant[];
-  groupBuys: GroupBuy[];
+  orders: Order[];
+  addresses: Address[];
+  plans: SubscriptionPlan[];
   onRefresh: () => void;
 }
 
-function StatusChip({ status }: { status: ParticipantStatus }) {
-  const config: Record<ParticipantStatus, { label: string; className: string; icon: any }> = {
-    joined: { label: '참여 중', className: 'border-cyan/40 text-cyan', icon: Clock },
-    deposited: { label: '입금 확인', className: 'border-green-500/40 text-green-400', icon: CheckCircle2 },
-    address_submitted: { label: '배송지 제출', className: 'border-cyan/40 text-cyan', icon: MapPin },
-    shipped: { label: '배송 완료', className: 'border-green-500/40 text-green-400', icon: Truck },
-    cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
-  };
-  const c = config[status];
-  const Icon = c.icon;
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${c.className}`}>
-      <Icon className="h-3 w-3" />
-      {c.label}
-    </span>
-  );
-}
+type Tab = 'overview' | 'orders' | 'addresses';
 
-function AddressEditor({
-  participation,
-  onSave,
-}: {
-  participation: Participant;
-  onSave: (id: string, data: { recipient_name: string; recipient_phone: string; address: string; address_detail: string }) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
+const orderStatusConfig: Record<string, { label: string; className: string; icon: any }> = {
+  pending: { label: '결제 대기', className: 'border-gold/40 text-gold-light', icon: Clock },
+  paid: { label: '결제 완료', className: 'border-cyan/40 text-cyan', icon: CheckCircle2 },
+  preparing: { label: '준비 중', className: 'border-cyan/40 text-cyan', icon: Package },
+  shipped: { label: '배송 중', className: 'border-cyan/40 text-cyan', icon: Truck },
+  delivered: { label: '배송 완료', className: 'border-green-500/40 text-green-400', icon: CheckCircle2 },
+  cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
+};
+
+export default function MyPage({ profile, orders, addresses, plans, onRefresh }: Props) {
+  const [tab, setTab] = useState<Tab>('overview');
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
-    recipient_name: participation.recipient_name ?? '',
-    recipient_phone: participation.recipient_phone ?? '',
-    address: participation.address ?? '',
-    address_detail: participation.address_detail ?? '',
+  const [addrForm, setAddrForm] = useState({
+    label: '기본 배송지',
+    recipient_name: '',
+    recipient_phone: '',
+    address: '',
+    address_detail: '',
+    is_default: false,
   });
+  const [showAddrForm, setShowAddrForm] = useState(false);
 
-  if (!editing && participation.address) {
-    return (
-      <div className="mt-2 rounded-lg border border-navy-700 bg-navy-950/40 p-3 text-sm">
-        <div className="text-slate-100">{participation.recipient_name} · {participation.recipient_phone}</div>
-        <div className="text-slate-400">{participation.address} {participation.address_detail}</div>
-        <button
-          onClick={() => setEditing(true)}
-          className="mt-2 text-xs text-slate-500 underline hover:text-slate-300"
-        >
-          수정
-        </button>
-      </div>
-    );
+  const currentPlan = plans.find((p) => p.id === profile.subscription_plan_id);
+  const remainingDays = getRemainingDays(profile.subscription_expires_at);
+  const isActive = profile.subscription_status === 'active';
+
+  async function handleAddAddress(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await addAddress(profile.id, addrForm);
+      setShowAddrForm(false);
+      setAddrForm({ label: '기본 배송지', recipient_name: '', recipient_phone: '', address: '', address_detail: '', is_default: false });
+      onRefresh();
+    } finally {
+      setBusy(false);
+    }
   }
 
-  return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        await onSave(participation.id, form);
-        setBusy(false);
-        setEditing(false);
-      }}
-      className="mt-2 space-y-2"
-    >
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          required
-          placeholder="받는 분"
-          value={form.recipient_name}
-          onChange={(e) => setForm({ ...form, recipient_name: e.target.value })}
-          className="input-field text-sm"
-        />
-        <input
-          required
-          placeholder="연락처"
-          value={form.recipient_phone}
-          onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })}
-          className="input-field text-sm"
-        />
-      </div>
-      <input
-        required
-        placeholder="주소"
-        value={form.address}
-        onChange={(e) => setForm({ ...form, address: e.target.value })}
-        className="input-field text-sm"
-      />
-      <input
-        placeholder="상세 주소"
-        value={form.address_detail}
-        onChange={(e) => setForm({ ...form, address_detail: e.target.value })}
-        className="input-field text-sm"
-      />
-      <button type="submit" disabled={busy} className="btn-primary px-4 py-2 text-xs">
-        {busy ? '저장 중...' : '배송지 저장'}
-      </button>
-    </form>
-  );
-}
-
-export default function MyPage({ profile, myParticipations, groupBuys, onRefresh }: Props) {
-  const [busy, setBusy] = useState(false);
-
-  const handleSaveAddress = async (
-    id: string,
-    data: { recipient_name: string; recipient_phone: string; address: string; address_detail: string },
-  ) => {
-    setBusy(true);
-    await submitAddress(id, data);
-    setBusy(false);
+  async function handleDeleteAddress(id: string) {
+    await deleteAddress(id);
     onRefresh();
-  };
-
-  const activeParticipations = myParticipations.filter((p) => p.status !== 'cancelled');
-  const cancelledParticipations = myParticipations.filter((p) => p.status === 'cancelled');
-
-  const getGroupBuy = (id: string) => groupBuys.find((g) => g.id === id);
+  }
 
   return (
     <div className="space-y-6">
@@ -136,125 +69,279 @@ export default function MyPage({ profile, myParticipations, groupBuys, onRefresh
           <div className={`grid h-16 w-16 place-items-center rounded-full text-xl font-bold text-navy-950 ${profile.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
             {profile.full_name.slice(0, 1)}
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="font-gothic text-xl font-bold text-slate-100">{profile.full_name}</h1>
             <div className="mt-1 flex items-center gap-4 text-sm text-slate-400">
               <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {profile.email}</span>
               <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {formatDate(profile.created_at)} 가입</span>
             </div>
           </div>
+          {isActive && currentPlan && (
+            <div className="flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5">
+              <Crown className="h-4 w-4 text-gold" />
+              <span className="text-sm font-medium text-gold-light">{currentPlan.name}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* My participations */}
-      <section>
-        <div className="mb-4 flex items-center gap-2">
-          <Package className="h-5 w-5 text-cyan" />
-          <h2 className="font-gothic text-lg font-semibold text-slate-100">내 공동구매 참여 현황</h2>
-          <span className="rounded-full bg-cyan/10 px-2 py-0.5 text-xs font-medium text-cyan">
-            {activeParticipations.length}건
-          </span>
-        </div>
+      {/* Tab nav */}
+      <div className="flex gap-1 rounded-lg bg-navy-950/60 p-1">
+        {([
+          ['overview', '개요'],
+          ['orders', '주문 내역'],
+          ['addresses', '배송지 관리'],
+        ] as [Tab, string][]).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+              tab === k ? 'bg-cyan text-navy-950 shadow-glow' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        {activeParticipations.length === 0 ? (
-          <div className="card-surface grid place-items-center py-16 text-center">
-            <Package className="mb-3 h-10 w-10 text-slate-700" />
-            <p className="text-sm text-slate-500">참여한 공동구매가 없습니다.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {activeParticipations.map((p) => {
-              const gb = getGroupBuy(p.group_buy_id);
-              if (!gb) return null;
-              const isSucceeded = gb.status === 'succeeded';
-
-              return (
-                <div key={p.id} className="card-surface p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      {gb.image_url ? (
-                        <img src={gb.image_url} alt={gb.title} className="h-16 w-16 rounded-lg object-cover" />
-                      ) : (
-                        <div className="grid h-16 w-16 place-items-center rounded-lg bg-navy-800">
-                          <Package className="h-6 w-6 text-slate-600" />
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-gothic text-base font-semibold text-slate-100">{gb.title}</h3>
-                        <div className="mt-1 text-sm text-slate-400">
-                          공동구매가 <span className="font-medium text-cyan">{formatKRW(gb.group_price)}</span>
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          참여일: {formatDateTime(p.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                    <StatusChip status={p.status} />
+      {/* Overview */}
+      {tab === 'overview' && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* Subscription status */}
+          <div className="card-surface p-5">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+              <Crown className="h-4 w-4 text-gold" /> 구독 상태
+            </div>
+            {isActive ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+                  <CheckCircle2 className="h-4 w-4" /> 구독 활성화됨
+                </div>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">회원 등급</span>
+                    <span className="text-slate-100">{currentPlan?.name ?? '—'}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">월 구독료</span>
+                    <span className="text-slate-100">{formatKRW(currentPlan?.monthly_price ?? 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">할인율</span>
+                    <span className="text-cyan">{currentPlan?.discount_rate ?? 0}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">만료일</span>
+                    <span className="text-slate-100">{formatDate(profile.subscription_expires_at ?? '')}</span>
+                  </div>
+                  {remainingDays !== null && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">남은 일수</span>
+                      <span className={remainingDays > 7 ? 'text-slate-100' : 'text-gold'}>
+                        {remainingDays > 0 ? `${remainingDays}일` : '만료됨'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                  <AlertCircle className="h-4 w-4" /> 구독 미활성화
+                </div>
+                <p className="text-sm text-slate-400">
+                  구독 결제가 완료되면 쇼핑몰을 이용할 수 있습니다.
+                </p>
+              </div>
+            )}
+          </div>
 
-                  {/* Bank info for succeeded group buys */}
-                  {isSucceeded && gb.bank_account && (
-                    <div className="mt-3 rounded-lg border border-gold/30 bg-gold/5 p-3">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <Banknote className="h-4 w-4 text-gold" />
-                        <span>입금 계좌: <strong className="text-gold-light">{gb.bank_account}</strong></span>
-                        {gb.bank_holder && <span className="text-slate-500">({gb.bank_holder})</span>}
+          {/* Quick stats */}
+          <div className="card-surface p-5">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-100">
+              <Package className="h-4 w-4 text-cyan" /> 주문 현황
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                ['총 주문', orders.length],
+                ['배송 중', orders.filter((o) => o.status === 'shipped').length],
+                ['완료', orders.filter((o) => o.status === 'delivered').length],
+              ].map(([label, count]) => (
+                <div key={label as string} className="rounded-lg border border-navy-700 bg-navy-950/40 p-3 text-center">
+                  <div className="font-gothic text-xl font-bold text-slate-100">{count}</div>
+                  <div className="text-xs text-slate-500">{label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 border-t border-navy-700 pt-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">총 결제 금액</span>
+                <span className="font-gothic text-base font-bold text-cyan">
+                  {formatKRW(orders.reduce((s, o) => s + o.total_amount, 0))}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Orders */}
+      {tab === 'orders' && (
+        <div className="space-y-3">
+          {orders.length === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <Package className="mb-3 h-10 w-10 text-slate-700" />
+              <p className="text-sm text-slate-500">주문 내역이 없습니다.</p>
+            </div>
+          ) : (
+            orders.map((order) => {
+              const cfg = orderStatusConfig[order.status] ?? orderStatusConfig.pending;
+              const Icon = cfg.icon;
+              return (
+                <div key={order.id} className="card-surface p-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-slate-100">
+                        주문 #{order.id.slice(0, 8)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.created_at)}</div>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${cfg.className}`}>
+                      <Icon className="h-3 w-3" /> {cfg.label}
+                    </span>
+                  </div>
+                  <div className="mt-3 border-t border-navy-700 pt-3 text-sm text-slate-400">
+                    <div>수령인: {order.recipient_name}</div>
+                    <div>배송지: {order.address} {order.address_detail}</div>
+                    {order.tracking_number && (
+                      <div className="mt-1 text-cyan">
+                        운송장: {order.carrier} {order.tracking_number}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex justify-between border-t border-navy-700 pt-3">
+                    <span className="text-sm text-slate-400">결제 금액</span>
+                    <span className="font-gothic text-base font-bold text-cyan">{formatKRW(order.total_amount)}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Addresses */}
+      {tab === 'addresses' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-gothic text-lg font-semibold text-slate-100">배송지 관리</h2>
+            <button onClick={() => setShowAddrForm(!showAddrForm)} className="btn-primary px-4 py-2 text-sm">
+              <Plus className="h-4 w-4" /> 배송지 추가
+            </button>
+          </div>
+
+          {showAddrForm && (
+            <form onSubmit={handleAddAddress} className="card-surface space-y-3 p-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">배송지 명칭</label>
+                  <input
+                    value={addrForm.label}
+                    onChange={(e) => setAddrForm({ ...addrForm, label: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">받는 분</label>
+                  <input
+                    required
+                    value={addrForm.recipient_name}
+                    onChange={(e) => setAddrForm({ ...addrForm, recipient_name: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">연락처</label>
+                  <input
+                    required
+                    value={addrForm.recipient_phone}
+                    onChange={(e) => setAddrForm({ ...addrForm, recipient_phone: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs text-slate-500">주소</label>
+                  <input
+                    required
+                    value={addrForm.address}
+                    onChange={(e) => setAddrForm({ ...addrForm, address: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs text-slate-500">상세 주소</label>
+                  <input
+                    value={addrForm.address_detail}
+                    onChange={(e) => setAddrForm({ ...addrForm, address_detail: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <label className="col-span-2 flex items-center gap-2 text-sm text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={addrForm.is_default}
+                    onChange={(e) => setAddrForm({ ...addrForm, is_default: e.target.checked })}
+                  />
+                  기본 배송지로 설정
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={busy} className="btn-primary px-4 py-2 text-sm">
+                  {busy ? '저장 중...' : '저장'}
+                </button>
+                <button type="button" onClick={() => setShowAddrForm(false)} className="btn-ghost px-4 py-2 text-sm">
+                  취소
+                </button>
+              </div>
+            </form>
+          )}
+
+          {addresses.length === 0 && !showAddrForm ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <MapPin className="mb-3 h-10 w-10 text-slate-700" />
+              <p className="text-sm text-slate-500">등록된 배송지가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {addresses.map((addr) => (
+                <div key={addr.id} className="card-surface p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-100">{addr.label}</span>
+                        {addr.is_default && (
+                          <span className="rounded-full bg-cyan/20 px-2 py-0.5 text-xs text-cyan">기본</span>
+                        )}
                       </div>
                       <div className="mt-1 text-sm text-slate-400">
-                        입금액: <span className="font-bold text-gold-light">{formatKRW(gb.group_price)}</span>
+                        {addr.recipient_name} · {addr.recipient_phone}
                       </div>
-                      <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
-                        <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        <span>입금자명을 '이름 + 공동구매명'으로 입금해 주세요. 관리자 확인 후 배송이 진행됩니다.</span>
+                      <div className="text-xs text-slate-500">
+                        {addr.address} {addr.address_detail}
                       </div>
                     </div>
-                  )}
-
-                  {/* Address editor for succeeded group buys */}
-                  {isSucceeded && (
-                    <div className="mt-3 border-t border-navy-700 pt-3">
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                        <MapPin className="h-4 w-4 text-cyan" /> 배송지
-                      </div>
-                      <AddressEditor participation={p} onSave={handleSaveAddress} />
-                    </div>
-                  )}
-
-                  {/* Deposit status */}
-                  {p.status === 'deposited' && (
-                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
-                      <CheckCircle2 className="h-4 w-4" /> 입금이 확인되었습니다. 배송 준비 중입니다.
-                    </div>
-                  )}
-                  {p.status === 'shipped' && (
-                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
-                      <Truck className="h-4 w-4" /> 배송이 완료되었습니다.
-                    </div>
-                  )}
+                    <button
+                      onClick={() => handleDeleteAddress(addr.id)}
+                      className="grid h-7 w-7 place-items-center rounded-lg text-slate-500 hover:text-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Cancelled */}
-      {cancelledParticipations.length > 0 && (
-        <section>
-          <h3 className="mb-3 font-gothic text-sm font-medium text-slate-500">취소한 공동구매</h3>
-          <div className="space-y-2">
-            {cancelledParticipations.map((p) => {
-              const gb = getGroupBuy(p.group_buy_id);
-              if (!gb) return null;
-              return (
-                <div key={p.id} className="card-surface flex items-center justify-between p-4 opacity-60">
-                  <span className="text-sm text-slate-400">{gb.title}</span>
-                  <StatusChip status={p.status} />
-                </div>
-              );
-            })}
-          </div>
-        </section>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
