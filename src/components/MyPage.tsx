@@ -6,6 +6,7 @@ import {
 import { Profile, Order, Address, SubscriptionPlan } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getRemainingDays } from '../lib/format';
 import { addAddress, deleteAddress } from '../lib/data';
+import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
   profile: Profile;
@@ -271,12 +272,17 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                 </div>
                 <div className="col-span-2">
                   <label className="mb-1 block text-xs text-slate-500">주소</label>
-                  <input
-                    required
-                    value={addrForm.address}
-                    onChange={(e) => setAddrForm({ ...addrForm, address: e.target.value })}
-                    className="input-field text-sm"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      required
+                      readOnly
+                      value={addrForm.address}
+                      placeholder="도로명 주소 검색 버튼을 눌러주세요"
+                      onChange={(e) => setAddrForm({ ...addrForm, address: e.target.value })}
+                      className="input-field flex-1 cursor-not-allowed bg-slate-50 text-sm"
+                    />
+                    <AddressSearchButton onSelect={(addr) => setAddrForm({ ...addrForm, address: addr })} />
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="mb-1 block text-xs text-slate-500">상세 주소</label>
