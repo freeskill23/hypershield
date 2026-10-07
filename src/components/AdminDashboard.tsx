@@ -210,10 +210,6 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
   const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급']];
 
-  const Field = ({ label, children }: any) => (
-    <div><label className="mb-1.5 block text-xs font-medium text-slate-400">{label}</label>{children}</div>
-  );
-
   return (
     <div className="space-y-6">
       {/* KPI */}
@@ -501,7 +497,18 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             <div className="card-surface overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-                  <tr><th className="px-5 py-3 font-medium">회원</th><th className="px-5 py-3 font-medium">카페 닉네임</th><th className="px-5 py-3 font-medium">구독 상태</th><th className="px-5 py-3 font-medium">등급</th><th className="px-5 py-3 font-medium">역할</th><th className="px-5 py-3 font-medium text-right">관리</th></tr>
+                  <tr>
+                    <th className="px-4 py-3 font-medium">회원</th>
+                    <th className="px-4 py-3 font-medium">카페 닉네임</th>
+                    <th className="px-4 py-3 font-medium">연락처</th>
+                    <th className="px-4 py-3 font-medium">구독 상태</th>
+                    <th className="px-4 py-3 font-medium">등급</th>
+                    <th className="px-4 py-3 font-medium">포인트</th>
+                    <th className="px-4 py-3 font-medium">추천코드</th>
+                    <th className="px-4 py-3 font-medium">가입일</th>
+                    <th className="px-4 py-3 font-medium">역할</th>
+                    <th className="px-4 py-3 font-medium text-right">관리</th>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-700">
                   {profiles.map(p => {
@@ -510,26 +517,30 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     const isActive = p.subscription_status === 'active';
                     return (
                       <tr key={p.id} className="transition hover:bg-slate-100">
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white ${p.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>{p.full_name.slice(0, 1)}</div>
                             <div><div className="font-medium text-slate-800">{p.full_name}</div><div className="text-xs text-slate-400">{p.email}</div></div>
                           </div>
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3">
                           {p.cafe_nickname ? (
                             <span className="text-sm font-medium text-gold-deep">{p.cafe_nickname}</span>
                           ) : (
                             <span className="text-xs text-slate-400">미입력</span>
                           )}
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3 text-slate-400">{p.phone ?? '—'}</td>
+                        <td className="px-4 py-3">
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${sc.cls}`}>{sc.label}</span>
                           {p.subscription_expires_at && <div className="mt-0.5 text-[10px] text-slate-600">만료: {formatDate(p.subscription_expires_at)}</div>}
                         </td>
-                        <td className="px-5 py-3 text-slate-400">{plan?.name ?? '—'}</td>
-                        <td className="px-5 py-3">{p.role === 'admin' ? <span className="chip border-gold/40 text-gold-light"><Crown className="h-3 w-3" /> ADMIN</span> : <span className="chip">MEMBER</span>}</td>
-                        <td className="px-5 py-3">
+                        <td className="px-4 py-3 text-slate-400">{plan?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-cyan">{p.points?.toLocaleString() ?? '0'}</td>
+                        <td className="px-4 py-3 text-slate-400">{p.my_referral_code ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-400">{formatDate(p.created_at)}</td>
+                        <td className="px-4 py-3">{p.role === 'admin' ? <span className="chip border-gold/40 text-gold-light"><Crown className="h-3 w-3" /> ADMIN</span> : <span className="chip">MEMBER</span>}</td>
+                        <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
                             <IconBtn onClick={() => handleToggleRole(p)} title={p.role === 'admin' ? '정회원으로 강등' : '관리자로 승격'} icon={p.role === 'admin' ? UserIcon : Crown} hover="hover:border-gold hover:text-gold" />
                             {isActive ? (
@@ -684,6 +695,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         </div>
       )}
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div><label className="mb-1.5 block text-xs font-medium text-slate-400">{label}</label>{children}</div>
   );
 }
 
