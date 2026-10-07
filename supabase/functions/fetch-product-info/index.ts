@@ -6,12 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+interface ReviewImage {
+  url: string;
+  author?: string | null;
+}
+
 interface ProductInfo {
   title: string | null;
   description: string | null;
   image_url: string | null;
   original_price: number | null;
   store_name: string | null;
+  review_images: ReviewImage[];
+  review_count: number | null;
+  review_rating: number | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -128,7 +136,6 @@ async function scrapeProductPage(originalUrl: string): Promise<ProductInfo> {
 
   let lastError = "";
 
-  // Try each (url, UA, referer) combo, with small delays
   for (const url of urls) {
     for (const ua of userAgents) {
       for (const ref of referers) {
@@ -138,7 +145,6 @@ async function scrapeProductPage(originalUrl: string): Promise<ProductInfo> {
             const html = await resp.text();
             if (html && html.length > 500) {
               const info = parseProductInfo(html, url);
-              // Only return if we got at least a title or image
               if (info.title || info.image_url) {
                 return info;
               }
@@ -230,7 +236,6 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
 
   let image_url: string | null = null;
   image_url = getMeta("og:image") || null;
-  // Try twitter:image as fallback
   if (!image_url) image_url = getMeta("twitter:image");
   if (!image_url && jsonLd?.image) {
     if (Array.isArray(jsonLd.image)) image_url = jsonLd.image[0];
@@ -260,7 +265,99 @@ function parseProductInfo(html: string, sourceUrl: string): ProductInfo {
   store_name = getMeta("og:site_name") || null;
   if (!store_name && jsonLd?.seller?.name) store_name = jsonLd.seller.name;
 
-  return { title, description, image_url, original_price, store_name };
+  // -- Extract review images --
+  const review_images: ReviewImage[] = [];
+
+  // Naver embeds review photos in data-src or src attributes within review sections
+  // Look for common Naver review image patterns
+  const reviewImgRegexes = [
+    // Review photo containers with data-src
+    /<img[^>]+(?:data-src|src)=["'](https?:\/\/[^"']+\/shopphoto[^"']*)["']/gi,
+    // Naver review image URLs
+    /<img[^>]+(?:data-src|src)=["'](https?:\/\/(?:review|image)[^"']*naver[^"']*)["']/gi,
+    // General review image patterns in JSON
+    /"reviewImage"(?:\s*:\s*)\[([^\]]+)\]/gi,
+  ];
+
+  const seenUrls = new Set<string>();
+
+  for (const regex of reviewImgRegexes) {
+    let match;
+    while ((match = regex.exec(html)) !== null && review_images.length < 20) {
+      const imgUrl = match[1] || match[0];
+      if (!seenUrls.has(imgUrl) && !imgUrl.includes("logo") && !imgUrl.includes("icon")) {
+        seenUrls.add(imgUrl);
+        review_images.push({ url: imgUrl, author: null });
+      }
+    }
+  }
+
+  // Try to extract from JSON-embedded review data (Naver uses __NEXT_DATA__ or similar)
+  const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (nextDataMatch) {
+    try {
+      const nextData = JSON.parse(nextDataMatch[1].trim());
+      // Navigate common paths where review images might be stored
+      const searchJson = (obj: any, depth: number = 0) => {
+        if (depth > 8 || review_images.length >= 20) return;
+        if (!obj || typeof obj !== "object") return;
+        for (const key of Object.keys(obj)) {
+          const val = obj[key];
+          // Look for review photo arrays
+          if ((key === "reviewPhotos" || key === "photoList" || key === "reviewImages") && Array.isArray(val)) {
+            for (const photo of val) {
+              const photoUrl = typeof photo === "string" ? photo : (photo?.url || photo?.imageUrl || photo?.photoUrl);
+              if (photoUrl && !seenUrls.has(photoUrl)) {
+                seenUrls.add(photoUrl);
+                review_images.push({
+                  url: photoUrl,
+                  author: typeof photo === "object" ? (photo?.author || photo?.writerName || null) : null,
+                });
+              }
+            }
+          }
+          if (typeof val === "object") {
+            searchJson(val, depth + 1);
+          }
+        }
+      };
+      searchJson(nextData);
+    } catch {
+      // ignore JSON parse errors
+    }
+  }
+
+  // Extract review count and rating from aggregation patterns
+  let review_count: number | null = null;
+  let review_rating: number | null = null;
+
+  // Try JSON-LD aggregateRating
+  if (jsonLd?.aggregateRating) {
+    review_count = jsonLd.aggregateRating.reviewCount ? Number(jsonLd.aggregateRating.reviewCount) : null;
+    review_rating = jsonLd.aggregateRating.ratingValue ? Number(jsonLd.aggregateRating.ratingValue) : null;
+  }
+
+  // Try meta tags
+  if (!review_count) {
+    const reviewCountMeta = getMeta("product:review:count");
+    if (reviewCountMeta) review_count = Number(reviewCountMeta);
+  }
+  if (!review_rating) {
+    const ratingMeta = getMeta("product:review:rating");
+    if (ratingMeta) review_rating = Number(ratingMeta);
+  }
+
+  // Try common text patterns for Naver
+  if (!review_count) {
+    const countMatch = html.match(/리뷰\s*(?:수)?\s*[:\s]*([0-9,]+)/);
+    if (countMatch) review_count = parseInt(countMatch[1].replace(/,/g, ""), 10);
+  }
+  if (!review_rating) {
+    const ratingMatch = html.match(/(?:평점|별점)\s*[:\s]*([0-9.]+)/);
+    if (ratingMatch) review_rating = parseFloat(ratingMatch[1]);
+  }
+
+  return { title, description, image_url, original_price, store_name, review_images, review_count, review_rating };
 }
 
 function decodeEntities(text: string): string {

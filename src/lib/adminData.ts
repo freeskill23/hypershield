@@ -193,9 +193,50 @@ export async function deactivateSubscription(userId: string) {
   await adminSupabase.from('profiles').update({ subscription_status: 'expired' }).eq('id', userId);
 }
 
+export async function batchActivateSubscription(userIds: string[], planId: string, tier: string, months: number = 1) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const now = new Date();
+  const expires = new Date(now);
+  expires.setMonth(expires.getMonth() + months);
+  const { error } = await adminSupabase.from('profiles').update({
+    subscription_plan_id: planId, subscription_tier: tier,
+    subscription_status: 'active', subscription_expires_at: expires.toISOString(),
+    subscription_started_at: now.toISOString(),
+  }).in('id', userIds);
+  if (error) console.error('batch activate subscription error', error);
+}
+
+export async function resetMemberPassword(userId: string, newPassword: string, adminId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) throw new Error('Supabase가 설정되지 않았습니다.');
+  const apiUrl = `${(adminSupabase as any).supabaseUrl}/functions/v1/admin-reset-password`;
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${(adminSupabase as any).supabaseKey}`,
+      apikey: (adminSupabase as any).supabaseKey,
+    },
+    body: JSON.stringify({ user_id: userId, new_password: newPassword, admin_id: adminId }),
+  });
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    throw new Error(errBody.error || `비밀번호 변경에 실패했습니다. (${response.status})`);
+  }
+  const data = await response.json();
+  if (data.error) throw new Error(data.error);
+}
+
+export interface ReviewImage {
+  url: string;
+  author?: string | null;
+}
+
 export interface ScrapedProductInfo {
   title: string | null; description: string | null; image_url: string | null;
   original_price: number | null; store_name: string | null;
+  review_images: ReviewImage[];
+  review_count: number | null;
+  review_rating: number | null;
 }
 
 export async function fetchProductInfo(url: string): Promise<ScrapedProductInfo> {

@@ -3,7 +3,7 @@ import {
   Plus, Package, Users, ShoppingBag, TrendingUp, Clock, CheckCircle2,
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   AlertCircle, Building2, Crown, Megaphone, Eye, Lock, Pin, Link2,
-  Loader2, Search, User as UserIcon, Flame,
+  Loader2, Search, User as UserIcon, Flame, KeyRound,
 } from 'lucide-react';
 import {
   Profile, Product, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
@@ -17,7 +17,10 @@ import {
   updateOrderStatus, setProfileRole, deleteProfile,
   activateSubscription, deactivateSubscription, fetchProductInfo,
   updateSetting, getSettingValue,
+  batchActivateSubscription, resetMemberPassword,
+  ScrapedProductInfo,
 } from '../lib/adminData';
+import ImageUpload from './ImageUpload';
 
 type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans';
 
@@ -26,8 +29,8 @@ interface Props {
   profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; refresh: () => void;
 }
 
-interface ProductForm { name: string; category_id: string; original_price: string; club_price: string; description: string; image_url: string; sub_images: string; sku: string; stock: string; is_active: boolean; sort_order: string; }
-const emptyProductForm: ProductForm = { name: '', category_id: '', original_price: '', club_price: '', description: '', image_url: '', sub_images: '', sku: '', stock: '100', is_active: true, sort_order: '0' };
+interface ProductForm { name: string; category_id: string; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; sku: string; stock: string; is_active: boolean; sort_order: string; }
+const emptyProductForm: ProductForm = { name: '', category_id: '', original_price: '', club_price: '', description: '', image_url: '', sub_images: [], sku: '', stock: '100', is_active: true, sort_order: '0' };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -77,6 +80,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [fetching, setFetching] = useState(false);
   const [fetchErr, setFetchErr] = useState<string | null>(null);
   const [fetchStore, setFetchStore] = useState<string | null>(null);
+  const [fetchReviews, setFetchReviews] = useState<ScrapedProductInfo['review_images']>([]);
 
   const [newCat, setNewCat] = useState('');
   const [editCatId, setEditCatId] = useState<string | null>(null);
@@ -93,6 +97,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [tracking, setTracking] = useState<Record<string, { carrier: string; number: string }>>({});
   const [actMemberId, setActMemberId] = useState<string | null>(null);
   const [actPlanId, setActPlanId] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchPlanId, setBatchPlanId] = useState('');
+  const [pwModalId, setPwModalId] = useState<string | null>(null);
+  const [pwValue, setPwValue] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwErr, setPwErr] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState(false);
 
   const stats = useMemo(() => ({
     totalMembers: profiles.length,
@@ -102,21 +113,22 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   }), [profiles, orders]);
 
   // ── Product ──
-  function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setProductUrl(''); setFetchErr(null); setFetchStore(null); setShowProductForm(true); }
+  function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setProductUrl(''); setFetchErr(null); setFetchStore(null); setFetchReviews([]); setShowProductForm(true); }
   function openEditProduct(p: Product) {
     setEditProduct(p);
-    setPf({ name: p.name, category_id: p.category_id ?? '', original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: (p.sub_images ?? []).join('\n'), sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
+    setPf({ name: p.name, category_id: p.category_id ?? '', original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order) });
     setShowProductForm(true);
   }
   async function handleProductSubmit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
       const cat = categories.find(c => c.id === pf.category_id);
-      const sub = pf.sub_images.trim() ? pf.sub_images.split('\n').map(s => s.trim()).filter(Boolean) : null;
+      const sub = pf.sub_images.filter(s => s.trim());
+      const subVal = sub.length > 0 ? sub : null;
       const common = {
         name: pf.name.trim(), category: cat?.name ?? '', category_id: pf.category_id || null,
         original_price: Number(pf.original_price) || 0, club_price: Number(pf.club_price) || 0,
-        image_url: pf.image_url.trim() || null, sub_images: sub, sku: pf.sku.trim() || null,
+        image_url: pf.image_url.trim() || null, sub_images: subVal, sku: pf.sku.trim() || null,
         stock: Number(pf.stock) || 0, sort_order: Number(pf.sort_order) || 0,
       };
       if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active });
@@ -135,8 +147,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         description: prev.description || info.description || '',
         image_url: prev.image_url || info.image_url || '',
         original_price: prev.original_price || (info.original_price ? String(info.original_price) : ''),
+        sub_images: info.review_images?.length ? [...prev.sub_images, ...info.review_images.map(r => r.url)] : prev.sub_images,
       }));
       setFetchStore(info.store_name ?? null);
+      setFetchReviews(info.review_images ?? []);
     } catch (e: any) { setFetchErr(e.message || '상품 정보를 가져오지 못했습니다.'); }
     finally { setFetching(false); }
   }
@@ -164,6 +178,32 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     await activateSubscription(p.id, plan.id, plan.tier, 1); setActMemberId(null); setActPlanId(''); refresh();
   }
   async function handleDeactivateSub(p: Profile) { if (confirm(`${p.full_name}의 구독을 비활성화하시겠습니까?`)) { await deactivateSubscription(p.id); refresh(); } }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+  function toggleSelectAll() {
+    setSelectedIds(prev => prev.size === profiles.length ? new Set() : new Set(profiles.map(p => p.id)));
+  }
+  async function handleBatchActivate() {
+    if (!batchPlanId || selectedIds.size === 0) return;
+    const plan = plans.find(pl => pl.id === batchPlanId); if (!plan) return;
+    setBusy(true);
+    try {
+      await batchActivateSubscription([...selectedIds], plan.id, plan.tier, 1);
+      setSelectedIds(new Set()); setBatchPlanId(''); refresh();
+    } finally { setBusy(false); }
+  }
+  async function handleResetPassword() {
+    if (!pwModalId || pwValue.length < 6) { setPwErr('비밀번호는 최소 6자 이상이어야 합니다.'); return; }
+    setPwBusy(true); setPwErr(null); setPwSuccess(false);
+    try {
+      await resetMemberPassword(pwModalId, pwValue, profile.id);
+      setPwSuccess(true);
+      setTimeout(() => { setPwModalId(null); setPwValue(''); setPwSuccess(false); }, 1500);
+    } catch (e: any) { setPwErr(e.message || '비밀번호 변경에 실패했습니다.'); }
+    finally { setPwBusy(false); }
+  }
 
   // ── Post ──
   function openCreatePost() { setEditPost(null); setPostF(emptyPostForm); setShowPostForm(true); }
@@ -363,6 +403,16 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   </div>
                   {fetchErr && <div className="mt-2 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{fetchErr}</span></div>}
                   {fetchStore && <div className="mt-2 flex items-center gap-2 text-xs text-green-400"><Building2 className="h-3.5 w-3.5" /> 스토어: {fetchStore}</div>}
+                  {fetchReviews.length > 0 && (
+                    <div className="mt-3">
+                      <div className="mb-2 text-xs font-medium text-slate-500">상품 후기 이미지 ({fetchReviews.length}장) — 서브 이미지로 추가됩니다</div>
+                      <div className="flex flex-wrap gap-2">
+                        {fetchReviews.map((r, i) => (
+                          <img key={i} src={r.url} alt="" className="h-14 w-14 rounded-lg object-cover border border-navy-700" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -375,8 +425,23 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <Field label="정상가 (원)"><input required type="number" value={pf.original_price} onChange={e => setPf({ ...pf, original_price: e.target.value })} placeholder="89000" className="input-field" /></Field>
                 <Field label="회원가 (원)"><input required type="number" value={pf.club_price} onChange={e => setPf({ ...pf, club_price: e.target.value })} placeholder="69000" className="input-field" /></Field>
                 <div className="md:col-span-2"><Field label="상품 설명"><textarea value={pf.description} onChange={e => setPf({ ...pf, description: e.target.value })} rows={3} className="input-field resize-none" /></Field></div>
-                <div className="md:col-span-2"><Field label="대표 이미지 URL"><input value={pf.image_url} onChange={e => setPf({ ...pf, image_url: e.target.value })} placeholder="https://..." className="input-field" /></Field></div>
-                <div className="md:col-span-2"><Field label="서브 이미지 URL (한 줄에 하나씩)"><textarea value={pf.sub_images} onChange={e => setPf({ ...pf, sub_images: e.target.value })} rows={3} className="input-field resize-none" /></Field></div>
+                <div className="md:col-span-2">
+                  <ImageUpload label="대표 이미지" value={pf.image_url} onChange={(url) => setPf({ ...pf, image_url: url })} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-400">서브 이미지 (최대 6장)</label>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                    {pf.sub_images.map((img, i) => (
+                      <div key={i} className="relative">
+                        <img src={img} alt="" className="h-20 w-full rounded-lg object-cover" />
+                        <button type="button" onClick={() => setPf(prev => ({ ...prev, sub_images: prev.sub_images.filter((_, idx) => idx !== i) }))} className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/60 text-white hover:bg-red-500"><XCircle className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    {pf.sub_images.length < 6 && (
+                      <ImageUpload label="" value="" onChange={(url) => { if (url) setPf(prev => ({ ...prev, sub_images: [...prev.sub_images, url] })); }} className="h-20" />
+                    )}
+                  </div>
+                </div>
                 <Field label="재고"><input type="number" value={pf.stock} onChange={e => setPf({ ...pf, stock: e.target.value })} className="input-field" /></Field>
                 <Field label="정렬 순서"><input type="number" value={pf.sort_order} onChange={e => setPf({ ...pf, sort_order: e.target.value })} className="input-field" /></Field>
                 {editProduct && (
@@ -490,7 +555,22 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* ── Members ── */}
       {tab === 'members' && (
         <div className="space-y-4">
-          <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 관리</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 관리</h2>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500">{selectedIds.size}명 선택됨</span>
+                <select value={batchPlanId} onChange={e => setBatchPlanId(e.target.value)} className="input-field h-9 px-2 py-1 text-sm">
+                  <option value="">등급 선택</option>
+                  {plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                </select>
+                <button onClick={handleBatchActivate} disabled={!batchPlanId || busy} className="btn-primary px-4 py-2 text-sm">
+                  {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> 변경 중...</> : <><Crown className="h-4 w-4" /> 일괄 등급 부여</>}
+                </button>
+                <button onClick={() => { setSelectedIds(new Set()); setBatchPlanId(''); }} className="btn-ghost px-3 py-2 text-sm">선택 해제</button>
+              </div>
+            )}
+          </div>
           {profiles.length === 0 ? (
             <div className="card-surface grid place-items-center py-16 text-center"><Users className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">가입한 회원이 없습니다.</p></div>
           ) : (
@@ -498,6 +578,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                   <tr>
+                    <th className="px-4 py-3"><input type="checkbox" checked={selectedIds.size === profiles.length && profiles.length > 0} onChange={toggleSelectAll} className="h-4 w-4 rounded border-navy-700" /></th>
                     <th className="px-4 py-3 font-medium">회원</th>
                     <th className="px-4 py-3 font-medium">카페 닉네임</th>
                     <th className="px-4 py-3 font-medium">연락처</th>
@@ -515,8 +596,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     const sc = subStatusConfig[p.subscription_status] ?? subStatusConfig.none;
                     const plan = plans.find(pl => pl.id === p.subscription_plan_id);
                     const isActive = p.subscription_status === 'active';
+                    const selected = selectedIds.has(p.id);
                     return (
-                      <tr key={p.id} className="transition hover:bg-slate-100">
+                      <tr key={p.id} className={`transition hover:bg-slate-100 ${selected ? 'bg-cyan/5' : ''}`}>
+                        <td className="px-4 py-3"><input type="checkbox" checked={selected} onChange={() => toggleSelect(p.id)} className="h-4 w-4 rounded border-navy-700" /></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white ${p.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>{p.full_name.slice(0, 1)}</div>
@@ -530,7 +613,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                             <span className="text-xs text-slate-400">미입력</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-slate-400">{p.phone ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-600">{p.phone ?? '—'}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${sc.cls}`}>{sc.label}</span>
                           {p.subscription_expires_at && <div className="mt-0.5 text-[10px] text-slate-600">만료: {formatDate(p.subscription_expires_at)}</div>}
@@ -543,6 +626,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
                             <IconBtn onClick={() => handleToggleRole(p)} title={p.role === 'admin' ? '정회원으로 강등' : '관리자로 승격'} icon={p.role === 'admin' ? UserIcon : Crown} hover="hover:border-gold hover:text-gold" />
+                            {p.id !== profile.id && <IconBtn onClick={() => { setPwModalId(p.id); setPwValue(''); setPwErr(null); setPwSuccess(false); }} title="비밀번호 변경" icon={KeyRound} hover="hover:border-cyan hover:text-cyan" />}
                             {isActive ? (
                               <button onClick={() => handleDeactivateSub(p)} className="btn-ghost h-7 px-2 py-1 text-xs hover:text-red-400">비활성화</button>
                             ) : actMemberId === p.id ? (
@@ -562,6 +646,37 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Password change modal */}
+          {pwModalId && (
+            <div className="fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setPwModalId(null)}>
+              <div className="card-surface w-full max-w-sm space-y-4 p-6" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-gothic text-base font-semibold text-slate-800">비밀번호 변경</h3>
+                  <button onClick={() => setPwModalId(null)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
+                </div>
+                <p className="text-sm text-slate-500">{profiles.find(p => p.id === pwModalId)?.full_name} 회원의 새 비밀번호를 입력하세요.</p>
+                <div>
+                  <input
+                    type="password"
+                    value={pwValue}
+                    onChange={e => { setPwValue(e.target.value); setPwErr(null); }}
+                    placeholder="새 비밀번호 (최소 6자)"
+                    className="input-field"
+                    autoFocus
+                  />
+                  {pwErr && <p className="mt-2 text-xs text-red-400">{pwErr}</p>}
+                  {pwSuccess && <p className="mt-2 flex items-center gap-1.5 text-xs text-green-500"><CheckCircle2 className="h-3.5 w-3.5" /> 비밀번호가 변경되었습니다.</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleResetPassword} disabled={pwBusy} className="btn-primary px-5 py-2.5 text-sm">
+                    {pwBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> 변경 중...</> : '비밀번호 변경'}
+                  </button>
+                  <button onClick={() => setPwModalId(null)} className="btn-ghost px-5 py-2.5 text-sm">취소</button>
+                </div>
+              </div>
             </div>
           )}
         </div>
