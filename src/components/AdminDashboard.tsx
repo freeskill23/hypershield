@@ -446,10 +446,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         <div className="space-y-4">
           {/* Categories */}
           <div className="card-surface p-4">
-            <div className="mb-3 flex items-center gap-2 font-gothic text-sm font-semibold text-slate-700"><Tag className="h-4 w-4 text-cyan" /> 카테고리 관리</div>
+            <div className="mb-3 flex items-center gap-2 font-gothic text-sm font-semibold text-slate-700"><Tag className="h-4 w-4 text-cyan" /> 카테고리 관리 <span className="text-xs font-normal text-slate-500">· 드래그하여 순서 변경</span></div>
             <div className="flex flex-wrap items-start gap-2">
               {categories.map((c, idx) => (
-                <div key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-navy-700 p-2">
+                <div key={c.id} className="flex flex-col gap-1.5 rounded-lg border border-navy-700 p-2" draggable onDragStart={e => { e.dataTransfer.setData('text/plain', String(idx)); }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const from = parseInt(e.dataTransfer.getData('text/plain'), 10); if (!isNaN(from)) handleMoveCategory(from, idx); }}>
                   {editCatId === c.id ? (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-1">
@@ -470,6 +470,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     </div>
                   ) : (
                     <div className="flex items-center gap-1">
+                      <GripVertical className="h-3.5 w-3.5 cursor-grab text-slate-400 hover:text-slate-600" />
                       <div className="flex flex-col gap-0.5">
                         <button onClick={() => handleMoveCategory(idx, idx - 1)} disabled={idx === 0} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
                         <button onClick={() => handleMoveCategory(idx, idx + 1)} disabled={idx === categories.length - 1} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
