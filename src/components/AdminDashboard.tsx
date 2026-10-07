@@ -29,8 +29,8 @@ interface Props {
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
-interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; }
-const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0', options: [], youtube_urls: [] };
+interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; use_default_shipping: boolean; shipping_fee: string; shipping_type: string; }
+const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0', options: [], youtube_urls: [], use_default_shipping: true, shipping_fee: '', shipping_type: 'default' };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -63,6 +63,19 @@ const IconBtn = ({ onClick, title, icon: Icon, hover }: any) => (
     <Icon className="h-3.5 w-3.5" />
   </button>
 );
+
+const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: string; value: string; onSave: (v: string) => void; type?: string; hint?: string }) => {
+  const [v, setV] = useState(value);
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-500">{label}</label>
+      <div className="flex gap-2">
+        <input type={type} value={v} onChange={e => setV(e.target.value)} onBlur={() => { if (v !== value) onSave(v); }} className="input-field h-9 text-sm" />
+      </div>
+      {hint && <p className="mt-1 text-[10px] text-slate-400">{hint}</p>}
+    </div>
+  );
+};
 
 export default function AdminDashboard({ profile, products, categories, orders, profiles, posts, plans, settings, refresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
@@ -115,7 +128,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setEditProduct(p);
     const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
     const opts: OptionFormRow[] = (p.options ?? []).map(o => ({ name: o.name, values: o.values.map(v => ({ label: v.label, price_addition: String(v.price_addition) })) }));
-    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [] });
+    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [], use_default_shipping: p.use_default_shipping ?? true, shipping_fee: p.shipping_fee != null ? String(p.shipping_fee) : '', shipping_type: p.shipping_type ?? 'default' });
     setShowProductForm(true);
   }
   function toggleProductCategory(catId: string) {
@@ -162,6 +175,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       })();
       const cleanYt = pf.youtube_urls.filter(u => u.trim());
       const ytVal = cleanYt.length > 0 ? cleanYt : null;
+      const shipFee = pf.use_default_shipping ? null : (Number(pf.shipping_fee) || 0);
       const common = {
         name: pf.name.trim(), category: primaryCat?.name ?? '', category_id: primaryCat?.id ?? null,
         category_ids: catIdsVal,
@@ -171,6 +185,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         detail_link: pf.detail_link.trim() || null,
         options: cleanOptions,
         youtube_urls: ytVal,
+        use_default_shipping: pf.use_default_shipping,
+        shipping_fee: shipFee,
+        shipping_type: pf.shipping_type,
       };
       if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active });
       else await createProduct({ ...common, description: pf.description.trim() || undefined });
@@ -192,6 +209,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       detail_link: p.detail_link ?? undefined,
       options: p.options ?? null,
       youtube_urls: p.youtube_urls ?? undefined,
+      use_default_shipping: p.use_default_shipping ?? true,
+      shipping_fee: p.shipping_fee ?? null,
+      shipping_type: p.shipping_type ?? 'default',
     });
     refresh();
   }
@@ -328,6 +348,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     refresh();
   }
 
+  // ── Shipping ──
+  const shipDefaultFee = getSettingValue(settings, 'shipping_default_fee') ?? '3000';
+  const shipFreeThreshold = getSettingValue(settings, 'shipping_free_threshold') ?? '50000';
+  const shipJejuFee = getSettingValue(settings, 'shipping_jeju_fee') ?? '3000';
+  const shipIslandFee = getSettingValue(settings, 'shipping_island_fee') ?? '5000';
+  const shipDefaultCarrier = getSettingValue(settings, 'shipping_default_carrier') ?? 'CJ대한통운';
+  const shipDefaultType = getSettingValue(settings, 'shipping_default_type') ?? 'prepaid';
+  async function handleSaveShipping(key: string, value: string) { await updateSetting(key, value); refresh(); }
+
   function setTabAndReset(t: Tab) {
     setTab(t);
     setShowProductForm(false); setEditProduct(null); setPf(emptyProductForm);
@@ -401,6 +430,31 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             <p className="mt-3 text-xs text-slate-500">
               모집 마감 시 랜딩 페이지에 마감 표시가 나타납니다. 다음 차수 시작 시 차수 번호가 1 증가하고 모집이 자동으로 열립니다.
             </p>
+          </div>
+
+          {/* Shipping settings */}
+          <div className="card-surface p-5">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800"><Truck className="h-4 w-4 text-cyan" /> 배송료 설정</div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <ShippingField label="기본 배송료 (원)" value={shipDefaultFee} onSave={v => handleSaveShipping('shipping_default_fee', v)} type="number" />
+              <ShippingField label="무료배송 기준금액 (원)" value={shipFreeThreshold} onSave={v => handleSaveShipping('shipping_free_threshold', v)} type="number" hint="이 금액 이상 주문 시 무료배송" />
+              <ShippingField label="제주도 추가배송료 (원)" value={shipJejuFee} onSave={v => handleSaveShipping('shipping_jeju_fee', v)} type="number" />
+              <ShippingField label="도서산간 추가배송료 (원)" value={shipIslandFee} onSave={v => handleSaveShipping('shipping_island_fee', v)} type="number" />
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">기본 배송업체</label>
+                <div className="flex gap-2">
+                  <input defaultValue={shipDefaultCarrier} onBlur={e => { if (e.target.value.trim() && e.target.value !== shipDefaultCarrier) handleSaveShipping('shipping_default_carrier', e.target.value.trim()); }} className="input-field h-9 text-sm" placeholder="CJ대한통운" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">기본 배송비 결제 방식</label>
+                <select defaultValue={shipDefaultType} onChange={e => handleSaveShipping('shipping_default_type', e.target.value)} className="input-field h-9 text-sm">
+                  <option value="prepaid">선불 (판매자 부담)</option>
+                  <option value="collect">착불 (구매자 부담)</option>
+                </select>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">상품별로 기본 배송료 설정을 따를지 개별 설정할 수 있습니다. 무료배송 기준금액은 상품 합계금액 기준입니다.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -579,6 +633,24 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     </div>
                   ))}
                   {pf.options.length === 0 && <p className="text-xs text-slate-500">옵션이 없는 상품은 기본 가격으로만 판매됩니다.</p>}
+                </div>
+
+                {/* Shipping */}
+                <div className="md:col-span-2 space-y-3 rounded-lg border border-navy-700 bg-slate-50 p-3">
+                  <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.use_default_shipping} onChange={e => setPf({ ...pf, use_default_shipping: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 기본 배송료 설정 사용</label>
+                  {!pf.use_default_shipping && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label="개별 배송료 (원)"><input type="number" value={pf.shipping_fee} onChange={e => setPf({ ...pf, shipping_fee: e.target.value })} placeholder="3000" className="input-field" /></Field>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-400">배송비 결제 방식</label>
+                        <select value={pf.shipping_type} onChange={e => setPf({ ...pf, shipping_type: e.target.value })} className="input-field">
+                          <option value="default">기본 설정 따름</option>
+                          <option value="prepaid">선불 (판매자 부담)</option>
+                          <option value="collect">착불 (구매자 부담)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* YouTube URLs */}

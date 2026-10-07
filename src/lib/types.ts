@@ -68,6 +68,9 @@ export interface Product {
   detail_link: string | null;
   options: ProductOption[] | null;
   youtube_urls: string[] | null;
+  use_default_shipping: boolean;
+  shipping_fee: number | null;
+  shipping_type: string;
   created_at: string;
 }
 

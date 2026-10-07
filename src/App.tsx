@@ -295,6 +295,7 @@ function ShellContent({
             cartItems={cartItems}
             addresses={addresses}
             userId={profile.id}
+            settings={settings}
             onBack={() => navigate({ name: 'cart' })}
             onComplete={() => {
               refreshAll();

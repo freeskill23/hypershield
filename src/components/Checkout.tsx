@@ -1,21 +1,29 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle,
+  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck,
 } from 'lucide-react';
-import { CartItemWithProduct, Address } from '../lib/types';
+import { CartItemWithProduct, Address, Setting } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
-import { createOrder } from '../lib/data';
+import { createOrder, getSettingValue } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
   cartItems: CartItemWithProduct[];
   addresses: Address[];
   userId: string;
+  settings: Setting[];
   onBack: () => void;
   onComplete: () => void;
 }
 
-export default function Checkout({ cartItems, addresses, userId, onBack, onComplete }: Props) {
+function isJeju(address: string): boolean {
+  return /제주|서귀포|제주시/i.test(address);
+}
+function isIsland(address: string): boolean {
+  return /울릉|독도|백령도|추자도|거문도|연평도|홍도|대마도|가거도|어청도|외도|초도|신도|모도|구곡도|가사도|나로도|안도|보라색도|장도|고사리도|소매물도|대매물도|하추자도|상추자도|비양도|우도|마라도|가파도|비양도|당사도|죽도|사승봉도|호도|국도|대도|소도|횡간도|단도|봉도|무월도|도담도|사선도|매화도|이월도|말도|원도|악어도|호암도|대장도|소장도|오리도|죽항도|당도|송도|화도|이도|구률도|갑선도|외양도|대야도|소야도|생연도|지도|무늬도|가덕도|거제도|진도|고군도|완도|노화도|보길도|청산도|소안도|영광|신지도|조도|완도|진도|고흥|여수|무안|신안|장흥|보성|해남|진도|완도|고군도|비금도|도화도|압해도|매화도|가사도|나로도|안도|보라색도/i.test(address);
+}
+
+export default function Checkout({ cartItems, addresses, userId, settings, onBack, onComplete }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedAddrId, setSelectedAddrId] = useState<string | null>(
@@ -33,6 +41,13 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
     0,
   );
 
+  const defaultFee = parseInt(getSettingValue(settings, 'shipping_default_fee') ?? '3000', 10);
+  const freeThreshold = parseInt(getSettingValue(settings, 'shipping_free_threshold') ?? '50000', 10);
+  const jejuFee = parseInt(getSettingValue(settings, 'shipping_jeju_fee') ?? '3000', 10);
+  const islandFee = parseInt(getSettingValue(settings, 'shipping_island_fee') ?? '5000', 10);
+  const defaultCarrier = getSettingValue(settings, 'shipping_default_carrier') ?? 'CJ대한통운';
+  const defaultShipType = getSettingValue(settings, 'shipping_default_type') ?? 'prepaid';
+
   const useExisting = selectedAddrId && addresses.find((a) => a.id === selectedAddrId);
   const shippingData = useExisting
     ? {
@@ -42,6 +57,29 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
         address_detail: (useExisting as Address).address_detail ?? '',
       }
     : form;
+
+  const shippingAddress = shippingData.address || '';
+  const isFreeShipping = totalAmount >= freeThreshold;
+
+  const shippingFee = (() => {
+    if (isFreeShipping) return 0;
+    let fee = defaultFee;
+    const products = cartItems.map(i => i.product).filter(Boolean);
+    const hasCustomShipping = products.some(p => !p!.use_default_shipping);
+    if (hasCustomShipping) {
+      fee = products.reduce((max, p) => {
+        if (!p!.use_default_shipping && p!.shipping_fee != null) {
+          return Math.max(max, p!.shipping_fee);
+        }
+        return max;
+      }, 0) || defaultFee;
+    }
+    if (isJeju(shippingAddress)) fee += jejuFee;
+    else if (isIsland(shippingAddress)) fee += islandFee;
+    return fee;
+  })();
+
+  const finalAmount = totalAmount + shippingFee;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -191,6 +229,36 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
             )}
           </div>
 
+          {/* Shipping info */}
+          <div className="card-surface p-5">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+              <Truck className="h-4 w-4 text-cyan" /> 배송 정보
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">배송업체</span>
+                <span className="text-slate-800">{defaultCarrier}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">배송비 결제 방식</span>
+                <span className="text-slate-800">{defaultShipType === 'prepaid' ? '선불 (판매자 부담)' : '착불 (구매자 부담)'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">배송료</span>
+                <span className={`font-medium ${isFreeShipping ? 'text-green-500' : 'text-slate-800'}`}>
+                  {isFreeShipping ? '무료배송' : formatKRW(shippingFee)}
+                </span>
+              </div>
+              {!isFreeShipping && (
+                <p className="text-xs text-slate-500">
+                  {formatKRW(freeThreshold)} 이상 주문 시 무료배송
+                  {isJeju(shippingAddress) && ` · 제주도 추가 ${formatKRW(jejuFee)}`}
+                  {isIsland(shippingAddress) && !isJeju(shippingAddress) && ` · 도서산간 추가 ${formatKRW(islandFee)}`}
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* Payment method placeholder */}
           <div className="card-surface p-5">
             <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
@@ -225,10 +293,20 @@ export default function Checkout({ cartItems, addresses, userId, onBack, onCompl
                 </div>
               ))}
             </div>
-            <div className="mt-4 border-t border-navy-700 pt-3">
-              <div className="flex justify-between">
+            <div className="mt-4 space-y-2 border-t border-navy-700 pt-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">상품 합계</span>
+                <span className="text-slate-800">{formatKRW(totalAmount)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">배송료</span>
+                <span className={isFreeShipping ? 'text-green-500' : 'text-slate-800'}>
+                  {isFreeShipping ? '무료배송' : formatKRW(shippingFee)}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-navy-700 pt-2">
                 <span className="font-medium text-slate-800">결제 금액</span>
-                <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(totalAmount)}</span>
+                <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(finalAmount)}</span>
               </div>
             </div>
             <button type="submit" disabled={busy} className="btn-primary mt-5 w-full">
