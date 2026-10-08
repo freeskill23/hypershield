@@ -319,15 +319,12 @@ export async function createAdminReview(input: {
   images?: string[];
 }): Promise<boolean> {
   if (!isAdminSupabaseConfigured || !adminSupabase) return false;
-  const { error } = await adminSupabase.from('product_reviews').insert({
-    product_id: input.product_id,
-    user_id: null,
-    author_email: input.author_email,
-    order_item_id: null,
-    rating: input.rating,
-    content: input.content,
-    images: input.images && input.images.length > 0 ? input.images : [],
-    is_admin_created: true,
+  const { error } = await adminSupabase.rpc('admin_create_product_review', {
+    p_product_id: input.product_id,
+    p_author_email: input.author_email,
+    p_rating: input.rating,
+    p_content: input.content,
+    p_images: input.images && input.images.length > 0 ? input.images : [],
   });
   if (error) { console.error('create admin review error', error); return false; }
   return true;

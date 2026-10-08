@@ -746,6 +746,30 @@ export async function createReview(input: {
   return true;
 }
 
+export async function createReviewWithError(input: {
+  product_id: string;
+  order_item_id: string;
+  rating: number;
+  content: string;
+  images?: string[];
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email ?? '';
+  const { error } = await supabase.from('product_reviews').insert({
+    product_id: input.product_id,
+    user_id: userData.user?.id ?? null,
+    author_email: email,
+    order_item_id: input.order_item_id,
+    rating: input.rating,
+    content: input.content,
+    images: input.images && input.images.length > 0 ? input.images : [],
+    is_admin_created: false,
+  });
+  if (error) { console.error('create review error', error); return { ok: false, error: error.message }; }
+  return { ok: true };
+}
+
 export async function deleteReview(reviewId: string) {
   if (!isSupabaseConfigured || !supabase) return;
   await supabase.from('product_reviews').delete().eq('id', reviewId);

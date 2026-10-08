@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry, Review } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
-import { addAddress, deleteAddress, requestOrderCancellation, createReview } from '../lib/data';
+import { addAddress, deleteAddress, requestOrderCancellation, createReviewWithError } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 import MyInquiry from './MyInquiry';
 import { supabase } from '../lib/supabase';
@@ -143,17 +143,17 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
     if (!reviewItem.product_id) { alert('상품 정보를 찾을 수 없습니다.'); return; }
     setReviewBusy(true);
     try {
-      const ok = await createReview({
+      const result = await createReviewWithError({
         product_id: reviewItem.product_id,
         order_item_id: reviewItem.id,
         rating: reviewRating,
         content: reviewContent.trim(),
         images: reviewImages,
       });
-      if (ok) {
+      if (result.ok) {
         setReviewItem(null); setReviewRating(5); setReviewContent(''); setReviewImages([]);
         onRefresh();
-      } else { alert('후기 작성 중 오류가 발생했습니다.'); }
+      } else { alert(`후기 작성 실패: ${result.error ?? '알 수 없는 오류'}`); }
     } finally { setReviewBusy(false); }
   }
 
