@@ -279,7 +279,7 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                       value={addrForm.address}
                       placeholder="도로명 주소 검색 버튼을 눌러주세요"
                       onChange={(e) => setAddrForm({ ...addrForm, address: e.target.value })}
-                      className="input-field flex-1 cursor-not-allowed bg-slate-50 text-sm"
+                      className="input-field min-h-12 min-w-0 flex-1 cursor-not-allowed bg-slate-50 text-sm"
                     />
                     <AddressSearchButton onSelect={(addr) => setAddrForm({ ...addrForm, address: addr })} />
                   </div>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, Edit3, X } from 'lucide-react';
 
 declare global {
@@ -51,39 +51,39 @@ interface Props {
 export default function AddressSearchButton({ onSelect, disabled }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showManual, setShowManual] = useState(false);
+  const [showPostcode, setShowPostcode] = useState(false);
   const [manualAddr, setManualAddr] = useState('');
 
   async function handleSearch() {
     try {
       await loadDaumPostcode();
-      if (!containerRef.current) return;
-      containerRef.current.innerHTML = '';
-      const postcode = new window.daum.Postcode({
-        oncomplete: (data: any) => {
-          let addr = '';
-          if (data.userSelectedType === 'R') {
-            addr = data.roadAddress;
-          } else {
-            addr = data.jibunAddress;
-          }
-          onSelect(addr);
-          if (containerRef.current) containerRef.current.innerHTML = '';
-        },
-        onclose: () => {
-          if (containerRef.current) containerRef.current.innerHTML = '';
-        },
-        width: '100%',
-        height: '100%',
-        maxSuggestHeight: 300,
-      });
-      postcode.embed({
-        q: containerRef.current,
-        autoClose: true,
-      });
+      setShowPostcode(true);
     } catch {
       setShowManual(true);
     }
   }
+
+  useEffect(() => {
+    if (!showPostcode || !containerRef.current) return;
+
+    const postcode = new window.daum.Postcode({
+      oncomplete: (data: any) => {
+        const addr = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+        onSelect(addr);
+        setShowPostcode(false);
+      },
+      onclose: () => setShowPostcode(false),
+      width: '100%',
+      height: '100%',
+      maxSuggestHeight: 300,
+    });
+
+    postcode.embed(containerRef.current, { autoClose: true });
+
+    return () => {
+      if (containerRef.current) containerRef.current.innerHTML = '';
+    };
+  }, [onSelect, showPostcode]);
 
   function handleManualSubmit() {
     const trimmed = manualAddr.trim();
@@ -146,7 +146,21 @@ export default function AddressSearchButton({ onSelect, disabled }: Props) {
         </div>
       )}
 
-      <div ref={containerRef} className="w-full" />
+      {showPostcode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="도로명 주소 검색">
+          <div className="relative h-[min(640px,calc(100vh-48px))] w-[min(560px,calc(100vw-32px))] overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setShowPostcode(false)}
+              className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate-500 shadow transition hover:text-slate-900"
+              aria-label="주소 검색 닫기"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div ref={containerRef} className="h-full w-full" />
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -219,7 +219,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
                 <div>
                   <label className="mb-1 block text-xs text-slate-500">주소</label>
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
+                    <div className="relative min-w-0 flex-1">
                       <Home className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
                       <input
                         required
@@ -227,7 +227,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
                         value={form.address}
                         onChange={(e) => setForm({ ...form, address: e.target.value })}
                         placeholder="도로명 주소 검색 버튼을 눌러주세요"
-                        className="input-field cursor-not-allowed bg-slate-50 pl-9 text-sm"
+                        className="input-field min-h-12 cursor-not-allowed bg-slate-50 pl-9 text-sm"
                       />
                     </div>
                     <AddressSearchButton onSelect={(addr) => setForm({ ...form, address: addr })} />
