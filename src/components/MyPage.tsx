@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
 } from 'lucide-react';
 import { Profile, Order, Address, SubscriptionPlan } from '../lib/types';
-import { formatKRW, formatDate, formatDateTime, getRemainingDays } from '../lib/format';
+import { formatKRW, formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
 import { addAddress, deleteAddress } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 
@@ -265,8 +265,12 @@ export default function MyPage({ profile, orders, addresses, plans, onRefresh }:
                   <label className="mb-1 block text-xs text-slate-500">연락처</label>
                   <input
                     required
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={13}
                     value={addrForm.recipient_phone}
-                    onChange={(e) => setAddrForm({ ...addrForm, recipient_phone: e.target.value })}
+                    onChange={(e) => setAddrForm({ ...addrForm, recipient_phone: formatPhoneNumber(e.target.value) })}
+                    placeholder="010-0000-0000"
                     className="input-field text-sm"
                   />
                 </div>

@@ -3,7 +3,7 @@ import {
   ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck,
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product } from '../lib/types';
-import { formatKRW, calcDiscountRate } from '../lib/format';
+import { formatKRW, calcDiscountRate, formatPhoneNumber } from '../lib/format';
 import { createOrder, getSettingValue } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 
@@ -208,8 +208,11 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
                       <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
                       <input
                         required
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={13}
                         value={form.recipient_phone}
-                        onChange={(e) => setForm({ ...form, recipient_phone: e.target.value })}
+                        onChange={(e) => setForm({ ...form, recipient_phone: formatPhoneNumber(e.target.value) })}
                         placeholder="010-0000-0000"
                         className="input-field pl-9 text-sm"
                       />
