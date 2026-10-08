@@ -16,7 +16,24 @@ function loadDaumPostcode(): Promise<void> {
   scriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = 'https://t1.daumcdn.net/map/jsapi/postcode/v2/postcode.v2.js';
-    script.onload = () => resolve();
+    script.async = true;
+    script.onload = () => {
+      if (window.daum?.Postcode) {
+        resolve();
+      } else {
+        const checkInterval = setInterval(() => {
+          if (window.daum?.Postcode) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          scriptPromise = null;
+          reject(new Error('주소 검색 스크립트를 불러오지 못했습니다.'));
+        }, 5000);
+      }
+    };
     script.onerror = () => {
       scriptPromise = null;
       reject(new Error('주소 검색 스크립트를 불러오지 못했습니다.'));

@@ -279,8 +279,10 @@ function ShellContent({
         ) : route.name === 'product' ? (
           <ProductDetail
             product={products.find((p) => p.id === route.productId) ?? null}
+            settings={settings}
             onBack={() => navigate({ name: 'shop' })}
             onGoCart={() => { onRefreshCart(); navigate({ name: 'cart' }); }}
+            onBuyNow={() => { onRefreshCart(); navigate({ name: 'checkout' }); }}
             onAddedToCart={onRefreshCart}
           />
         ) : route.name === 'cart' ? (

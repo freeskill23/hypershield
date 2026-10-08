@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube,
+  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube, Zap,
 } from 'lucide-react';
-import { Product, ProductOption } from '../lib/types';
+import { Product, ProductOption, Setting } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
-import { addToCart } from '../lib/data';
+import { addToCart, getSettingValue } from '../lib/data';
 
 function extractYouTubeId(url: string): string | null {
   const patterns = [
@@ -19,12 +19,14 @@ function extractYouTubeId(url: string): string | null {
 
 interface Props {
   product: Product | null;
+  settings?: Setting[];
   onBack: () => void;
   onGoCart: () => void;
+  onBuyNow?: () => void;
   onAddedToCart?: () => void;
 }
 
-export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart }: Props) {
+export default function ProductDetail({ product, settings, onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,6 +60,19 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
   const unitPrice = product.club_price + optionAddition;
   const totalPrice = unitPrice * qty;
 
+  // Shipping fee calculation
+  const defaultFee = parseInt(getSettingValue(settings ?? [], 'shipping_default_fee') ?? '3000', 10);
+  const freeThreshold = parseInt(getSettingValue(settings ?? [], 'shipping_free_threshold') ?? '50000', 10);
+  const productShippingFee = product.use_default_shipping
+    ? defaultFee
+    : (product.shipping_fee ?? 0);
+  const isFreeShipping = totalPrice >= freeThreshold;
+  const shippingTypeLabel = product.shipping_type === 'collect'
+    ? '착불'
+    : product.shipping_type === 'default'
+      ? (getSettingValue(settings ?? [], 'shipping_default_type') === 'collect' ? '착불' : '선불')
+      : '선불';
+
   async function handleAddToCart() {
     if (!product) return;
     if (!allOptionsSelected) return;
@@ -67,6 +82,19 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
       setAdded(true);
       onAddedToCart?.();
       setTimeout(() => setAdded(false), 2000);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleBuyNow() {
+    if (!product) return;
+    if (!allOptionsSelected) return;
+    setBusy(true);
+    try {
+      await addToCart(product.id, qty);
+      onAddedToCart?.();
+      onBuyNow?.();
     } finally {
       setBusy(false);
     }
@@ -139,24 +167,72 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
               </p>
             )}
 
-            <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
-              <Truck className="h-3.5 w-3.5" />
-              <span>재고: {product.stock}개</span>
+            {/* Shipping info */}
+            <div className="mt-4 rounded-lg border border-navy-700 bg-navy-900/50 p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Truck className="h-4 w-4 shrink-0 text-cyan" />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600">배송비</span>
+                    {isFreeShipping ? (
+                      <span className="font-bold text-green-500">무료</span>
+                    ) : (
+                      <span className="font-bold text-slate-800">{formatKRW(productShippingFee)}</span>
+                    )}
+                    <span className="text-xs text-slate-500">({shippingTypeLabel})</span>
+                  </div>
+                  {!isFreeShipping && (
+                    <p className="text-xs text-slate-500">
+                      {formatKRW(freeThreshold)} 이상 주문 시 무료 배송
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <Package className="h-3.5 w-3.5" />
+                <span>재고: {product.stock}개</span>
+              </div>
             </div>
 
             {options.length > 0 && (
               <div className="mt-4 space-y-3">
                 {options.map((opt, oi) => (
                   <div key={oi}>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-400">{opt.name}</label>
-                    <div className="flex flex-wrap gap-2">
-                      {opt.values.map((v, vi) => {
- const isSel = selectedOptions[oi] === vi; const extra = v.price_addition !== 0 ? ` (+${formatKRW(v.price_addition)})` : ''; return (
-                        <button key={vi} onClick={() => setSelectedOptions(prev => ({ ...prev, [oi]: vi }))} className={`rounded-md border px-3 py-1.5 text-sm font-medium transition ${isSel ? 'border-cyan bg-cyan/10 text-cyan' : 'border-navy-700 text-slate-500 hover:text-slate-700'}`}>
-                          {v.label}{extra}
-                        </button>
- );
-                      })}
+                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                      <span className="text-cyan">●</span>
+                      {opt.name}
+                      <span className="text-xs font-normal text-red-400">* 필수</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedOptions[oi] ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setSelectedOptions(prev => { const next = { ...prev }; delete next[oi]; return next; });
+                          } else {
+                            setSelectedOptions(prev => ({ ...prev, [oi]: parseInt(val, 10) }));
+                          }
+                        }}
+                        className={`w-full appearance-none rounded-lg border px-4 py-3 pr-10 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-cyan/30 ${
+                          selectedOptions[oi] !== undefined
+                            ? 'border-cyan bg-cyan/5 text-slate-800'
+                            : 'border-navy-600 bg-white text-slate-500 hover:border-navy-500'
+                        }`}
+                      >
+                        <option value="">{opt.name}을(를) 선택하세요</option>
+                        {opt.values.map((v, vi) => {
+                          const extra = v.price_addition !== 0 ? ` (+${formatKRW(v.price_addition)})` : '';
+                          return (
+                            <option key={vi} value={vi}>
+                              {v.label}{extra}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <svg className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
                     </div>
                   </div>
                 ))}
@@ -164,7 +240,7 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
             )}
 
             {product.detail_link && (
-              <a href={product.detail_link} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-2.5 text-sm font-medium text-cyan transition hover:bg-cyan/10">
+              <a href={product.detail_link} target="_blank" rel="noopener" className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-2.5 text-sm font-medium text-cyan transition hover:bg-cyan/10">
                 <ExternalLink className="h-4 w-4" />
                 상품 정보 자세히 보기
               </a>
@@ -200,17 +276,30 @@ export default function ProductDetail({ product, onBack, onGoCart, onAddedToCart
               {optionAddition !== 0 && (
                 <div className="mt-1 text-right text-xs text-slate-500">옵션 추가 금액: {formatKRW(optionAddition * qty)}</div>
               )}
+              <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <span>배송비</span>
+                <span className={isFreeShipping ? 'font-medium text-green-500' : ''}>
+                  {isFreeShipping ? '무료' : formatKRW(productShippingFee)}
+                </span>
+              </div>
             </div>
 
             <div className="mt-4 flex gap-2">
-              <button onClick={handleAddToCart} disabled={busy || !allOptionsSelected} className="btn-primary flex-1">
+              <button onClick={handleAddToCart} disabled={busy || !allOptionsSelected} className="btn-ghost flex-1">
                 {!allOptionsSelected ? (
                   <><Package className="h-4 w-4" /> 옵션을 선택하세요</>
                 ) : added ? (
-                  <><Check className="h-4 w-4" /> 장바구니 추가됨</>
+                  <><Check className="h-4 w-4" /> 추가됨</>
                 ) : (
-                  <><ShoppingCart className="h-4 w-4" /> 장바구니 담기</>
+                  <><ShoppingCart className="h-4 w-4" /> 장바구니</>
                 )}
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={busy || !allOptionsSelected || !onBuyNow}
+                className="btn-primary flex-1"
+              >
+                <Zap className="h-4 w-4" /> 바로 구매
               </button>
               <button onClick={onGoCart} className="btn-ghost px-4 py-2.5">
                 장바구니
