@@ -213,7 +213,7 @@ function ShellContent({
             className="text-left transition hover:text-cyan"
           >
             <div className="text-[9px] font-medium uppercase tracking-[0.3em] text-slate-500">HYPERSHIELD</div>
-            <div className="font-gothic text-base font-bold tracking-tight text-slate-800">노애드 세차클럽</div>
+            <div className="font-gothic text-base font-bold tracking-tight text-slate-800">하이퍼쉴드 멤버쉽</div>
           </button>
 
           <div className="flex items-center gap-3">
@@ -324,7 +324,7 @@ function ShellContent({
 
       <footer className="border-t border-navy-700 px-5 py-5 text-center text-xs text-slate-600 md:px-8">
         <div className="flex items-center justify-center gap-4">
-          <span>© {new Date().getFullYear()} Hypershield · 노애드 세차클럽</span>
+          <span>© {new Date().getFullYear()} Hypershield · 하이퍼쉴드 멤버쉽</span>
           <a href="#admin" className="text-slate-500 transition hover:text-slate-400">관리자</a>
         </div>
       </footer>

@@ -43,7 +43,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut }: Props) {
               {profile.full_name}님, 회원 등급을 선택해 주세요
             </h1>
             <p className="mt-3 text-sm text-slate-500">
-              노애드 세차클럽은 회원제 쇼핑몰입니다.
+              하이퍼쉴드 멤버쉽은 회원제 쇼핑몰입니다.
               <br />
               등급별 구독료를 결제하면 모든 제품을 할인가로 구매할 수 있습니다.
             </p>

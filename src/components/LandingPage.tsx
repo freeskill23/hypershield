@@ -36,7 +36,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
               HYPERSHIELD
             </div>
             <h2 className="font-gothic text-3xl font-bold text-slate-600 md:text-4xl">
-              노애드 세차클럽
+              하이퍼쉴드 멤버쉽
             </h2>
           </div>
 
@@ -48,17 +48,16 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
 
           {/* Main title */}
           <h1 className="text-center font-gothic text-3xl font-bold leading-tight text-slate-800 md:text-5xl">
-            광고비를 지불하는 대신
+            제품에 광고비와 마진을 뺐습니다.
             <br />
-            <span className="text-cyan">더 좋은 품질을 더 저렴하게</span>
+            <span className="text-cyan">멤버쉽 회원께는 기본 50% 할인 혜택</span>
           </h1>
 
           {/* Description */}
           <p className="mx-auto mt-6 max-w-2xl text-center text-base leading-relaxed text-slate-400 md:text-lg">
-            하이퍼쉴드는 너무 과도한 광고비를 온라인 마케팅에 지불하는 대신,
-            더 좋은 품질의 제품을 더 저렴한 가격으로 소비자에게 공급하려고 합니다.
+            하이퍼쉴드는 제품가격에서 불필요하게 높은 광고비를 빼고 더 저렴한 판매가로 공급하기 위해 멤버쉽몰을 운영하게 되었습니다.
             <br />
-            회원제 구독으로 기존 판매가 대비 최소 50% 이상 저렴하게 구매할 수 있는 노애드 세차클럽.
+            멤버쉽몰은 회원제 구독몰로 기존 판매가 대비 최소 50% 이상 저렴하게 구매할 수 있습니다.
           </p>
 
           {/* Early bird recruitment */}
@@ -75,7 +74,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                     선착순 {recruitmentLimit}명
                   </div>
                   <p className="mt-1 text-xs text-slate-400">
-                    지금 가입하면 노애드 세차클럽 초기 멤버가 됩니다
+                    제품 공급량 조절을 위해 구독자를 제한합니다
                   </p>
                 </div>
               </div>
@@ -118,8 +117,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             </div>
             <h3 className="font-gothic text-lg font-semibold text-slate-800">최소 50% 할인</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              광고비를 지불하지 않고, 그 비용을 제품 품질과 가격에 반영합니다.
-              회원제 구독으로 기존 판매가 대비 최소 50% 이상 저렴하게 구매할 수 있습니다.
+              제품가격에 높은 광고비를 빼고, 그 비용을 멤버쉽 혜택에 반영합니다. 회원제 구독으로 기존 판매가 대비 최소 50% 이상 저렴하게 구매할 수 있습니다.
             </p>
           </div>
 
@@ -127,10 +125,9 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             <div className="mb-4 inline-grid h-12 w-12 place-items-center rounded-xl bg-gold/10">
               <Sparkles className="h-6 w-6 text-gold" />
             </div>
-            <h3 className="font-gothic text-lg font-semibold text-slate-800">더 좋은 품질, 더 낮은 가격</h3>
+            <h3 className="font-gothic text-lg font-semibold text-slate-800">더 좋은 품질</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              광고비를 지불하는 대신, 더 좋은 원재료와 공정에 투자합니다.
-              회원이 지불하는 구독료는 제품 품질 향상과 개발에 사용됩니다.
+              과도하게 높은 광고비용을 빼고 더 좋은 품질을 만드는 연구비용으로 활용하고 더 좋은 제품을 더 저렴하게 공급하겠습니다.
             </p>
           </div>
 
@@ -162,7 +159,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                     {recruitmentBatch}차 구독자 선착순 {recruitmentLimit}명 모집
                   </div>
                   <p className="mt-1 text-sm text-slate-400">
-                    노애드 세차클럽의 첫 멤버가 되어주세요. 한정 인원으로 조기 마감될 수 있습니다.
+                    제품 공급량 조절을 위해 구독자를 제한합니다. 한정 인원으로 조기 마감될 수 있습니다.
                   </p>
                 </div>
               </div>
@@ -219,10 +216,10 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
           <div className="pointer-events-none absolute -top-16 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-cyan/10 blur-3xl" />
           <div className="relative">
             <h2 className="font-gothic text-2xl font-bold text-slate-800 md:text-3xl">
-              더 좋은 품질을 더 저렴하게
+              하이퍼쉴드 멤버쉽
             </h2>
             <p className="mt-3 text-sm text-slate-400 md:text-base">
-              광고비를 지불하는 대신, 더 좋은 제품을 더 낮은 가격에.
+              제품에 광고비와 마진을 뺐습니다. 멤버쉽 회원께는 기본 50% 할인 혜택.
             </p>
             <button onClick={onEnter} className="btn-primary mt-6 px-8 py-3 text-base">
               입장하기 <ArrowRight className="h-5 w-5" />
@@ -233,7 +230,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
 
       <footer className="border-t border-navy-700 px-6 py-6 text-center text-xs text-slate-600 md:px-8">
         <div className="flex items-center justify-center gap-4">
-          <span>© {new Date().getFullYear()} Hypershield · 노애드 세차클럽</span>
+          <span>© {new Date().getFullYear()} Hypershield · 하이퍼쉴드 멤버쉽</span>
           <a href="#admin" className="text-slate-700 transition hover:text-slate-500">관리자</a>
         </div>
       </footer>

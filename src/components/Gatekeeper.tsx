@@ -57,7 +57,7 @@ export default function Gatekeeper() {
         <header className="relative flex items-center justify-center px-6 py-6 md:px-12">
           <div className="text-center">
             <div className="font-gothic text-xs font-medium uppercase tracking-[0.3em] text-slate-400">HYPERSHIELD</div>
-            <div className="font-gothic text-lg font-bold tracking-tight text-slate-800">노애드 세차클럽</div>
+            <div className="font-gothic text-lg font-bold tracking-tight text-slate-800">하이퍼쉴드 멤버쉽</div>
           </div>
           <div className="absolute right-6 hidden items-center gap-2 text-xs text-slate-500 md:flex md:right-12">
             <Shield className="h-3.5 w-3.5 text-cyan" />
@@ -73,12 +73,10 @@ export default function Gatekeeper() {
                 온라인 광고 보이콧 선언!
               </div>
               <h1 className="font-gothic text-2xl font-bold leading-snug text-slate-800">
-                노애드 세차클럽
+                제품에 광고비와 마진을 뺐습니다
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-slate-500">
-                광고비를 지불하는 대신
-                <br className="hidden md:block" />
-                더 좋은 품질의 제품을 더 저렴하게.
+                멤버쉽 회원께는 기본 50% 할인 혜택
               </p>
 
               <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -191,7 +189,7 @@ export default function Gatekeeper() {
         </main>
 
         <footer className="px-6 pb-6 text-center text-xs text-slate-400 md:px-12">
-          © {new Date().getFullYear()} Hypershield · 노애드 세차클럽
+          © {new Date().getFullYear()} Hypershield · 하이퍼쉴드 멤버쉽
         </footer>
       </div>
     </div>
