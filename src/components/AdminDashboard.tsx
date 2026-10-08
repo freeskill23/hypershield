@@ -291,7 +291,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   }
 
   // ── Order ──
-  async function handleOrderStatus(o: Order, status: OrderStatus, extra?: Partial<Order>) { await updateOrderStatus(o.id, status, extra); refresh(); }
+  async function handleOrderStatus(o: Order, status: OrderStatus, extra?: Partial<Order>) {
+    await updateOrderStatus(o.id, status, extra);
+    setOrderSubTab(status === 'paid' ? 'paid' : status === 'shipped' ? 'shipped' : status === 'delivered' ? 'delivered' : status === 'cancelled' ? 'cancelled' : orderSubTab);
+    refresh();
+  }
   async function handleShipOrder(o: Order) {
     const ti = tracking[o.id];
     if (!ti?.number.trim() || !(ti.carrier || o.carrier)) return;
@@ -302,7 +306,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     const eligibleIds = orders.filter(o => orderSelectedIds.has(o.id) && o.status === 'pending').map(o => o.id);
     if (eligibleIds.length === 0) return;
     setBusy(true);
-    try { await batchUpdateOrderStatus(eligibleIds, status); setOrderSelectedIds(new Set()); refresh(); } finally { setBusy(false); }
+    try {
+      await batchUpdateOrderStatus(eligibleIds, status);
+      setOrderSelectedIds(new Set());
+      setOrderSubTab(status === 'paid' ? 'paid' : status === 'shipped' ? 'shipped' : status === 'delivered' ? 'delivered' : orderSubTab);
+      refresh();
+    } finally { setBusy(false); }
   }
   function downloadOrdersAsExcel() {
     const selectedOrders = orders.filter(o => orderSelectedIds.has(o.id));
