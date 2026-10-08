@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
   Gift, Plus, ArrowLeft, Clock, CheckCircle2, XCircle, Truck, Package,
-  X, AlertCircle, ExternalLink, MapPin, Phone, User, Edit2,
+  X, AlertCircle, ExternalLink, MapPin, Phone, User, Home,
 } from 'lucide-react';
 import { TrialApplication, Product } from '../lib/types';
-import { formatDate, formatDateTime, getRemainingDays } from '../lib/format';
+import { formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
 import { createTrialApplication, submitTrialReviewUrl } from '../lib/data';
+import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
   trials: TrialApplication[];
@@ -280,24 +281,58 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">성함</label>
-              <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" className="input-field text-sm" />
+              <label className="mb-1 block text-xs text-slate-500">받는 분</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+                <input
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="홍길동"
+                  className="input-field pl-9 text-sm"
+                />
+              </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">연락처</label>
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" className="input-field text-sm" />
+              <label className="mb-1 block text-xs text-slate-500">연락처</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+                <input
+                  required
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={13}
+                  value={phone}
+                  onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                  placeholder="010-0000-0000"
+                  className="input-field pl-9 text-sm"
+                />
+              </div>
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">주소</label>
-            <input required value={address} onChange={(e) => setAddress(e.target.value)} placeholder="도로명 주소" className="input-field text-sm" />
+            <label className="mb-1 block text-xs text-slate-500">주소</label>
+            <div className="flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Home className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+                <input
+                  required
+                  readOnly
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="도로명 주소 검색 버튼을 눌러주세요"
+                  className="input-field min-h-12 cursor-not-allowed bg-slate-50 pl-9 text-sm"
+                />
+              </div>
+              <AddressSearchButton onSelect={(addr) => setAddress(addr)} />
+            </div>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">상세 주소</label>
-            <input value={addressDetail} onChange={(e) => setAddressDetail(e.target.value)} placeholder="상세 주소" className="input-field text-sm" />
+            <label className="mb-1 block text-xs text-slate-500">상세 주소</label>
+            <input value={addressDetail} onChange={(e) => setAddressDetail(e.target.value)} placeholder="101동 202호" className="input-field text-sm" />
           </div>
 
           <div>
@@ -306,7 +341,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
               required
               value={reviewPlatform}
               onChange={(e) => setReviewPlatform(e.target.value)}
-              placeholder="예: 네이버 블로그, 인스타그램, YouTube 등"
+              placeholder="예: 네이버 블로그, 인스타그램, YouTube, 디테일링포럼, 퍼펙트샤인, 자동차 동호회 등"
               className="input-field text-sm"
             />
             <p className="mt-1 text-xs text-slate-400">한 달 안에 체험 후기를 작성할 플랫폼을 입력해주세요.</p>

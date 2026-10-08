@@ -335,8 +335,14 @@ function ShellContent({
         )}
       </main>
 
-      <footer className="border-t border-navy-700 px-5 py-5 text-center text-xs text-slate-600 md:px-8">
-        <div className="flex items-center justify-center gap-4">
+      <footer className="border-t border-navy-700 px-5 py-6 text-center text-xs text-slate-600 md:px-8">
+        <div className="mx-auto max-w-3xl space-y-2 leading-relaxed">
+          <p>제이피지 대표자 : 김진수</p>
+          <p>사업자등록번호 : 132-18-80228</p>
+          <p>주소 : 경기도 포천시 내촌면 금강로 2480-47</p>
+          <p>연락처 : 031-535-1799</p>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <span>© {new Date().getFullYear()} Hypershield · 하이퍼쉴드 멤버쉽</span>
           <a href="#admin" className="text-slate-500 transition hover:text-slate-400">관리자</a>
         </div>
