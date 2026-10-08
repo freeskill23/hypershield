@@ -5,7 +5,7 @@ import {
   useProducts, useCategories, useOrders, useProfiles, usePosts,
   useSubscriptionPlans, useCart, useAddresses, useSettings,
 } from './lib/data';
-import { Profile, Post, Setting, Product } from './lib/types';
+import { Profile, Post, Setting, Product, SelectedOption } from './lib/types';
 import Gatekeeper from './components/Gatekeeper';
 import LandingPage from './components/LandingPage';
 import BoardList from './components/BoardList';
@@ -57,7 +57,7 @@ function Shell() {
   const { profile, loading, signOut } = useAuth();
   const [route, setRoute] = useState<Route>(() => hashToRoute(window.location.hash));
   const [showAuth, setShowAuth] = useState(false);
-  const [buyNowItem, setBuyNowItem] = useState<{ product: Product; quantity: number } | null>(null);
+  const [buyNowItem, setBuyNowItem] = useState<{ product: Product; quantity: number; selected_options?: SelectedOption[] } | null>(null);
 
   const authReady = !loading && !!profile;
 
@@ -205,8 +205,8 @@ function ShellContent({
   addresses: any[];
   onRefreshCart: () => void;
   cartCount: number;
-  buyNowItem: { product: Product; quantity: number } | null;
-  onBuyNow: (item: { product: Product; quantity: number }) => void;
+  buyNowItem: { product: Product; quantity: number; selected_options?: SelectedOption[] } | null;
+  onBuyNow: (item: { product: Product; quantity: number; selected_options?: SelectedOption[] }) => void;
 }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 

@@ -17,11 +17,19 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
   const [busy, setBusy] = useState(false);
 
   const totalAmount = cartItems.reduce(
-    (sum, item) => sum + (item.product?.club_price ?? 0) * item.quantity,
+    (sum, item) => {
+      const base = item.product?.club_price ?? 0;
+      const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
+      return sum + (base + optionAdd) * item.quantity;
+    },
     0,
   );
   const totalOriginal = cartItems.reduce(
-    (sum, item) => sum + (item.product?.original_price ?? 0) * item.quantity,
+    (sum, item) => {
+      const base = item.product?.original_price ?? 0;
+      const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
+      return sum + (base + optionAdd) * item.quantity;
+    },
     0,
   );
   const totalSavings = totalOriginal - totalAmount;
@@ -78,9 +86,18 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                     </div>
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-slate-800">{product.name}</h3>
+                      {item.selected_options && item.selected_options.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.selected_options.map((opt, i) => (
+                            <span key={i} className="rounded-md bg-cyan/10 px-2 py-0.5 text-xs text-cyan">
+                              {opt.name}: {opt.value}{opt.price_addition ? ` (+${formatKRW(opt.price_addition)})` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-1 flex items-baseline gap-2">
                         <span className="font-gothic text-base font-bold text-cyan">
-                          {formatKRW(product.club_price)}
+                          {formatKRW((product.club_price + (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0)))}
                         </span>
                         {discount > 0 && (
                           <span className="text-xs text-slate-500 line-through">
@@ -117,7 +134,7 @@ export default function Cart({ cartItems, onBack, onCheckout, onRefresh }: Props
                     </div>
                     <div className="text-right">
                       <div className="font-gothic text-base font-bold text-slate-800">
-                        {formatKRW(product.club_price * item.quantity)}
+                        {formatKRW((product.club_price + (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0)) * item.quantity)}
                       </div>
                     </div>
                   </div>

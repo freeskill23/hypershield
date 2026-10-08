@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube, Zap,
 } from 'lucide-react';
-import { Product, ProductOption, Setting } from '../lib/types';
+import { Product, ProductOption, Setting, SelectedOption } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
 import { addToCart, getSettingValue } from '../lib/data';
 
@@ -22,7 +22,7 @@ interface Props {
   settings?: Setting[];
   onBack: () => void;
   onGoCart: () => void;
-  onBuyNow?: (item: { product: Product; quantity: number }) => void;
+  onBuyNow?: (item: { product: Product; quantity: number; selected_options?: SelectedOption[] }) => void;
   onAddedToCart?: () => void;
 }
 
@@ -78,7 +78,11 @@ export default function ProductDetail({ product, settings, onBack, onGoCart, onB
     if (!allOptionsSelected) return;
     setBusy(true);
     try {
-      await addToCart(product.id, qty);
+      const opts: SelectedOption[] = options.map((opt, oi) => {
+        const vi = selectedOptions[oi]!;
+        return { name: opt.name, value: opt.values[vi].label, price_addition: opt.values[vi].price_addition };
+      });
+      await addToCart(product.id, qty, opts.length > 0 ? opts : undefined);
       setAdded(true);
       onAddedToCart?.();
       setTimeout(() => setAdded(false), 2000);
@@ -90,7 +94,11 @@ export default function ProductDetail({ product, settings, onBack, onGoCart, onB
   function handleBuyNow() {
     if (!product) return;
     if (!allOptionsSelected) return;
-    onBuyNow?.({ product, quantity: qty });
+    const opts: SelectedOption[] = options.map((opt, oi) => {
+      const vi = selectedOptions[oi]!;
+      return { name: opt.name, value: opt.values[vi].label, price_addition: opt.values[vi].price_addition };
+    });
+    onBuyNow?.({ product, quantity: qty, selected_options: opts.length > 0 ? opts : undefined });
   }
 
   return (

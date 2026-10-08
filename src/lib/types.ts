@@ -74,11 +74,18 @@ export interface Product {
   created_at: string;
 }
 
+export interface SelectedOption {
+  name: string;
+  value: string;
+  price_addition: number;
+}
+
 export interface CartItem {
   id: string;
   user_id: string;
   product_id: string;
   quantity: number;
+  selected_options: SelectedOption[] | null;
   created_at: string;
 }
 

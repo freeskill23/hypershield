@@ -313,6 +313,33 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       refresh();
     } finally { setBusy(false); }
   }
+  async function handleBatchShipOrders() {
+    const eligibleOrders = orders.filter(o => orderSelectedIds.has(o.id) && (o.status === 'paid' || o.status === 'preparing'));
+    if (eligibleOrders.length === 0) return;
+    const missing: string[] = [];
+    for (const o of eligibleOrders) {
+      const ti = tracking[o.id];
+      const num = ti?.number.trim() || o.tracking_number?.trim() || '';
+      if (!num) missing.push(o.recipient_name ?? o.id.slice(0, 8));
+    }
+    if (missing.length > 0) {
+      alert(`운송장 번호가 입력되지 않은 주문이 있습니다:\n${missing.join('\n')}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await Promise.all(eligibleOrders.map(o => {
+        const ti = tracking[o.id];
+        const num = ti?.number.trim() || o.tracking_number!.trim();
+        const carrier = ti?.carrier || o.carrier || shipDefaultCarrier;
+        return updateOrderStatus(o.id, 'shipped', { tracking_number: num, carrier });
+      }));
+      setOrderSelectedIds(new Set());
+      setTracking(prev => { const n = { ...prev }; for (const o of eligibleOrders) delete n[o.id]; return n; });
+      setOrderSubTab('shipped');
+      refresh();
+    } finally { setBusy(false); }
+  }
   function downloadOrdersAsExcel() {
     const selectedOrders = orders.filter(o => orderSelectedIds.has(o.id));
     if (selectedOrders.length === 0) return;
@@ -794,7 +821,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             {orderSelectedIds.size > 0 && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-slate-500">{orderSelectedIds.size}건 선택</span>
-                <button onClick={() => handleBatchOrderStatus('paid')} disabled={busy} className="btn-primary px-3 py-2 text-xs">선택 결제 확인</button>
+                {orderSubTab === 'pending' && (
+                  <button onClick={() => handleBatchOrderStatus('paid')} disabled={busy} className="btn-primary px-3 py-2 text-xs">선택 결제 확인</button>
+                )}
+                {orderSubTab === 'paid' && (
+                  <button onClick={handleBatchShipOrders} disabled={busy} className="btn-primary px-3 py-2 text-xs"><Truck className="mr-1 inline h-3.5 w-3.5" /> 배송진행하기</button>
+                )}
                 <button onClick={downloadOrdersAsExcel} className="btn-ghost px-3 py-2 text-xs">엑셀 다운로드</button>
                 <button onClick={() => setOrderSelectedIds(new Set())} className="btn-ghost px-3 py-2 text-xs">선택 해제</button>
               </div>
@@ -848,8 +880,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                       </>)}
                       {(o.status === 'paid' || o.status === 'preparing') && (
                         <div className="flex flex-wrap items-center gap-2">
-                          <select value={ti?.carrier ?? o.carrier ?? CARRIERS[0]} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: e.target.value, number: ti?.number ?? o.tracking_number ?? '' } }))} className="input-field h-8 w-32 px-2 py-1 text-xs">{CARRIERS.map(c => <option key={c} value={c}>{c}</option>)}</select>
-                          <input value={ti?.number ?? o.tracking_number ?? ''} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: ti?.carrier ?? o.carrier ?? CARRIERS[0], number: e.target.value } }))} placeholder="운송장 번호" className="input-field h-8 w-40 px-2 py-1 text-xs" />
+                          <select value={ti?.carrier ?? o.carrier ?? shipDefaultCarrier} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: e.target.value, number: ti?.number ?? o.tracking_number ?? '' } }))} className="input-field h-8 w-32 px-2 py-1 text-xs">{CARRIERS.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                          <input value={ti?.number ?? o.tracking_number ?? ''} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: ti?.carrier ?? o.carrier ?? shipDefaultCarrier, number: e.target.value } }))} placeholder="운송장 번호" className="input-field h-8 w-40 px-2 py-1 text-xs" />
                           <button onClick={() => handleShipOrder(o)} className="btn-primary px-3 py-1.5 text-xs"><Truck className="h-3.5 w-3.5" /> 배송 진행</button>
                           <button onClick={() => handleOrderStatus(o, 'cancelled')} className="btn-ghost px-3 py-1.5 text-xs hover:text-red-400"><XCircle className="h-3.5 w-3.5" /> 취소</button>
                         </div>

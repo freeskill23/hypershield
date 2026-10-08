@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, Address, Post, Setting,
+  Order, Address, Post, Setting, SelectedOption,
 } from './types';
 
 // ============================================================
@@ -176,22 +176,43 @@ export function useAddresses(userId: string | undefined) {
 // Cart operations
 // ============================================================
 
-export async function addToCart(productId: string, quantity: number = 1) {
+export async function addToCart(productId: string, quantity: number = 1, selectedOptions?: SelectedOption[]) {
   if (!isSupabaseConfigured || !supabase) return;
-  const { data: existing } = await supabase
-    .from('cart_items')
-    .select('id, quantity')
-    .eq('product_id', productId)
-    .maybeSingle();
+  const optionsJson = selectedOptions && selectedOptions.length > 0 ? selectedOptions : null;
 
-  if (existing) {
-    await supabase
+  if (optionsJson) {
+    const { data: existing } = await supabase
       .from('cart_items')
-      .update({ quantity: (existing as any).quantity + quantity })
-      .eq('id', (existing as any).id);
+      .select('id, quantity')
+      .eq('product_id', productId)
+      .eq('selected_options', optionsJson)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('cart_items')
+        .update({ quantity: (existing as any).quantity + quantity })
+        .eq('id', (existing as any).id);
+      return;
+    }
   } else {
-    await supabase.from('cart_items').insert({ product_id: productId, quantity });
+    const { data: existing } = await supabase
+      .from('cart_items')
+      .select('id, quantity')
+      .eq('product_id', productId)
+      .is('selected_options', null)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('cart_items')
+        .update({ quantity: (existing as any).quantity + quantity })
+        .eq('id', (existing as any).id);
+      return;
+    }
   }
+
+  await supabase.from('cart_items').insert({ product_id: productId, quantity, selected_options: optionsJson });
 }
 
 export async function updateCartQuantity(cartItemId: string, quantity: number) {
@@ -234,7 +255,9 @@ export async function createOrder(
   if (!isSupabaseConfigured || !supabase) return null;
 
   const totalAmount = items.reduce((sum, item) => {
-    return sum + (item.product?.club_price ?? 0) * item.quantity;
+    const base = item.product?.club_price ?? 0;
+    const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
+    return sum + (base + optionAdd) * item.quantity;
   }, 0) - pointsUsed;
 
   const { data: order, error: orderError } = await supabase
@@ -260,15 +283,21 @@ export async function createOrder(
     return null;
   }
 
-  const orderItems = items.map((item) => ({
-    order_id: (order as any).id,
-    product_id: item.product_id,
-    product_name: item.product?.name ?? '알 수 없는 상품',
-    product_image: item.product?.image_url ?? null,
-    quantity: item.quantity,
-    unit_price: item.product?.club_price ?? 0,
-    original_price: item.product?.original_price ?? 0,
-  }));
+  const orderItems = items.map((item) => {
+    const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
+    const optionLabel = item.selected_options && item.selected_options.length > 0
+      ? item.selected_options.map(o => `${o.name}: ${o.value}`).join(', ')
+      : null;
+    return {
+      order_id: (order as any).id,
+      product_id: item.product_id,
+      product_name: optionLabel ? `${item.product?.name ?? '알 수 없는 상품'} (${optionLabel})` : (item.product?.name ?? '알 수 없는 상품'),
+      product_image: item.product?.image_url ?? null,
+      quantity: item.quantity,
+      unit_price: (item.product?.club_price ?? 0) + optionAdd,
+      original_price: item.product?.original_price ?? 0,
+    };
+  });
 
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
   if (itemsError) console.error('create order items error', itemsError);

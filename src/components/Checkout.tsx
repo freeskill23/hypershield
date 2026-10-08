@@ -2,14 +2,14 @@ import { useState } from 'react';
 import {
   ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck,
 } from 'lucide-react';
-import { CartItemWithProduct, Address, Setting, Product } from '../lib/types';
+import { CartItemWithProduct, Address, Setting, Product, SelectedOption } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
 import { createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
   cartItems: CartItemWithProduct[];
-  buyNowItem?: { product: Product; quantity: number } | null;
+  buyNowItem?: { product: Product; quantity: number; selected_options?: SelectedOption[] } | null;
   addresses: Address[];
   userId: string;
   settings: Setting[];
@@ -41,11 +41,15 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
 
   const isBuyNow = !!buyNowItem;
   const checkoutItems: CartItemWithProduct[] = isBuyNow && buyNowItem
-    ? [{ id: 'buynow', user_id: userId, product_id: buyNowItem.product.id, quantity: buyNowItem.quantity, created_at: '', product: buyNowItem.product }]
+    ? [{ id: 'buynow', user_id: userId, product_id: buyNowItem.product.id, quantity: buyNowItem.quantity, selected_options: buyNowItem.selected_options ?? null, created_at: '', product: buyNowItem.product }]
     : cartItems;
 
   const totalAmount = checkoutItems.reduce(
-    (sum, item) => sum + (item.product?.club_price ?? 0) * item.quantity,
+    (sum, item) => {
+      const base = item.product?.club_price ?? 0;
+      const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
+      return sum + (base + optionAdd) * item.quantity;
+    },
     0,
   );
 
@@ -326,16 +330,31 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           <div className="card-surface p-5">
             <h3 className="font-gothic text-base font-semibold text-slate-800">주문 요약</h3>
             <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
-              {checkoutItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">
-                    {item.product?.name ?? '—'} × {item.quantity}
-                  </span>
-                  <span className="text-slate-800">
-                    {formatKRW((item.product?.club_price ?? 0) * item.quantity)}
-                  </span>
+              {checkoutItems.map((item) => {
+                const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
+                const unitPrice = (item.product?.club_price ?? 0) + optionAdd;
+                return (
+                <div key={item.id} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">
+                      {item.product?.name ?? '—'} × {item.quantity}
+                    </span>
+                    <span className="text-slate-800">
+                      {formatKRW(unitPrice * item.quantity)}
+                    </span>
+                  </div>
+                  {item.selected_options && item.selected_options.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pl-1">
+                      {item.selected_options.map((opt, i) => (
+                        <span key={i} className="text-xs text-slate-500">
+                          {opt.name}: {opt.value}{opt.price_addition ? ` (+${formatKRW(opt.price_addition)})` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="mt-4 space-y-2 border-t border-navy-700 pt-3">
               <div className="flex justify-between text-sm">
