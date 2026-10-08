@@ -185,20 +185,20 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
   return (
     <div className="space-y-6">
       {/* Profile header */}
-      <div className="card-surface p-6">
-        <div className="flex items-center gap-4">
-          <div className={`grid h-16 w-16 place-items-center rounded-full text-xl font-bold text-white ${profile.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
+      <div className="card-surface p-4 sm:p-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-full text-xl font-bold text-white ${profile.role === 'admin' ? 'bg-gold-sheen' : 'bg-cyan-sheen'}`}>
             {profile.full_name.slice(0, 1)}
           </div>
-          <div className="flex-1">
-            <h1 className="font-gothic text-xl font-bold text-slate-800">{profile.full_name}</h1>
-            <div className="mt-1 flex items-center gap-4 text-sm text-slate-400">
-              <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> {profile.email}</span>
-              <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {formatDate(profile.created_at)} 가입</span>
+          <div className="min-w-0 w-full flex-1">
+            <h1 className="truncate font-gothic text-xl font-bold text-slate-800">{profile.full_name}</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400">
+              <span className="flex min-w-0 max-w-full items-center gap-1.5 break-all"><Mail className="h-3.5 w-3.5 shrink-0" /> {profile.email}</span>
+              <span className="flex items-center gap-1.5 whitespace-nowrap"><Calendar className="h-3.5 w-3.5 shrink-0" /> {formatDate(profile.created_at)} 가입</span>
             </div>
           </div>
           {isActive && currentPlan && (
-            <div className="flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5">
+            <div className="flex shrink-0 items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5">
               <Crown className="h-4 w-4 text-gold" />
               <span className="text-sm font-medium text-gold-light">{currentPlan.name}</span>
             </div>
