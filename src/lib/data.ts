@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry,
+  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review,
 } from './types';
 
 // ============================================================
@@ -710,4 +710,43 @@ export async function fetchProductInfo(url: string): Promise<ScrapedProductInfo>
   const data = await response.json();
   if (data.error) throw new Error(data.error);
   return data as ScrapedProductInfo;
+}
+
+// ============================================================
+// Reviews
+// ============================================================
+
+export function useReviews(enabled: boolean = true) {
+  return useCollection<Review>(
+    'product_reviews', { column: 'created_at', ascending: false }, enabled,
+  );
+}
+
+export async function createReview(input: {
+  product_id: string;
+  order_item_id: string;
+  rating: number;
+  content: string;
+  images?: string[];
+}): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email ?? '';
+  const { error } = await supabase.from('product_reviews').insert({
+    product_id: input.product_id,
+    user_id: userData.user?.id ?? null,
+    author_email: email,
+    order_item_id: input.order_item_id,
+    rating: input.rating,
+    content: input.content,
+    images: input.images && input.images.length > 0 ? input.images : [],
+    is_admin_created: false,
+  });
+  if (error) { console.error('create review error', error); return false; }
+  return true;
+}
+
+export async function deleteReview(reviewId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  await supabase.from('product_reviews').delete().eq('id', reviewId);
 }

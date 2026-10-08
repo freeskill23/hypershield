@@ -167,6 +167,19 @@ export interface Inquiry {
   updated_at: string;
 }
 
+export interface Review {
+  id: string;
+  product_id: string;
+  user_id: string | null;
+  author_email: string;
+  order_item_id: string | null;
+  rating: number;
+  content: string;
+  images: string[];
+  is_admin_created: boolean;
+  created_at: string;
+}
+
 export type PostVisibility = 'public' | 'members';
 
 export interface Post {

@@ -3,7 +3,7 @@ import { LogOut, User, ShoppingCart } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
   useProducts, useCategories, useOrders, useUserOrderItems, useProfiles, usePosts,
-  useSubscriptionPlans, useCart, useAddresses, useSettings, useInquiries,
+  useSubscriptionPlans, useCart, useAddresses, useSettings, useInquiries, useReviews,
 } from './lib/data';
 import { Profile, Post, Setting, Product, SelectedOption, Inquiry } from './lib/types';
 import Gatekeeper from './components/Gatekeeper';
@@ -72,6 +72,7 @@ function Shell() {
   const cartHook = useCart(profile?.id);
   const addressesHook = useAddresses(profile?.id);
   const inquiriesHook = useInquiries(profile?.id, authReady);
+  const reviewsHook = useReviews(true);
 
   const refreshAll = useCallback(() => {
     productsHook.refresh();
@@ -85,7 +86,8 @@ function Shell() {
     cartHook.refresh();
     addressesHook.refresh();
     inquiriesHook.refresh();
-  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook, inquiriesHook]);
+    reviewsHook.refresh();
+  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook, inquiriesHook, reviewsHook]);
 
   const navigate = useCallback((r: Route) => {
     setRoute(r);
@@ -180,6 +182,7 @@ function Shell() {
         cartItems={cartHook.items}
         addresses={addressesHook.items}
         inquiries={inquiriesHook.items}
+        reviews={reviewsHook.items}
         onRefreshCart={cartHook.refresh}
         cartCount={cartHook.items.length}
         buyNowItem={buyNowItem}
@@ -192,7 +195,7 @@ function Shell() {
 function ShellContent({
   profile, route, navigate, signOut, refreshAll,
   products, categories, orders, orderItems, profiles, posts, plans, settings,
-  cartItems, addresses, inquiries, onRefreshCart, cartCount,
+  cartItems, addresses, inquiries, reviews, onRefreshCart, cartCount,
   buyNowItem, onBuyNow,
 }: {
   profile: Profile;
@@ -211,6 +214,7 @@ function ShellContent({
   cartItems: any[];
   addresses: any[];
   inquiries: Inquiry[];
+  reviews: any[];
   onRefreshCart: () => void;
   cartCount: number;
   buyNowItem: { product: Product; quantity: number; selected_options?: SelectedOption[] } | null;
@@ -280,6 +284,7 @@ function ShellContent({
           <ProductDetail
             product={products.find((p) => p.id === route.productId) ?? null}
             settings={settings}
+            reviews={reviews.filter((r: any) => r.product_id === route.productId)}
             onBack={() => navigate({ name: 'shop' })}
             onGoCart={() => { onRefreshCart(); navigate({ name: 'cart' }); }}
             onBuyNow={onBuyNow}
@@ -313,6 +318,7 @@ function ShellContent({
             addresses={addresses}
             plans={plans}
             inquiries={inquiries}
+            reviews={reviews}
             onRefresh={refreshAll}
           />
         ) : (

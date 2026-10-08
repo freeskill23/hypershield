@@ -2,9 +2,30 @@ import { useState } from 'react';
 import {
   ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube, Zap,
 } from 'lucide-react';
-import { Product, ProductOption, Setting, SelectedOption } from '../lib/types';
+import { Product, ProductOption, Setting, SelectedOption, Review } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
 import { addToCart, getSettingValue } from '../lib/data';
+import { Star } from 'lucide-react';
+
+function maskEmail(email: string): string {
+  const atIdx = email.indexOf('@');
+  if (atIdx <= 4) return email;
+  return email.slice(0, 4) + '*'.repeat(Math.min(atIdx - 4, 4)) + email.slice(atIdx);
+}
+
+function ReviewStars({ rating, size = 16 }: { rating: number; size?: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          size={size}
+          className={s <= rating ? 'fill-gold text-gold' : 'text-slate-300'}
+        />
+      ))}
+    </div>
+  );
+}
 
 function extractYouTubeId(url: string): string | null {
   const patterns = [
@@ -20,13 +41,14 @@ function extractYouTubeId(url: string): string | null {
 interface Props {
   product: Product | null;
   settings?: Setting[];
+  reviews?: Review[];
   onBack: () => void;
   onGoCart: () => void;
   onBuyNow?: (item: { product: Product; quantity: number; selected_options?: SelectedOption[] }) => void;
   onAddedToCart?: () => void;
 }
 
-export default function ProductDetail({ product, settings, onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
+export default function ProductDetail({ product, settings, reviews = [], onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -337,6 +359,58 @@ export default function ProductDetail({ product, settings, onBack, onGoCart, onB
           </div>
         </div>
       )}
+
+      {/* Reviews */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-gothic text-base font-semibold text-slate-800 flex items-center gap-2">
+            <Star className="h-5 w-5 text-gold" /> 상품 후기 ({reviews.length})
+          </h2>
+          {reviews.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">평균 만족도</span>
+              <ReviewStars rating={Math.round(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)} />
+              <span className="font-gothic text-sm font-bold text-gold">
+                {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)}
+              </span>
+            </div>
+          )}
+        </div>
+        {reviews.length === 0 ? (
+          <div className="card-surface grid place-items-center py-12 text-center">
+            <Star className="mb-2 h-8 w-8 text-slate-300" />
+            <p className="text-sm text-slate-500">아직 작성된 후기가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reviews.map((rev) => (
+              <div key={rev.id} className="card-surface p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
+                      {maskEmail(rev.author_email).slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-slate-700">{maskEmail(rev.author_email)}</span>
+                    {rev.is_admin_created && (
+                      <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold">관리자</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400">{new Date(rev.created_at).toLocaleDateString('ko-KR')}</span>
+                </div>
+                <div className="mt-2"><ReviewStars rating={rev.rating} /></div>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 whitespace-pre-wrap">{rev.content}</p>
+                {rev.images && rev.images.length > 0 && (
+                  <div className="mt-3 flex gap-2">
+                    {rev.images.map((img, i) => (
+                      <img key={i} src={img} alt={`후기 이미지 ${i + 1}`} className="h-20 w-20 rounded-lg object-cover border border-slate-200" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

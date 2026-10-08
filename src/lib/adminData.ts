@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminSupabase, isAdminSupabaseConfigured } from './adminSupabase';
 import {
-  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting, Inquiry,
+  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting, Inquiry, Review,
 } from './types';
 
 function useAdminCollection<T>(
@@ -301,4 +301,39 @@ export async function fetchProductInfo(url: string): Promise<ScrapedProductInfo>
   const data = await response.json();
   if (data.error) throw new Error(data.error);
   return data as ScrapedProductInfo;
+}
+
+// ============================================================
+// Reviews (admin)
+// ============================================================
+
+export function useAdminReviews(enabled: boolean = true) {
+  return useAdminCollection<Review>('product_reviews', { column: 'created_at', ascending: false }, enabled);
+}
+
+export async function createAdminReview(input: {
+  product_id: string;
+  author_email: string;
+  rating: number;
+  content: string;
+  images?: string[];
+}): Promise<boolean> {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return false;
+  const { error } = await adminSupabase.from('product_reviews').insert({
+    product_id: input.product_id,
+    user_id: null,
+    author_email: input.author_email,
+    order_item_id: null,
+    rating: input.rating,
+    content: input.content,
+    images: input.images && input.images.length > 0 ? input.images : [],
+    is_admin_created: true,
+  });
+  if (error) { console.error('create admin review error', error); return false; }
+  return true;
+}
+
+export async function deleteAdminReview(reviewId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  await adminSupabase.from('product_reviews').delete().eq('id', reviewId);
 }

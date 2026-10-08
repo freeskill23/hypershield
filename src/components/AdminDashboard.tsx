@@ -4,10 +4,10 @@ import {
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
-  MessageSquare,
+  MessageSquare, Star, Upload, X,
 } from 'lucide-react';
 import {
-  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry,
+  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review,
 } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber } from '../lib/format';
 import {
@@ -20,11 +20,12 @@ import {
   updateSetting, getSettingValue,
   resetMemberPassword,
   answerInquiry, updateInquiryAnswer,
+  createAdminReview, deleteAdminReview,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
 import RichTextEditor from './RichTextEditor';
 
-type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries';
+type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews';
 type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'cancel_request';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
@@ -39,7 +40,7 @@ const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
 
 interface Props {
   profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
-  profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; inquiries: Inquiry[]; refresh: () => void;
+  profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; inquiries: Inquiry[]; reviews: Review[]; refresh: () => void;
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
@@ -51,6 +52,9 @@ const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category:
 
 interface PlanForm { name: string; tier: string; monthly_price: string; discount_rate: string; description: string; is_active: boolean; sort_order: string; }
 const emptyPlanForm: PlanForm = { name: '', tier: '', monthly_price: '', discount_rate: '', description: '', is_active: true, sort_order: '0' };
+
+interface ReviewForm { product_id: string; author_email: string; rating: number; content: string; images: string[]; }
+const emptyReviewForm: ReviewForm = { product_id: '', author_email: '', rating: 5, content: '', images: [] };
 
 const orderStatusConfig: Record<OrderStatus, { label: string; cls: string }> = {
   pending: { label: '결제 대기', cls: 'border-gold/40 text-gold-light bg-gold/5' },
@@ -96,7 +100,7 @@ const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: s
   );
 };
 
-export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, inquiries, refresh }: Props) {
+export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, inquiries, reviews, refresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [orderSubTab, setOrderSubTab] = useState<OrderSubTab>('all');
   const [busy, setBusy] = useState(false);
@@ -139,6 +143,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [inquiryReplyId, setInquiryReplyId] = useState<string | null>(null);
   const [inquiryReplyText, setInquiryReplyText] = useState('');
   const [inquiryBusy, setInquiryBusy] = useState(false);
+
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewF, setReviewF] = useState<ReviewForm>(emptyReviewForm);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   useEffect(() => {
     const overdueOrders = orders.filter(o => o.status === 'shipped' && o.shipped_at && Date.now() - new Date(o.shipped_at).getTime() >= 2 * 86400000);
@@ -432,6 +440,28 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   }
   async function handleDeletePlan(p: SubscriptionPlan) { if (confirm(`'${p.name}' 등급을 삭제하시겠습니까?`)) { await deletePlan(p.id); refresh(); } }
 
+  // ── Review ──
+  async function handleReviewSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reviewF.product_id) { alert('상품을 선택해주세요.'); return; }
+    if (!reviewF.author_email.trim()) { alert('이메일을 입력해주세요.'); return; }
+    if (!reviewF.content.trim()) { alert('후기 내용을 입력해주세요.'); return; }
+    if (reviewF.content.length > 150) { alert('후기는 150자 이하로 작성해주세요.'); return; }
+    setReviewBusy(true);
+    try {
+      const ok = await createAdminReview({
+        product_id: reviewF.product_id,
+        author_email: reviewF.author_email.trim(),
+        rating: reviewF.rating,
+        content: reviewF.content.trim(),
+        images: reviewF.images,
+      });
+      if (ok) { setShowReviewForm(false); setReviewF(emptyReviewForm); refresh(); }
+      else { alert('후기 작성 중 오류가 발생했습니다.'); }
+    } finally { setReviewBusy(false); }
+  }
+  async function handleDeleteReview(r: Review) { if (confirm('이 후기를 삭제하시겠습니까?')) { await deleteAdminReview(r.id); refresh(); } }
+
   // ── Recruitment ──
   async function handleToggleRecruitment() { await updateSetting('recruitment_open', recruitmentOpen ? 'false' : 'true'); refresh(); }
   async function handleRecruitmentLimit(e: React.FormEvent) {
@@ -471,9 +501,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setPwModalId(null);
     setInquiryReplyId(null);
     setInquiryReplyText('');
+    setShowReviewForm(false);
+    setReviewF(emptyReviewForm);
   }
 
-  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의']];
+  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리']];
 
   return (
     <div className="space-y-6">
@@ -1122,6 +1154,108 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             ))}
             {posts.length === 0 && (
               <div className="card-surface grid place-items-center py-16 text-center"><Megaphone className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">등록된 게시글이 없습니다.</p><button onClick={openCreatePost} className="btn-primary mt-4 px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 첫 게시글 등록</button></div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Reviews ── */}
+      {tab === 'reviews' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">후기 관리</h2>
+            <button onClick={() => { setReviewF(emptyReviewForm); setShowReviewForm(true); }} className="btn-primary px-4 py-2 text-sm">
+              <Plus className="h-4 w-4" /> 가짜 후기 작성
+            </button>
+          </div>
+
+          {showReviewForm && (
+            <form onSubmit={handleReviewSubmit} className="card-surface space-y-4 p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-gothic text-base font-semibold text-slate-800">가짜 후기 작성</h3>
+                <button type="button" onClick={() => setShowReviewForm(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <Field label="상품 선택">
+                  <select value={reviewF.product_id} onChange={e => setReviewF({ ...reviewF, product_id: e.target.value })} className="input-field text-sm">
+                    <option value="">상품을 선택하세요</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="작성자 이메일">
+                  <input value={reviewF.author_email} onChange={e => setReviewF({ ...reviewF, author_email: e.target.value })} placeholder="example@email.com" className="input-field text-sm" />
+                </Field>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-400">만족도</label>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map(s => (
+                      <button key={s} type="button" onClick={() => setReviewF({ ...reviewF, rating: s })} className="transition hover:scale-110">
+                        <Star size={24} className={s <= reviewF.rating ? 'fill-gold text-gold' : 'text-slate-300'} />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-sm font-medium text-slate-600">{reviewF.rating}점</span>
+                  </div>
+                </div>
+                <Field label={`후기 내용 (${reviewF.content.length}/150)`}>
+                  <textarea value={reviewF.content} onChange={e => setReviewF({ ...reviewF, content: e.target.value.slice(0, 150) })} rows={4} placeholder="150자 이하로 작성" className="input-field text-sm" />
+                </Field>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-400">사진 (최대 3장)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {reviewF.images.map((img, i) => (
+                      <div key={i} className="relative">
+                        <img src={img} alt="" className="h-20 w-20 rounded-lg object-cover border border-slate-200" />
+                        <button type="button" onClick={() => setReviewF(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }))} className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-white"><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    {reviewF.images.length < 3 && (
+                      <ImageUpload value="" onChange={url => { if (url) setReviewF(prev => ({ ...prev, images: [...prev.images, url] })); }} label="" bucket="product-images" folder="reviews" className="w-20" />
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="submit" disabled={reviewBusy} className="btn-primary px-5 py-2.5 text-sm">{reviewBusy ? '작성 중...' : '후기 등록'}</button>
+                <button type="button" onClick={() => setShowReviewForm(false)} className="btn-ghost px-5 py-2.5 text-sm">취소</button>
+              </div>
+            </form>
+          )}
+
+          <div className="space-y-2">
+            {reviews.length === 0 ? (
+              <div className="card-surface grid place-items-center py-16 text-center"><Star className="mb-3 h-10 w-10 text-slate-300" /><p className="text-sm text-slate-500">등록된 후기가 없습니다.</p></div>
+            ) : (
+              reviews.map(r => {
+                const product = products.find(p => p.id === r.product_id);
+                return (
+                  <div key={r.id} className="card-surface p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-800">{product?.name ?? '상품 없음'}</span>
+                          {r.is_admin_created && <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold">관리자 작성</span>}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                          <span>{r.author_email}</span>
+                          <span>·</span>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map(s => <Star key={s} size={12} className={s <= r.rating ? 'fill-gold text-gold' : 'text-slate-300'} />)}
+                          </div>
+                          <span>·</span>
+                          <span>{formatDate(r.created_at)}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">{r.content}</p>
+                        {r.images && r.images.length > 0 && (
+                          <div className="mt-2 flex gap-1.5">
+                            {r.images.map((img, i) => <img key={i} src={img} alt="" className="h-16 w-16 rounded-lg object-cover border border-slate-200" />)}
+                          </div>
+                        )}
+                      </div>
+                      <IconBtn onClick={() => handleDeleteReview(r)} title="삭제" icon={Trash2} hover="hover:border-red-500 hover:text-red-400" />
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
