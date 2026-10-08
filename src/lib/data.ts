@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
-  Profile, SubscriptionPlan, Category, Product, CartItem, CartItemWithProduct,
-  Order, OrderItem, Address, Post, Setting,
+  Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
+  Order, Address, Post, Setting,
 } from './types';
 
 // ============================================================
@@ -225,6 +225,8 @@ export async function createOrder(
     recipient_phone: string;
     address: string;
     address_detail: string;
+    shipping_message?: string;
+    payment_method?: string;
   },
   pointsUsed: number = 0,
   skipClearCart: boolean = false,
@@ -245,6 +247,8 @@ export async function createOrder(
       recipient_phone: shipping.recipient_phone,
       address: shipping.address,
       address_detail: shipping.address_detail,
+      shipping_message: shipping.shipping_message ?? null,
+      payment_method: shipping.payment_method ?? 'manual',
       points_used: pointsUsed,
       points_earned: Math.floor(totalAmount / 100),
     })

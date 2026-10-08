@@ -3,8 +3,8 @@ import {
   ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck,
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product } from '../lib/types';
-import { formatKRW, calcDiscountRate, formatPhoneNumber } from '../lib/format';
-import { createOrder, getSettingValue } from '../lib/data';
+import { formatKRW, formatPhoneNumber } from '../lib/format';
+import { createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
@@ -35,7 +35,9 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     recipient_phone: '',
     address: '',
     address_detail: '',
+    shipping_message: '',
   });
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'manual'>('manual');
 
   const isBuyNow = !!buyNowItem;
   const checkoutItems: CartItemWithProduct[] = isBuyNow && buyNowItem
@@ -61,6 +63,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         recipient_phone: (useExisting as Address).recipient_phone,
         address: (useExisting as Address).address,
         address_detail: (useExisting as Address).address_detail ?? '',
+        shipping_message: form.shipping_message,
       }
     : form;
 
@@ -105,7 +108,10 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     setBusy(true);
     setError(null);
     try {
-      const order = await createOrder(userId, checkoutItems, shippingData, 0, isBuyNow);
+      const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow);
+      if (paymentMethod === 'card' && order) {
+        await updateOrderStatus(order.id, 'paid');
+      }
       if (order) {
         onComplete();
       } else {
@@ -247,6 +253,16 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
                 </div>
               </div>
             )}
+
+            <div className="mt-3">
+              <label className="mb-1 block text-xs text-slate-500">배송요청사항</label>
+              <input
+                value={form.shipping_message}
+                onChange={(e) => setForm({ ...form, shipping_message: e.target.value })}
+                placeholder="배송 기사님께 전달할 내용을 입력하세요"
+                className="input-field text-sm"
+              />
+            </div>
           </div>
 
           {/* Shipping info */}
@@ -285,8 +301,15 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
             <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
               <CreditCard className="h-4 w-4 text-gold" /> 결제 수단
             </div>
-            <div className="rounded-lg border border-gold/30 bg-gold/5 p-4 text-sm text-gold-light">
-              NHN KCP 결제 연동 예정
+            <div className="space-y-3">
+              <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${paymentMethod === 'card' ? 'border-cyan bg-cyan/5 text-slate-800' : 'border-slate-200 text-slate-500'}`}>
+                <input type="radio" name="payment_method" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} />
+                카드 결제
+              </label>
+              <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${paymentMethod === 'manual' ? 'border-cyan bg-cyan/5 text-slate-800' : 'border-slate-200 text-slate-500'}`}>
+                <input type="radio" name="payment_method" checked={paymentMethod === 'manual'} onChange={() => setPaymentMethod('manual')} />
+                기타 결제 / 관리자 확인
+              </label>
             </div>
             <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />

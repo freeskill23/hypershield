@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { LogOut, Shield } from 'lucide-react';
 import { AdminAuthProvider, useAdminAuth } from '../lib/adminAuth';
 import {
-  useAdminProducts, useAdminCategories, useAdminOrders, useAdminProfiles,
+  useAdminProducts, useAdminCategories, useAdminOrders, useAdminOrderItems, useAdminProfiles,
   useAdminPosts, useAdminPlans, useAdminSettings,
 } from '../lib/adminData';
 import AdminDashboard from './AdminDashboard';
@@ -14,6 +14,7 @@ function AdminAppInner({ onBackToSite }: { onBackToSite: () => void }) {
   const productsHook = useAdminProducts(!!profile);
   const categoriesHook = useAdminCategories(!!profile);
   const ordersHook = useAdminOrders(!!profile);
+  const orderItemsHook = useAdminOrderItems(!!profile);
   const profilesHook = useAdminProfiles(!!profile);
   const postsHook = useAdminPosts(!!profile);
   const plansHook = useAdminPlans(!!profile);
@@ -23,11 +24,12 @@ function AdminAppInner({ onBackToSite }: { onBackToSite: () => void }) {
     productsHook.refresh();
     categoriesHook.refresh();
     ordersHook.refresh();
+    orderItemsHook.refresh();
     profilesHook.refresh();
     postsHook.refresh();
     plansHook.refresh();
     settingsHook.refresh();
-  }, [productsHook, categoriesHook, ordersHook, profilesHook, postsHook, plansHook, settingsHook]);
+  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook]);
 
   if (loading) {
     return (
@@ -74,6 +76,7 @@ function AdminAppInner({ onBackToSite }: { onBackToSite: () => void }) {
           products={productsHook.items}
           categories={categoriesHook.items}
           orders={ordersHook.items}
+          orderItems={orderItemsHook.items}
           profiles={profilesHook.items}
           posts={postsHook.items}
           plans={plansHook.items}

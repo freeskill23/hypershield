@@ -100,6 +100,9 @@ export interface Order {
   carrier: string | null;
   tracking_number: string | null;
   shipped_at: string | null;
+  delivered_at: string | null;
+  payment_method: 'card' | 'manual' | string;
+  shipping_message: string | null;
   points_used: number;
   points_earned: number;
   created_at: string;

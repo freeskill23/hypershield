@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminSupabase, isAdminSupabaseConfigured } from './adminSupabase';
 import {
-  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, Post, Setting,
+  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting,
 } from './types';
 
 function useAdminCollection<T>(
@@ -55,6 +55,10 @@ export function useAdminCategories(enabled: boolean = true) {
 }
 export function useAdminOrders(enabled: boolean = true) {
   return useAdminCollection<Order>('orders', { column: 'created_at', ascending: false }, enabled);
+}
+
+export function useAdminOrderItems(enabled: boolean = true) {
+  return useAdminCollection<OrderItem>('order_items', { column: 'created_at', ascending: true }, enabled);
 }
 export function useAdminProfiles(enabled: boolean = true) {
   return useAdminCollection<Profile>('profiles', { column: 'created_at', ascending: false }, enabled);
@@ -173,9 +177,19 @@ export async function deletePlan(id: string) {
 
 export async function updateOrderStatus(orderId: string, status: Order['status'], extra?: Partial<Order>) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
-  const patch: any = { status, ...extra };
+  const patch: Partial<Order> & { status: Order['status'] } = { status, ...extra };
   if (status === 'shipped' && !extra?.shipped_at) patch.shipped_at = new Date().toISOString();
-  await adminSupabase.from('orders').update(patch).eq('id', orderId);
+  if (status === 'delivered' && !extra?.delivered_at) patch.delivered_at = new Date().toISOString();
+  const { error } = await adminSupabase.from('orders').update(patch).eq('id', orderId);
+  if (error) console.error('update order status error', error);
+}
+
+export async function batchUpdateOrderStatus(orderIds: string[], status: Order['status']) {
+  if (!isAdminSupabaseConfigured || !adminSupabase || orderIds.length === 0) return;
+  const patch: Partial<Order> & { status: Order['status'] } = { status };
+  if (status === 'delivered') patch.delivered_at = new Date().toISOString();
+  const { error } = await adminSupabase.from('orders').update(patch).in('id', orderIds);
+  if (error) console.error('batch update order status error', error);
 }
 
 export async function setProfileRole(user_id: string, role: 'member' | 'admin') {

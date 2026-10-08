@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Plus, Package, Users, ShoppingBag, TrendingUp, Clock, CheckCircle2,
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
@@ -6,7 +6,7 @@ import {
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
 } from 'lucide-react';
 import {
-  Profile, Product, ProductOption, Category, Order, Post, SubscriptionPlan, OrderStatus, Setting,
+  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting,
 } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, calcDiscountRate } from '../lib/format';
 import {
@@ -14,7 +14,7 @@ import {
   createCategory, updateCategory, deleteCategory,
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
-  updateOrderStatus, setProfileRole, deleteProfile,
+  updateOrderStatus, batchUpdateOrderStatus, setProfileRole, deleteProfile,
   changeMemberGrade, batchChangeMemberGrade,
   updateSetting, getSettingValue,
   resetMemberPassword,
@@ -24,7 +24,7 @@ import ImageUpload from './ImageUpload';
 type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans';
 
 interface Props {
-  profile: Profile; products: Product[]; categories: Category[]; orders: Order[];
+  profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
   profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; refresh: () => void;
 }
 
@@ -82,7 +82,7 @@ const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: s
   );
 };
 
-export default function AdminDashboard({ profile, products, categories, orders, profiles, posts, plans, settings, refresh }: Props) {
+export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, refresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [busy, setBusy] = useState(false);
 
@@ -113,12 +113,20 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [tracking, setTracking] = useState<Record<string, { carrier: string; number: string }>>({});
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [orderSelectedIds, setOrderSelectedIds] = useState<Set<string>>(new Set());
   const [batchPlanId, setBatchPlanId] = useState('');
   const [pwModalId, setPwModalId] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
   const [pwErr, setPwErr] = useState<string | null>(null);
   const [pwSuccess, setPwSuccess] = useState(false);
+
+  useEffect(() => {
+    const overdueOrders = orders.filter(o => o.status === 'shipped' && o.shipped_at && Date.now() - new Date(o.shipped_at).getTime() >= 2 * 86400000);
+    if (overdueOrders.length > 0) {
+      Promise.all(overdueOrders.map(o => updateOrderStatus(o.id, 'delivered'))).then(refresh);
+    }
+  }, [orders, refresh]);
 
   const stats = useMemo(() => ({
     totalMembers: profiles.length,
@@ -272,8 +280,28 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   async function handleOrderStatus(o: Order, status: OrderStatus, extra?: Partial<Order>) { await updateOrderStatus(o.id, status, extra); refresh(); }
   async function handleShipOrder(o: Order) {
     const ti = tracking[o.id];
-    await updateOrderStatus(o.id, 'shipped', { tracking_number: ti?.number || o.tracking_number || null, carrier: ti?.carrier || o.carrier || null });
+    if (!ti?.number.trim() || !(ti.carrier || o.carrier)) return;
+    await updateOrderStatus(o.id, 'shipped', { tracking_number: ti.number.trim(), carrier: ti.carrier || o.carrier });
     setTracking(prev => { const n = { ...prev }; delete n[o.id]; return n; }); refresh();
+  }
+  async function handleBatchOrderStatus(status: OrderStatus) {
+    const eligibleIds = orders.filter(o => orderSelectedIds.has(o.id) && o.status === 'pending').map(o => o.id);
+    if (eligibleIds.length === 0) return;
+    setBusy(true);
+    try { await batchUpdateOrderStatus(eligibleIds, status); setOrderSelectedIds(new Set()); refresh(); } finally { setBusy(false); }
+  }
+  function downloadOrdersAsExcel() {
+    const selectedOrders = orders.filter(o => orderSelectedIds.has(o.id));
+    if (selectedOrders.length === 0) return;
+    const escapeCell = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const rows = selectedOrders.map(o => {
+      const productsText = orderItems.filter(i => i.order_id === o.id).map(i => `${i.product_name} x ${i.quantity}`).join(', ');
+      return `<tr><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td>${escapeCell(o.recipient_phone ?? '')}</td><td>${escapeCell(productsText)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`;
+    }).join('');
+    const html = `<table><thead><tr><th>날짜</th><th>주문자명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const blob = new Blob([`<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = `주문목록-${new Date().toISOString().slice(0, 10)}.xls`; link.click(); URL.revokeObjectURL(url);
   }
 
   // ── Member ──
@@ -736,17 +764,29 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* ── Orders ── */}
       {tab === 'orders' && (
         <div className="space-y-4">
-          <h2 className="font-gothic text-lg font-semibold text-slate-800">주문 관리</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">주문 관리</h2>
+            {orderSelectedIds.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-slate-500">{orderSelectedIds.size}건 선택</span>
+                <button onClick={() => handleBatchOrderStatus('paid')} disabled={busy} className="btn-primary px-3 py-2 text-xs">선택 결제 확인</button>
+                <button onClick={downloadOrdersAsExcel} className="btn-ghost px-3 py-2 text-xs">엑셀 다운로드</button>
+                <button onClick={() => setOrderSelectedIds(new Set())} className="btn-ghost px-3 py-2 text-xs">선택 해제</button>
+              </div>
+            )}
+          </div>
           {orders.length === 0 ? (
             <div className="card-surface grid place-items-center py-16 text-center"><ShoppingBag className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">주문이 없습니다。</p></div>
           ) : (
             <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-slate-500"><input type="checkbox" checked={orderSelectedIds.size === orders.length && orders.length > 0} onChange={() => setOrderSelectedIds(orderSelectedIds.size === orders.length ? new Set() : new Set(orders.map(o => o.id)))} className="h-4 w-4 rounded" /> 전체 주문 선택</label>
               {orders.map(o => {
                 const sc = orderStatusConfig[o.status] ?? fallbackOrderStatus;
                 const ti = tracking[o.id];
                 return (
                   <div key={o.id} className="card-surface p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
+                      <label className="flex items-start gap-3"><input type="checkbox" checked={orderSelectedIds.has(o.id)} onChange={() => setOrderSelectedIds(prev => { const n = new Set(prev); if (n.has(o.id)) n.delete(o.id); else n.add(o.id); return n; })} className="mt-1 h-4 w-4 rounded" />
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-gothic text-base font-semibold text-slate-800">{o.recipient_name ?? '알 수 없음'}</h3>
@@ -759,22 +799,21 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         </div>
                         {o.address && <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-400"><MapPin className="mt-0.5 h-3 w-3 shrink-0" /><span>{o.address} {o.address_detail} · {o.recipient_phone}</span></div>}
                         {o.tracking_number && <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400"><Truck className="h-3 w-3" /><span>{o.carrier} {o.tracking_number}</span></div>}
+                        <div className="mt-2 text-xs text-slate-500">상품: {orderItems.filter(i => i.order_id === o.id).map(i => `${i.product_name} x ${i.quantity}`).join(', ') || '주문 상품 정보 없음'}</div>
+                        {o.shipping_message && <div className="mt-1 text-xs text-slate-500">배송 메세지: {o.shipping_message}</div>}
                       </div>
+                      </label>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy-700 pt-3">
                       {o.status === 'pending' && (<>
                         <button onClick={() => handleOrderStatus(o, 'paid')} className="btn-primary px-3 py-1.5 text-xs"><CheckCircle2 className="h-3.5 w-3.5" /> 결제 확인</button>
                         <button onClick={() => handleOrderStatus(o, 'cancelled')} className="btn-ghost px-3 py-1.5 text-xs hover:text-red-400"><XCircle className="h-3.5 w-3.5" /> 주문 취소</button>
                       </>)}
-                      {o.status === 'paid' && (<>
-                        <button onClick={() => handleOrderStatus(o, 'preparing')} className="btn-primary px-3 py-1.5 text-xs"><Package className="h-3.5 w-3.5" /> 배송 준비</button>
-                        <button onClick={() => handleOrderStatus(o, 'cancelled')} className="btn-ghost px-3 py-1.5 text-xs hover:text-red-400"><XCircle className="h-3.5 w-3.5" /> 주문 취소</button>
-                      </>)}
-                      {o.status === 'preparing' && (
+                      {(o.status === 'paid' || o.status === 'preparing') && (
                         <div className="flex flex-wrap items-center gap-2">
-                          <input value={ti?.carrier ?? ''} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: e.target.value, number: ti?.number ?? '' } }))} placeholder="택배사" className="input-field h-8 w-24 px-2 py-1 text-xs" />
-                          <input value={ti?.number ?? ''} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: ti?.carrier ?? '', number: e.target.value } }))} placeholder="운송장 번호" className="input-field h-8 w-40 px-2 py-1 text-xs" />
-                          <button onClick={() => handleShipOrder(o)} className="btn-primary px-3 py-1.5 text-xs"><Truck className="h-3.5 w-3.5" /> 배송 시작</button>
+                          <select value={ti?.carrier ?? o.carrier ?? CARRIERS[0]} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: e.target.value, number: ti?.number ?? o.tracking_number ?? '' } }))} className="input-field h-8 w-32 px-2 py-1 text-xs">{CARRIERS.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                          <input value={ti?.number ?? o.tracking_number ?? ''} onChange={e => setTracking(prev => ({ ...prev, [o.id]: { carrier: ti?.carrier ?? o.carrier ?? CARRIERS[0], number: e.target.value } }))} placeholder="운송장 번호" className="input-field h-8 w-40 px-2 py-1 text-xs" />
+                          <button onClick={() => handleShipOrder(o)} className="btn-primary px-3 py-1.5 text-xs"><Truck className="h-3.5 w-3.5" /> 배송 진행</button>
                           <button onClick={() => handleOrderStatus(o, 'cancelled')} className="btn-ghost px-3 py-1.5 text-xs hover:text-red-400"><XCircle className="h-3.5 w-3.5" /> 취소</button>
                         </div>
                       )}
