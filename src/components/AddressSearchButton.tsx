@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Search } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Search, Edit3, X } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -10,7 +10,7 @@ declare global {
 let scriptPromise: Promise<void> | null = null;
 
 function loadDaumPostcode(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.resolve();
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'));
   if (window.daum?.Postcode) return Promise.resolve();
   if (scriptPromise) return scriptPromise;
   scriptPromise = new Promise((resolve, reject) => {
@@ -43,8 +43,6 @@ function loadDaumPostcode(): Promise<void> {
   return scriptPromise;
 }
 
-let containerIdCounter = 0;
-
 interface Props {
   onSelect: (address: string) => void;
   disabled?: boolean;
@@ -52,7 +50,8 @@ interface Props {
 
 export default function AddressSearchButton({ onSelect, disabled }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const containerIdRef = useRef<string>(`addr-search-${++containerIdCounter}`);
+  const [showManual, setShowManual] = useState(false);
+  const [manualAddr, setManualAddr] = useState('');
 
   async function handleSearch() {
     try {
@@ -81,23 +80,73 @@ export default function AddressSearchButton({ onSelect, disabled }: Props) {
         q: containerRef.current,
         autoClose: true,
       });
-    } catch (e) {
-      console.error('address search error', e);
-      alert('주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } catch {
+      setShowManual(true);
+    }
+  }
+
+  function handleManualSubmit() {
+    const trimmed = manualAddr.trim();
+    if (trimmed) {
+      onSelect(trimmed);
+      setShowManual(false);
+      setManualAddr('');
     }
   }
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleSearch}
-        disabled={disabled}
-        className="flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/5 px-4 py-2 text-sm font-medium text-cyan transition hover:bg-cyan/10 disabled:opacity-50"
-      >
-        <Search className="h-4 w-4" /> 도로명 주소 검색
-      </button>
-      <div id={containerIdRef.current} ref={containerRef} className="w-full" />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleSearch}
+          disabled={disabled}
+          className="flex items-center gap-2 rounded-lg border border-cyan/40 bg-cyan/5 px-4 py-2 text-sm font-medium text-cyan transition hover:bg-cyan/10 disabled:opacity-50"
+        >
+          <Search className="h-4 w-4" /> 도로명 주소 검색
+        </button>
+      </div>
+
+      {showManual && (
+        <div className="mt-2 rounded-lg border border-navy-600 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <Edit3 className="h-4 w-4 text-cyan" /> 주소 직접 입력
+            </span>
+            <button
+              type="button"
+              onClick={() => { setShowManual(false); setManualAddr(''); }}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={manualAddr}
+              onChange={(e) => setManualAddr(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleManualSubmit(); } }}
+              placeholder="도로명 주소를 입력하세요 (예: 서울특별시 강남구 테헤란로 123)"
+              className="flex-1 rounded-lg border border-navy-600 px-3 py-2 text-sm text-slate-800 focus:border-cyan focus:outline-none focus:ring-2 focus:ring-cyan/30"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={handleManualSubmit}
+              disabled={!manualAddr.trim()}
+              className="rounded-lg bg-cyan px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan/90 disabled:opacity-50"
+            >
+              확인
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-slate-400">
+            주소 검색이 불가능한 경우 직접 입력하실 수 있습니다.
+          </p>
+        </div>
+      )}
+
+      <div ref={containerRef} className="w-full" />
     </>
   );
 }

@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import { LogOut, Home, User, ShoppingCart, Megaphone } from 'lucide-react';
+import { LogOut, User, ShoppingCart } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
   useProducts, useCategories, useOrders, useProfiles, usePosts,
   useSubscriptionPlans, useCart, useAddresses, useSettings,
 } from './lib/data';
-import { Profile, Post, Setting } from './lib/types';
+import { Profile, Post, Setting, Product } from './lib/types';
 import Gatekeeper from './components/Gatekeeper';
 import LandingPage from './components/LandingPage';
 import BoardList from './components/BoardList';
@@ -57,6 +57,7 @@ function Shell() {
   const { profile, loading, signOut } = useAuth();
   const [route, setRoute] = useState<Route>(() => hashToRoute(window.location.hash));
   const [showAuth, setShowAuth] = useState(false);
+  const [buyNowItem, setBuyNowItem] = useState<{ product: Product; quantity: number } | null>(null);
 
   const authReady = !loading && !!profile;
 
@@ -175,6 +176,8 @@ function Shell() {
         addresses={addressesHook.items}
         onRefreshCart={cartHook.refresh}
         cartCount={cartHook.items.length}
+        buyNowItem={buyNowItem}
+        onBuyNow={(item) => { setBuyNowItem(item); navigate({ name: 'checkout' }); }}
       />
     </ErrorBoundary>
   );
@@ -184,6 +187,7 @@ function ShellContent({
   profile, route, navigate, signOut, refreshAll,
   products, categories, orders, profiles, posts, plans, settings,
   cartItems, addresses, onRefreshCart, cartCount,
+  buyNowItem, onBuyNow,
 }: {
   profile: Profile;
   route: Route;
@@ -201,6 +205,8 @@ function ShellContent({
   addresses: any[];
   onRefreshCart: () => void;
   cartCount: number;
+  buyNowItem: { product: Product; quantity: number } | null;
+  onBuyNow: (item: { product: Product; quantity: number }) => void;
 }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
@@ -217,20 +223,6 @@ function ShellContent({
           </button>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate({ name: 'board' })}
-              className="hidden items-center gap-1.5 px-3 py-2 text-sm text-slate-400 hover:text-slate-700 md:flex"
-            >
-              <Megaphone className="h-4 w-4" /> 하이퍼쉴드의 생각
-            </button>
-            <button
-              onClick={() => navigate({ name: 'shop' })}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
-                route.name === 'shop' || route.name === 'product' ? 'text-cyan' : 'text-slate-400 hover:text-slate-700'
-              }`}
-            >
-              <Home className="h-4 w-4" /> 쇼핑몰
-            </button>
             <button
               onClick={() => navigate({ name: 'cart' })}
               className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
@@ -282,7 +274,7 @@ function ShellContent({
             settings={settings}
             onBack={() => navigate({ name: 'shop' })}
             onGoCart={() => { onRefreshCart(); navigate({ name: 'cart' }); }}
-            onBuyNow={() => { onRefreshCart(); navigate({ name: 'checkout' }); }}
+            onBuyNow={onBuyNow}
             onAddedToCart={onRefreshCart}
           />
         ) : route.name === 'cart' ? (
@@ -295,6 +287,7 @@ function ShellContent({
         ) : route.name === 'checkout' ? (
           <Checkout
             cartItems={cartItems}
+            buyNowItem={buyNowItem}
             addresses={addresses}
             userId={profile.id}
             settings={settings}
@@ -320,6 +313,7 @@ function ShellContent({
             onSelectProduct={(id) => navigate({ name: 'product', productId: id })}
             onSelectCategory={setSelectedCategoryId}
             selectedCategoryId={selectedCategoryId}
+            onGoBoard={() => navigate({ name: 'board' })}
           />
         )}
       </main>

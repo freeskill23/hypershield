@@ -227,6 +227,7 @@ export async function createOrder(
     address_detail: string;
   },
   pointsUsed: number = 0,
+  skipClearCart: boolean = false,
 ): Promise<Order | null> {
   if (!isSupabaseConfigured || !supabase) return null;
 
@@ -268,7 +269,9 @@ export async function createOrder(
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
   if (itemsError) console.error('create order items error', itemsError);
 
-  await clearCart(userId);
+  if (!skipClearCart) {
+    await clearCart(userId);
+  }
 
   return order as Order;
 }

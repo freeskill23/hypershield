@@ -22,7 +22,7 @@ interface Props {
   settings?: Setting[];
   onBack: () => void;
   onGoCart: () => void;
-  onBuyNow?: () => void;
+  onBuyNow?: (item: { product: Product; quantity: number }) => void;
   onAddedToCart?: () => void;
 }
 
@@ -87,17 +87,10 @@ export default function ProductDetail({ product, settings, onBack, onGoCart, onB
     }
   }
 
-  async function handleBuyNow() {
+  function handleBuyNow() {
     if (!product) return;
     if (!allOptionsSelected) return;
-    setBusy(true);
-    try {
-      await addToCart(product.id, qty);
-      onAddedToCart?.();
-      onBuyNow?.();
-    } finally {
-      setBusy(false);
-    }
+    onBuyNow?.({ product, quantity: qty });
   }
 
   return (
@@ -296,7 +289,7 @@ export default function ProductDetail({ product, settings, onBack, onGoCart, onB
               </button>
               <button
                 onClick={handleBuyNow}
-                disabled={busy || !allOptionsSelected || !onBuyNow}
+                disabled={!allOptionsSelected || !onBuyNow}
                 className="btn-primary flex-1"
               >
                 <Zap className="h-4 w-4" /> 바로 구매

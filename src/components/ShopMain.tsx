@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Package, TrendingDown } from 'lucide-react';
+import { Search, Package, Megaphone, ArrowRight } from 'lucide-react';
 import { Product, Category } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
 
@@ -10,6 +10,7 @@ interface Props {
   onSelectProduct: (id: string) => void;
   onSelectCategory: (categoryId: string | null) => void;
   selectedCategoryId: string | null;
+  onGoBoard: () => void;
 }
 
 export default function ShopMain({
@@ -19,6 +20,7 @@ export default function ShopMain({
   onSelectProduct,
   onSelectCategory,
   selectedCategoryId,
+  onGoBoard,
 }: Props) {
   const [search, setSearch] = useState('');
 
@@ -55,19 +57,21 @@ export default function ShopMain({
 
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-xl border border-navy-700 bg-gradient-to-r from-navy-900 via-navy-850 to-navy-900 p-6 md:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan/10 blur-3xl" />
-        <div className="relative">
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan/30 bg-cyan/5 px-3 py-1 text-xs font-medium text-cyan">
-            <TrendingDown className="h-3.5 w-3.5" /> 노애드 멤버십
-          </div>
-          <h1 className="font-gothic text-2xl font-bold text-slate-800">쇼핑몰</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            회원 전용 가격으로 구매하세요. 광고비를 지불하지 않은 만큼 더 낮은 가격에.
-          </p>
+      {/* Board banner */}
+      <button
+        onClick={onGoBoard}
+        className="group relative flex w-full items-center gap-4 overflow-hidden rounded-xl border border-navy-700 bg-gradient-to-r from-navy-900 via-navy-850 to-navy-900 p-5 text-left transition hover:border-cyan/40 md:p-6"
+      >
+        <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-cyan/10 blur-3xl" />
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-cyan/10 text-cyan transition group-hover:bg-cyan/20">
+          <Megaphone className="h-6 w-6" />
         </div>
-      </div>
+        <div className="relative flex-1">
+          <h2 className="font-gothic text-lg font-bold text-slate-800">하이퍼쉴드의 생각</h2>
+          <p className="mt-0.5 text-sm text-slate-400">하이퍼쉴드가 말하고 싶은 이것저것.</p>
+        </div>
+        <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-cyan" />
+      </button>
 
       {/* Search + categories */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
