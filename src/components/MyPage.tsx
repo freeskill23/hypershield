@@ -2,12 +2,13 @@ import { useState } from 'react';
 import {
   User as UserIcon, Mail, Calendar, Package, MapPin, Plus, Trash2,
   CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
-  ChevronRight, ArrowLeft, Search,
+  ChevronRight, ArrowLeft, Search, MessageSquare,
 } from 'lucide-react';
-import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus } from '../lib/types';
+import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
 import { addAddress, deleteAddress } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
+import MyInquiry from './MyInquiry';
 
 interface Props {
   profile: Profile;
@@ -15,10 +16,11 @@ interface Props {
   orderItems: OrderItem[];
   addresses: Address[];
   plans: SubscriptionPlan[];
+  inquiries: Inquiry[];
   onRefresh: () => void;
 }
 
-type Tab = 'overview' | 'orders' | 'addresses';
+type Tab = 'overview' | 'orders' | 'addresses' | 'inquiries';
 type OrderFilter = 'all' | 'shipped' | 'delivered' | 'cancelled';
 
 const orderStatusConfig: Record<string, { label: string; className: string; icon: any }> = {
@@ -30,7 +32,7 @@ const orderStatusConfig: Record<string, { label: string; className: string; icon
   cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
 };
 
-export default function MyPage({ profile, orders, orderItems, addresses, plans, onRefresh }: Props) {
+export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
@@ -134,6 +136,7 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
           ['overview', '개요'],
           ['orders', '주문 내역'],
           ['addresses', '배송지 관리'],
+          ['inquiries', '1:1 문의'],
         ] as [Tab, string][]).map(([k, label]) => (
           <button
             key={k}
@@ -579,6 +582,10 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
             </div>
           )}
         </div>
+      )}
+      {/* Inquiries */}
+      {tab === 'inquiries' && (
+        <MyInquiry inquiries={inquiries} userId={profile.id} onRefresh={onRefresh} />
       )}
     </div>
   );

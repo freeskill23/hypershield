@@ -4,9 +4,10 @@ import {
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
+  MessageSquare,
 } from 'lucide-react';
 import {
-  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting,
+  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry,
 } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber } from '../lib/format';
 import {
@@ -18,10 +19,12 @@ import {
   changeMemberGrade, batchChangeMemberGrade,
   updateSetting, getSettingValue,
   resetMemberPassword,
+  answerInquiry, updateInquiryAnswer,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
+import RichTextEditor from './RichTextEditor';
 
-type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans';
+type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries';
 type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
@@ -35,7 +38,7 @@ const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
 
 interface Props {
   profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
-  profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; refresh: () => void;
+  profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; inquiries: Inquiry[]; refresh: () => void;
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
@@ -92,7 +95,7 @@ const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: s
   );
 };
 
-export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, refresh }: Props) {
+export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, inquiries, refresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [orderSubTab, setOrderSubTab] = useState<OrderSubTab>('all');
   const [busy, setBusy] = useState(false);
@@ -131,6 +134,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [pwBusy, setPwBusy] = useState(false);
   const [pwErr, setPwErr] = useState<string | null>(null);
   const [pwSuccess, setPwSuccess] = useState(false);
+
+  const [inquiryReplyId, setInquiryReplyId] = useState<string | null>(null);
+  const [inquiryReplyText, setInquiryReplyText] = useState('');
+  const [inquiryBusy, setInquiryBusy] = useState(false);
 
   useEffect(() => {
     const overdueOrders = orders.filter(o => o.status === 'shipped' && o.shipped_at && Date.now() - new Date(o.shipped_at).getTime() >= 2 * 86400000);
@@ -344,14 +351,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     const selectedOrders = orders.filter(o => orderSelectedIds.has(o.id));
     if (selectedOrders.length === 0) return;
     const escapeCell = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const rows = selectedOrders.flatMap(o => {
+    const rows = selectedOrders.flatMap((o, orderIdx) => {
       const items = orderItems.filter(i => i.order_id === o.id);
       const list = items.length > 0 ? items : [{ product_name: '주문 상품 정보 없음', quantity: 0, unit_price: 0 } as any];
+      const bg = orderIdx % 2 === 0 ? ' style="background:#ffffff"' : ' style="background:#f3f4f6"';
       return list.map(item =>
-        `<tr><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.id.slice(0, 8))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td style="mso-number-format:'\\@'">${escapeCell(formatPhoneNumber(o.recipient_phone ?? ''))}</td><td>${escapeCell(item.product_name)}</td><td>${item.quantity}</td><td>${formatKRW(item.unit_price)}</td><td>${formatKRW(item.unit_price * item.quantity)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`
+        `<tr${bg}><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.id.slice(0, 8))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td style="mso-number-format:'\\@'">${escapeCell(formatPhoneNumber(o.recipient_phone ?? ''))}</td><td>${escapeCell(item.product_name)}</td><td>${item.quantity}</td><td>${formatKRW(item.unit_price)}</td><td>${formatKRW(item.unit_price * item.quantity)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`
       ).join('');
     }).join('');
-    const html = `<table border="1"><thead><tr><th>날짜</th><th>주문번호</th><th>주문자명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>수량</th><th>단가</th><th>금액</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const html = `<table border="1"><thead><tr style="background:#e2e8f0;font-weight:bold"><th>날짜</th><th>주문번호</th><th>주문자명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>수량</th><th>단가</th><th>금액</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
     const blob = new Blob([`<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = `주문목록-${new Date().toISOString().slice(0, 10)}.xls`; link.click(); URL.revokeObjectURL(url);
@@ -455,9 +463,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setOrderSubTab('all');
     setTracking({});
     setPwModalId(null);
+    setInquiryReplyId(null);
+    setInquiryReplyText('');
   }
 
-  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급']];
+  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의']];
 
   return (
     <div className="space-y-6">
@@ -1041,7 +1051,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   <Field label="카테고리"><input value={postF.category} onChange={e => setPostF({ ...postF, category: e.target.value })} className="input-field" placeholder="공지사항, 이벤트 등" /></Field>
                   <Field label="요약"><input value={postF.excerpt} onChange={e => setPostF({ ...postF, excerpt: e.target.value })} className="input-field" placeholder="한 줄 요약" /></Field>
                 </div>
-                <Field label="내용"><textarea required value={postF.content} onChange={e => setPostF({ ...postF, content: e.target.value })} rows={6} className="input-field resize-none" /></Field>
+                <Field label="내용"><RichTextEditor value={postF.content} onChange={html => setPostF({ ...postF, content: html })} minHeight={250} /></Field>
                 <div className="flex flex-wrap items-center gap-6">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-400">공개 범위</label>
@@ -1090,6 +1100,96 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               <div className="card-surface grid place-items-center py-16 text-center"><Megaphone className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">등록된 게시글이 없습니다.</p><button onClick={openCreatePost} className="btn-primary mt-4 px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 첫 게시글 등록</button></div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Inquiries ── */}
+      {tab === 'inquiries' && (
+        <div className="space-y-4">
+          <h2 className="font-gothic text-lg font-semibold text-slate-800">1:1 문의 관리</h2>
+          {inquiries.length === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <MessageSquare className="mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm text-slate-500">접수된 문의가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {inquiries.map(inq => {
+                const author = profiles.find(p => p.id === inq.user_id);
+                const isReplying = inquiryReplyId === inq.id;
+                return (
+                  <div key={inq.id} className="card-surface p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                            inq.status === 'answered'
+                              ? 'border-green-500/40 text-green-400 bg-green-500/5'
+                              : 'border-gold/40 text-gold-light bg-gold/5'
+                          }`}>
+                            {inq.status === 'answered' ? <><CheckCircle2 className="h-3 w-3" /> 답변완료</> : <><Clock className="h-3 w-3" /> 답변대기</>}
+                          </span>
+                          <span className="text-xs text-slate-500">{author?.full_name ?? '알 수 없음'}</span>
+                          <span className="ml-auto text-xs text-slate-500">{formatDate(inq.created_at)}</span>
+                        </div>
+                        <h3 className="mt-3 font-gothic text-base font-semibold text-slate-800">{inq.title}</h3>
+                        <div className="mt-2 rounded-lg border border-navy-700 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{inq.content}</div>
+                      </div>
+                    </div>
+
+                    {inq.answer && !isReplying && (
+                      <div className="mt-3 rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+                        <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-cyan">
+                          <MessageSquare className="h-3.5 w-3.5" /> 관리자 답변
+                          <span className="ml-auto font-normal text-slate-500">{formatDate(inq.answered_at ?? inq.updated_at)}</span>
+                        </div>
+                        <div className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{inq.answer}</div>
+                      </div>
+                    )}
+
+                    {isReplying ? (
+                      <div className="mt-3 space-y-2">
+                        <textarea
+                          value={inquiryReplyText}
+                          onChange={e => setInquiryReplyText(e.target.value)}
+                          placeholder="답변을 입력하세요"
+                          rows={4}
+                          className="input-field text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            disabled={inquiryBusy || !inquiryReplyText.trim()}
+                            onClick={async () => {
+                              setInquiryBusy(true);
+                              try {
+                                if (inq.answer) await updateInquiryAnswer(inq.id, inquiryReplyText.trim(), profile.id);
+                                else await answerInquiry(inq.id, inquiryReplyText.trim(), profile.id);
+                                setInquiryReplyId(null); setInquiryReplyText(''); refresh();
+                              } catch (e: any) { alert(e.message || '답변 작성에 실패했습니다.'); }
+                              finally { setInquiryBusy(false); }
+                            }}
+                            className="btn-primary px-4 py-2 text-sm"
+                          >
+                            {inquiryBusy ? '저장 중...' : '답변 저장'}
+                          </button>
+                          <button onClick={() => { setInquiryReplyId(null); setInquiryReplyText(''); }} className="btn-ghost px-4 py-2 text-sm">취소</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          onClick={() => { setInquiryReplyId(inq.id); setInquiryReplyText(inq.answer ?? ''); }}
+                          className="btn-ghost px-4 py-2 text-sm"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" /> {inq.answer ? '답변 수정' : '답변 작성'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

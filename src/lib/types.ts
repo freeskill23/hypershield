@@ -145,6 +145,21 @@ export interface Setting {
   updated_at: string;
 }
 
+export type InquiryStatus = 'waiting' | 'answered';
+
+export interface Inquiry {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  status: InquiryStatus;
+  answer: string | null;
+  answered_at: string | null;
+  answered_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type PostVisibility = 'public' | 'members';
 
 export interface Post {

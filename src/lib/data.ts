@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, OrderItem, Address, Post, Setting, SelectedOption,
+  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry,
 } from './types';
 
 // ============================================================
@@ -575,6 +575,73 @@ export async function setProfileRole(user_id: string, role: 'member' | 'admin') 
 export async function deleteProfile(user_id: string) {
   if (!isSupabaseConfigured || !supabase) return;
   await supabase.from('profiles').delete().eq('id', user_id);
+}
+
+// ============================================================
+// Inquiry (1:1 문의) operations
+// ============================================================
+
+export function useInquiries(userId: string | undefined, enabled: boolean = true) {
+  const [items, setItems] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!userId || !isSupabaseConfigured || !supabase) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('inquiries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setItems((data as Inquiry[]) ?? []);
+    } catch (e) {
+      console.error('inquiries load error', e);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    refresh();
+  }, [refresh, enabled]);
+
+  return { items, loading, refresh };
+}
+
+export async function createInquiry(userId: string, title: string, content: string): Promise<Inquiry | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase
+    .from('inquiries')
+    .insert({ user_id: userId, title, content })
+    .select()
+    .single();
+  if (error) {
+    console.error('create inquiry error', error);
+    return null;
+  }
+  return data as Inquiry;
+}
+
+export async function fetchInquiry(id: string): Promise<Inquiry | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase
+    .from('inquiries')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    console.error('fetch inquiry error', error);
+    return null;
+  }
+  return data as Inquiry | null;
 }
 
 // ============================================================

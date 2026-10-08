@@ -80,9 +80,10 @@ export default function BoardDetail({ post, onBack, onEnter, isAuthenticated }: 
             )}
           </div>
         ) : (
-          <div className="mt-6 whitespace-pre-line text-base leading-relaxed text-slate-600">
-            {post.content}
-          </div>
+          <div
+            className="rich-editor mt-6 text-base leading-relaxed text-slate-600"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          />
         )}
       </article>
     </div>

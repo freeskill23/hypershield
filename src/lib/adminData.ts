@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminSupabase, isAdminSupabaseConfigured } from './adminSupabase';
 import {
-  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting,
+  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting, Inquiry,
 } from './types';
 
 function useAdminCollection<T>(
@@ -71,6 +71,38 @@ export function useAdminPlans(enabled: boolean = true) {
 }
 export function useAdminSettings(enabled: boolean = true) {
   return useAdminCollection<Setting>('settings', undefined, enabled);
+}
+export function useAdminInquiries(enabled: boolean = true) {
+  return useAdminCollection<Inquiry>('inquiries', { column: 'created_at', ascending: false }, enabled);
+}
+
+export async function answerInquiry(inquiryId: string, answer: string, adminId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('inquiries')
+    .update({
+      answer,
+      status: 'answered',
+      answered_at: new Date().toISOString(),
+      answered_by: adminId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', inquiryId);
+  if (error) throw new Error(`답변 작성 실패: ${error.message}`);
+}
+
+export async function updateInquiryAnswer(inquiryId: string, answer: string, adminId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('inquiries')
+    .update({
+      answer,
+      answered_at: new Date().toISOString(),
+      answered_by: adminId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', inquiryId);
+  if (error) throw new Error(`답변 수정 실패: ${error.message}`);
 }
 
 export function getSettingValue(settings: Setting[], key: string): string | null {
