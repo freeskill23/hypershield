@@ -22,6 +22,16 @@ import {
 import ImageUpload from './ImageUpload';
 
 type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans';
+type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+
+const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
+  ['all', '전체', ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled']],
+  ['pending', '주문', ['pending']],
+  ['paid', '결제완료', ['paid', 'preparing']],
+  ['shipped', '배송중', ['shipped']],
+  ['delivered', '배송완료', ['delivered']],
+  ['cancelled', '취소', ['cancelled']],
+];
 
 interface Props {
   profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
@@ -84,6 +94,7 @@ const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: s
 
 export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, refresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [orderSubTab, setOrderSubTab] = useState<OrderSubTab>('all');
   const [busy, setBusy] = useState(false);
 
   const recruitmentOpen = getSettingValue(settings, 'recruitment_open') !== 'false';
@@ -134,6 +145,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     totalOrders: orders.length,
     confirmedRevenue: orders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)).reduce((s, o) => s + o.total_amount, 0),
   }), [profiles, orders]);
+
+  const orderSubTabConfig = orderSubTabs.find(t => t[0] === orderSubTab) ?? orderSubTabs[0];
+  const filteredOrders = useMemo(() => orders.filter(o => orderSubTabConfig[2].includes(o.status)), [orders, orderSubTabConfig]);
 
   // ── Product ──
   function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setShowProductForm(true); }
@@ -398,6 +412,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setEditCatId(null); setEditCatName(''); setEditCatGrades(new Set());
     setNewCat(''); setNewCatGrades(new Set());
     setSelectedIds(new Set()); setBatchPlanId('');
+    setOrderSelectedIds(new Set());
+    setOrderSubTab('all');
     setTracking({});
     setPwModalId(null);
   }
@@ -775,12 +791,24 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               </div>
             )}
           </div>
-          {orders.length === 0 ? (
-            <div className="card-surface grid place-items-center py-16 text-center"><ShoppingBag className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">주문이 없습니다。</p></div>
+          <div className="flex flex-wrap gap-2 border-b border-navy-700 pb-2">
+            {orderSubTabs.map(([key, label, statuses]) => {
+              const count = orders.filter(o => statuses.includes(o.status)).length;
+              const active = orderSubTab === key;
+              return (
+                <button key={key} onClick={() => { setOrderSubTab(key); setOrderSelectedIds(new Set()); }}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${active ? 'bg-cyan text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
+                  {label} <span className={`ml-1 text-xs ${active ? 'text-white/70' : 'text-slate-400'}`}>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+          {filteredOrders.length === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center"><ShoppingBag className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">해당 상태의 주문이 없습니다。</p></div>
           ) : (
             <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm text-slate-500"><input type="checkbox" checked={orderSelectedIds.size === orders.length && orders.length > 0} onChange={() => setOrderSelectedIds(orderSelectedIds.size === orders.length ? new Set() : new Set(orders.map(o => o.id)))} className="h-4 w-4 rounded" /> 전체 주문 선택</label>
-              {orders.map(o => {
+              <label className="flex items-center gap-2 text-sm text-slate-500"><input type="checkbox" checked={orderSelectedIds.size === filteredOrders.length && filteredOrders.length > 0} onChange={() => setOrderSelectedIds(orderSelectedIds.size === filteredOrders.length ? new Set() : new Set(filteredOrders.map(o => o.id)))} className="h-4 w-4 rounded" /> 전체 선택</label>
+              {filteredOrders.map(o => {
                 const sc = orderStatusConfig[o.status] ?? fallbackOrderStatus;
                 const ti = tracking[o.id];
                 return (
