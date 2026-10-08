@@ -344,11 +344,14 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     const selectedOrders = orders.filter(o => orderSelectedIds.has(o.id));
     if (selectedOrders.length === 0) return;
     const escapeCell = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const rows = selectedOrders.map(o => {
-      const productsText = orderItems.filter(i => i.order_id === o.id).map(i => `${i.product_name} x ${i.quantity}`).join(', ');
-      return `<tr><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td>${escapeCell(o.recipient_phone ?? '')}</td><td>${escapeCell(productsText)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`;
+    const rows = selectedOrders.flatMap(o => {
+      const items = orderItems.filter(i => i.order_id === o.id);
+      const list = items.length > 0 ? items : [{ product_name: '주문 상품 정보 없음', quantity: 0, unit_price: 0 } as any];
+      return list.map(item =>
+        `<tr><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.id.slice(0, 8))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td>${escapeCell(o.recipient_phone ?? '')}</td><td>${escapeCell(item.product_name)}</td><td>${item.quantity}</td><td>${formatKRW(item.unit_price)}</td><td>${formatKRW(item.unit_price * item.quantity)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`
+      ).join('');
     }).join('');
-    const html = `<table><thead><tr><th>날짜</th><th>주문자명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const html = `<table border="1"><thead><tr><th>날짜</th><th>주문번호</th><th>주문자명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>수량</th><th>단가</th><th>금액</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
     const blob = new Blob([`<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = `주문목록-${new Date().toISOString().slice(0, 10)}.xls`; link.click(); URL.revokeObjectURL(url);

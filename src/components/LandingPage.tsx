@@ -50,7 +50,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
           <h1 className="text-center font-gothic text-3xl font-bold leading-tight text-slate-800 md:text-5xl">
             제품에 광고비와 마진을 뺐습니다.
             <br />
-            <span className="text-cyan">멤버쉽 회원께는 기본 50% 할인 혜택</span>
+            <span className="text-cyan">멤버쉽 회원은 기본 50% 할인 혜택</span>
           </h1>
 
           {/* Description */}
@@ -219,7 +219,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
               하이퍼쉴드 멤버쉽
             </h2>
             <p className="mt-3 text-sm text-slate-400 md:text-base">
-              제품에 광고비와 마진을 뺐습니다. 멤버쉽 회원께는 기본 50% 할인 혜택.
+              제품에 광고비와 마진을 뺐습니다. 멤버쉽 회원은 기본 50% 할인 혜택.
             </p>
             <button onClick={onEnter} className="btn-primary mt-6 px-8 py-3 text-base">
               입장하기 <ArrowRight className="h-5 w-5" />

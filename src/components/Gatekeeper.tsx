@@ -76,7 +76,7 @@ export default function Gatekeeper() {
                 제품에 광고비와 마진을 뺐습니다
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-slate-500">
-                멤버쉽 회원께는 기본 50% 할인 혜택
+                멤버쉽 회원은 기본 50% 할인 혜택
               </p>
 
               <div className="mt-5 flex flex-wrap justify-center gap-2">

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { LogOut, User, ShoppingCart } from 'lucide-react';
 import { AuthProvider, useAuth } from './lib/auth';
 import {
-  useProducts, useCategories, useOrders, useProfiles, usePosts,
+  useProducts, useCategories, useOrders, useUserOrderItems, useProfiles, usePosts,
   useSubscriptionPlans, useCart, useAddresses, useSettings,
 } from './lib/data';
 import { Profile, Post, Setting, Product, SelectedOption } from './lib/types';
@@ -64,6 +64,7 @@ function Shell() {
   const productsHook = useProducts(authReady);
   const categoriesHook = useCategories(authReady);
   const ordersHook = useOrders(authReady);
+  const orderItemsHook = useUserOrderItems(profile?.id, authReady);
   const profilesHook = useProfiles(authReady && profile?.role === 'admin');
   const postsHook = usePosts(true);
   const plansHook = useSubscriptionPlans(true);
@@ -75,13 +76,14 @@ function Shell() {
     productsHook.refresh();
     categoriesHook.refresh();
     ordersHook.refresh();
+    orderItemsHook.refresh();
     profilesHook.refresh();
     postsHook.refresh();
     plansHook.refresh();
     settingsHook.refresh();
     cartHook.refresh();
     addressesHook.refresh();
-  }, [productsHook, categoriesHook, ordersHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook]);
+  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook]);
 
   const navigate = useCallback((r: Route) => {
     setRoute(r);
@@ -168,6 +170,7 @@ function Shell() {
         products={productsHook.items}
         categories={categoriesHook.items}
         orders={ordersHook.items}
+        orderItems={orderItemsHook.items}
         profiles={profilesHook.items}
         posts={postsHook.items}
         plans={plansHook.items}
@@ -185,7 +188,7 @@ function Shell() {
 
 function ShellContent({
   profile, route, navigate, signOut, refreshAll,
-  products, categories, orders, profiles, posts, plans, settings,
+  products, categories, orders, orderItems, profiles, posts, plans, settings,
   cartItems, addresses, onRefreshCart, cartCount,
   buyNowItem, onBuyNow,
 }: {
@@ -197,6 +200,7 @@ function ShellContent({
   products: any[];
   categories: any[];
   orders: any[];
+  orderItems: any[];
   profiles: any[];
   posts: Post[];
   plans: any[];
@@ -301,6 +305,7 @@ function ShellContent({
           <MyPage
             profile={profile}
             orders={orders}
+            orderItems={orderItems}
             addresses={addresses}
             plans={plans}
             onRefresh={refreshAll}

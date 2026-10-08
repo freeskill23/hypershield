@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, Address, Post, Setting, SelectedOption,
+  Order, OrderItem, Address, Post, Setting, SelectedOption,
 } from './types';
 
 // ============================================================
@@ -80,6 +80,41 @@ export function useOrders(enabled: boolean = true) {
   return useCollection<Order>(
     'orders', { column: 'created_at', ascending: false }, enabled,
   );
+}
+
+export function useUserOrderItems(userId: string | undefined, enabled: boolean = true) {
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!userId || !isSupabaseConfigured || !supabase) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select('*, order:orders(user_id)')
+        .eq('order.user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setItems((data as any[])?.map(({ order: _, ...rest }: any) => rest as OrderItem) ?? []);
+    } catch (e) {
+      console.error('user order items load error', e);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    refresh();
+  }, [refresh, enabled]);
+
+  return { items, loading, refresh };
 }
 
 export function useProfiles(enabled: boolean = true) {
@@ -176,40 +211,36 @@ export function useAddresses(userId: string | undefined) {
 // Cart operations
 // ============================================================
 
+function optionsMatch(a: SelectedOption[] | null, b: SelectedOption[] | null): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].name !== b[i].name || a[i].value !== b[i].value || a[i].price_addition !== b[i].price_addition) return false;
+  }
+  return true;
+}
+
 export async function addToCart(productId: string, quantity: number = 1, selectedOptions?: SelectedOption[]) {
   if (!isSupabaseConfigured || !supabase) return;
   const optionsJson = selectedOptions && selectedOptions.length > 0 ? selectedOptions : null;
 
-  if (optionsJson) {
-    const { data: existing } = await supabase
-      .from('cart_items')
-      .select('id, quantity')
-      .eq('product_id', productId)
-      .eq('selected_options', optionsJson)
-      .maybeSingle();
+  const { data: existingItems } = await supabase
+    .from('cart_items')
+    .select('id, quantity, selected_options')
+    .eq('product_id', productId);
 
-    if (existing) {
-      await supabase
-        .from('cart_items')
-        .update({ quantity: (existing as any).quantity + quantity })
-        .eq('id', (existing as any).id);
-      return;
-    }
-  } else {
-    const { data: existing } = await supabase
-      .from('cart_items')
-      .select('id, quantity')
-      .eq('product_id', productId)
-      .is('selected_options', null)
-      .maybeSingle();
+  const match = (existingItems as any[])?.find((item) => {
+    const itemOpts = item.selected_options as SelectedOption[] | null;
+    return optionsMatch(optionsJson ?? null, itemOpts);
+  });
 
-    if (existing) {
-      await supabase
-        .from('cart_items')
-        .update({ quantity: (existing as any).quantity + quantity })
-        .eq('id', (existing as any).id);
-      return;
-    }
+  if (match) {
+    await supabase
+      .from('cart_items')
+      .update({ quantity: match.quantity + quantity })
+      .eq('id', match.id);
+    return;
   }
 
   await supabase.from('cart_items').insert({ product_id: productId, quantity, selected_options: optionsJson });
