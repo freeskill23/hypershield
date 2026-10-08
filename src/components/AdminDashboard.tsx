@@ -1165,14 +1165,14 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           <div className="flex items-center justify-between">
             <h2 className="font-gothic text-lg font-semibold text-slate-800">후기 관리</h2>
             <button onClick={() => { setReviewF(emptyReviewForm); setShowReviewForm(true); }} className="btn-primary px-4 py-2 text-sm">
-              <Plus className="h-4 w-4" /> 가짜 후기 작성
+              <Plus className="h-4 w-4" /> 후기 작성
             </button>
           </div>
 
           {showReviewForm && (
             <form onSubmit={handleReviewSubmit} className="card-surface space-y-4 p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-gothic text-base font-semibold text-slate-800">가짜 후기 작성</h3>
+                <h3 className="font-gothic text-base font-semibold text-slate-800">후기 작성</h3>
                 <button type="button" onClick={() => setShowReviewForm(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
               </div>
               <div className="grid grid-cols-1 gap-4">
@@ -1233,7 +1233,6 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-800">{product?.name ?? '상품 없음'}</span>
-                          {r.is_admin_created && <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold">관리자 작성</span>}
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                           <span>{r.author_email}</span>

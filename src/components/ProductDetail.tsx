@@ -391,9 +391,6 @@ export default function ProductDetail({ product, settings, reviews = [], onBack,
                       {maskEmail(rev.author_email).slice(0, 1).toUpperCase()}
                     </div>
                     <span className="text-sm font-medium text-slate-700">{maskEmail(rev.author_email)}</span>
-                    {rev.is_admin_created && (
-                      <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-medium text-gold">관리자</span>
-                    )}
                   </div>
                   <span className="text-xs text-slate-400">{new Date(rev.created_at).toLocaleDateString('ko-KR')}</span>
                 </div>
