@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review,
+  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review, TrialApplication,
 } from './types';
 
 // ============================================================
@@ -773,4 +773,84 @@ export async function createReviewWithError(input: {
 export async function deleteReview(reviewId: string) {
   if (!isSupabaseConfigured || !supabase) return;
   await supabase.from('product_reviews').delete().eq('id', reviewId);
+}
+
+// ============================================================
+// Trial applications (체험단 신청)
+// ============================================================
+
+export function useTrialApplications(userId: string | undefined, enabled: boolean = true) {
+  const [items, setItems] = useState<TrialApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!userId || !isSupabaseConfigured || !supabase) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('trial_applications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setItems((data as TrialApplication[]) ?? []);
+    } catch (e) {
+      console.error('trial applications load error', e);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    refresh();
+  }, [refresh, enabled]);
+
+  return { items, loading, refresh };
+}
+
+export async function createTrialApplication(input: {
+  product_id: string;
+  reason: string;
+  recipient_name: string;
+  recipient_phone: string;
+  address: string;
+  address_detail: string;
+  review_platform: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { ok: false, error: '로그인이 필요합니다.' };
+  const { error } = await supabase.from('trial_applications').insert({
+    user_id: userData.user.id,
+    product_id: input.product_id,
+    reason: input.reason,
+    recipient_name: input.recipient_name,
+    recipient_phone: input.recipient_phone,
+    address: input.address,
+    address_detail: input.address_detail,
+    review_platform: input.review_platform,
+    agreed: true,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function submitTrialReviewUrl(id: string, reviewUrl: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
+  const { error } = await supabase
+    .from('trial_applications')
+    .update({
+      review_url: reviewUrl,
+      review_url_submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }

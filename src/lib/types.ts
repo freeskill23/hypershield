@@ -194,3 +194,27 @@ export interface Post {
   created_at: string;
   updated_at: string;
 }
+
+export type TrialStatus = 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed';
+
+export interface TrialApplication {
+  id: string;
+  user_id: string;
+  product_id: string | null;
+  reason: string | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  address: string | null;
+  address_detail: string | null;
+  review_platform: string | null;
+  agreed: boolean;
+  status: TrialStatus;
+  reject_reason: string | null;
+  shipped_at: string | null;
+  review_url: string | null;
+  review_url_submitted_at: string | null;
+  admin_comment: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

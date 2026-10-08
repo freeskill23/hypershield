@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminSupabase, isAdminSupabaseConfigured } from './adminSupabase';
 import {
-  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting, Inquiry, Review,
+  Profile, SubscriptionPlan, Category, Product, ProductOption, Order, OrderItem, Post, Setting, Inquiry, Review, TrialApplication,
 } from './types';
 
 function useAdminCollection<T>(
@@ -89,6 +89,12 @@ export async function answerInquiry(inquiryId: string, answer: string, adminId: 
     })
     .eq('id', inquiryId);
   if (error) throw new Error(`답변 작성 실패: ${error.message}`);
+}
+
+export async function deleteInquiry(inquiryId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase.from('inquiries').delete().eq('id', inquiryId);
+  if (error) throw new Error(`문의 삭제 실패: ${error.message}`);
 }
 
 export async function updateInquiryAnswer(inquiryId: string, answer: string, adminId: string) {
@@ -333,4 +339,54 @@ export async function createAdminReview(input: {
 export async function deleteAdminReview(reviewId: string) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   await adminSupabase.from('product_reviews').delete().eq('id', reviewId);
+}
+
+// ============================================================
+// Trial applications (체험단 관리)
+// ============================================================
+
+export function useAdminTrialApplications(enabled: boolean = true) {
+  return useAdminCollection<TrialApplication>('trial_applications', { column: 'created_at', ascending: false }, enabled);
+}
+
+export async function approveTrialApplication(id: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('trial_applications')
+    .update({ status: 'approved', updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`승인 실패: ${error.message}`);
+}
+
+export async function rejectTrialApplication(id: string, reason: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('trial_applications')
+    .update({ status: 'rejected', reject_reason: reason, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`거절 실패: ${error.message}`);
+}
+
+export async function shipTrialApplication(id: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('trial_applications')
+    .update({ status: 'shipped', shipped_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`발송 처리 실패: ${error.message}`);
+}
+
+export async function completeTrialApplication(id: string, comment: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('trial_applications')
+    .update({ status: 'completed', admin_comment: comment, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`완료 처리 실패: ${error.message}`);
+}
+
+export async function deleteTrialApplication(id: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase.from('trial_applications').delete().eq('id', id);
+  if (error) throw new Error(`삭제 실패: ${error.message}`);
 }

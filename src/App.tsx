@@ -319,6 +319,7 @@ function ShellContent({
             plans={plans}
             inquiries={inquiries}
             reviews={reviews}
+            products={products}
             onRefresh={refreshAll}
           />
         ) : (
@@ -346,12 +347,12 @@ function ShellContent({
 
 function AppRouter() {
   const [isAdminRoute, setIsAdminRoute] = useState(
-    () => window.location.hash.replace('#', '') === 'admin',
+    () => window.location.hash.replace('#', '').startsWith('admin'),
   );
 
   useEffect(() => {
     const onHashChange = () => {
-      setIsAdminRoute(window.location.hash.replace('#', '') === 'admin');
+      setIsAdminRoute(window.location.hash.replace('#', '').startsWith('admin'));
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);

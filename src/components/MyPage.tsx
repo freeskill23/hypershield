@@ -4,11 +4,12 @@ import {
   CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
   ChevronRight, ArrowLeft, Search, MessageSquare, Star, Upload, X,
 } from 'lucide-react';
-import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry, Review } from '../lib/types';
+import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry, Review, TrialApplication, Product } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
-import { addAddress, deleteAddress, requestOrderCancellation, createReviewWithError } from '../lib/data';
+import { addAddress, deleteAddress, requestOrderCancellation, createReviewWithError, useTrialApplications } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 import MyInquiry from './MyInquiry';
+import MyTrials from './MyTrials';
 import { supabase } from '../lib/supabase';
 
 interface Props {
@@ -19,10 +20,11 @@ interface Props {
   plans: SubscriptionPlan[];
   inquiries: Inquiry[];
   reviews: Review[];
+  products: Product[];
   onRefresh: () => void;
 }
 
-type Tab = 'overview' | 'orders' | 'addresses' | 'inquiries';
+type Tab = 'overview' | 'orders' | 'addresses' | 'inquiries' | 'trials';
 type OrderFilter = 'all' | 'shipped' | 'delivered' | 'cancelled';
 
 const orderStatusConfig: Record<string, { label: string; className: string; icon: any }> = {
@@ -34,8 +36,9 @@ const orderStatusConfig: Record<string, { label: string; className: string; icon
   cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
 };
 
-export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, reviews, onRefresh }: Props) {
+export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, reviews, products, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
+  const trialHook = useTrialApplications(profile.id);
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -213,6 +216,7 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
           ['orders', '주문 내역'],
           ['addresses', '배송지 관리'],
           ['inquiries', '1:1 문의'],
+          ['trials', '체험단'],
         ] as [Tab, string][]).map(([k, label]) => (
           <button
             key={k}
@@ -715,6 +719,11 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
       {/* Inquiries */}
       {tab === 'inquiries' && (
         <MyInquiry inquiries={inquiries} userId={profile.id} onRefresh={onRefresh} />
+      )}
+
+      {/* Trials */}
+      {tab === 'trials' && (
+        <MyTrials trials={trialHook.items} products={products} userId={profile.id} onRefresh={() => { trialHook.refresh(); onRefresh(); }} />
       )}
 
       {/* Cancel order modal */}

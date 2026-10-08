@@ -4,12 +4,12 @@ import {
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
-  MessageSquare, Star, Upload, X,
+  MessageSquare, Star, Upload, X, Gift,
 } from 'lucide-react';
 import {
-  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review,
+  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus,
 } from '../lib/types';
-import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber } from '../lib/format';
+import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber, getRemainingDays } from '../lib/format';
 import {
   createProduct, updateProduct, deleteProduct,
   createCategory, updateCategory, deleteCategory,
@@ -19,13 +19,14 @@ import {
   changeMemberGrade, batchChangeMemberGrade,
   updateSetting, getSettingValue,
   resetMemberPassword,
-  answerInquiry, updateInquiryAnswer,
+  answerInquiry, updateInquiryAnswer, deleteInquiry,
   createAdminReview, deleteAdminReview,
+  approveTrialApplication, rejectTrialApplication, shipTrialApplication, completeTrialApplication, deleteTrialApplication,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
 import RichTextEditor from './RichTextEditor';
 
-type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews';
+type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews' | 'trials';
 type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'cancel_request';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
@@ -40,7 +41,7 @@ const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
 
 interface Props {
   profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
-  profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; inquiries: Inquiry[]; reviews: Review[]; refresh: () => void;
+  profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; inquiries: Inquiry[]; reviews: Review[]; trials: TrialApplication[]; refresh: () => void;
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
@@ -100,9 +101,24 @@ const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: s
   );
 };
 
-export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, inquiries, reviews, refresh }: Props) {
-  const [tab, setTab] = useState<Tab>('overview');
+export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, inquiries, reviews, trials, refresh }: Props) {
+  const initialTab = (() => {
+    const h = window.location.hash.replace('#admin', '').replace('/', '');
+    const valid: Tab[] = ['overview', 'products', 'orders', 'members', 'posts', 'plans', 'inquiries', 'reviews', 'trials'];
+    return (valid as string[]).includes(h) ? (h as Tab) : 'overview';
+  })();
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [orderSubTab, setOrderSubTab] = useState<OrderSubTab>('all');
+
+  useEffect(() => {
+    const onPopState = () => {
+      const h = window.location.hash.replace('#admin', '').replace('/', '');
+      const valid: Tab[] = ['overview', 'products', 'orders', 'members', 'posts', 'plans', 'inquiries', 'reviews', 'trials'];
+      setTab((valid as string[]).includes(h) ? (h as Tab) : 'overview');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const [busy, setBusy] = useState(false);
 
   const recruitmentOpen = getSettingValue(settings, 'recruitment_open') !== 'false';
@@ -488,6 +504,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   async function handleSaveShipping(key: string, value: string) { await updateSetting(key, value); refresh(); }
 
   function setTabAndReset(t: Tab) {
+    if (t !== tab) window.history.pushState({}, '', `#admin/${t}`);
     setTab(t);
     setShowProductForm(false); setEditProduct(null); setPf(emptyProductForm);
     setShowPostForm(false); setEditPost(null); setPostF(emptyPostForm);
@@ -505,7 +522,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setReviewF(emptyReviewForm);
   }
 
-  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리']];
+  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리'], ['trials', '체험단']];
 
   return (
     <div className="space-y-6">
@@ -1333,12 +1350,23 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-3 flex justify-end">
+                      <div className="mt-3 flex justify-end gap-1.5">
                         <button
                           onClick={() => { setInquiryReplyId(inq.id); setInquiryReplyText(inq.answer ?? ''); }}
                           className="btn-ghost px-4 py-2 text-sm"
                         >
                           <Edit2 className="h-3.5 w-3.5" /> {inq.answer ? '답변 수정' : '답변 작성'}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm('이 문의를 삭제하시겠습니까?')) {
+                              try { await deleteInquiry(inq.id); refresh(); }
+                              catch (e: any) { alert(e.message || '문의 삭제에 실패했습니다.'); }
+                            }
+                          }}
+                          className="btn-ghost px-3 py-2 text-sm hover:text-red-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> 삭제
                         </button>
                       </div>
                     )}
@@ -1404,6 +1432,144 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               <div className="card-surface grid place-items-center py-16 text-center"><Crown className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">등록된 회원 등급이 없습니다.</p><button onClick={openCreatePlan} className="btn-primary mt-4 px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 첫 등급 추가</button></div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Trials ── */}
+      {tab === 'trials' && (
+        <div className="space-y-4">
+          <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 관리</h2>
+          {trials.length === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <Gift className="mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm text-slate-500">접수된 체험단 신청이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {trials.map(inq => {
+                const applicant = profiles.find(p => p.id === inq.user_id);
+                const product = inq.product_id ? products.find(p => p.id === inq.product_id) : null;
+                const remainingDays = inq.shipped_at ? getRemainingDays(
+                  new Date(new Date(inq.shipped_at).getTime() + 30 * 86400000).toISOString(),
+                ) : null;
+                return (
+                  <div key={inq.id} className="card-surface p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                            inq.status === 'completed' ? 'border-green-500/40 text-green-400 bg-green-500/5'
+                            : inq.status === 'shipped' ? 'border-cyan/40 text-cyan bg-cyan/5'
+                            : inq.status === 'approved' ? 'border-cyan/40 text-cyan bg-cyan/5'
+                            : inq.status === 'rejected' ? 'border-red-500/40 text-red-400 bg-red-500/5'
+                            : 'border-gold/40 text-gold-light bg-gold/5'
+                          }`}>
+                            {inq.status === 'completed' && <><CheckCircle2 className="h-3 w-3" /> 완료</>}
+                            {inq.status === 'shipped' && <><Truck className="h-3 w-3" /> 발송완료</>}
+                            {inq.status === 'approved' && <><CheckCircle2 className="h-3 w-3" /> 승인</>}
+                            {inq.status === 'rejected' && <><XCircle className="h-3 w-3" /> 거절</>}
+                            {inq.status === 'pending' && <><Clock className="h-3 w-3" /> 대기</>}
+                          </span>
+                          <span className="text-xs text-slate-500">{applicant?.full_name ?? '알 수 없음'}</span>
+                          <span className="ml-auto text-xs text-slate-500">{formatDate(inq.created_at)}</span>
+                        </div>
+                        <div className="mt-3 flex items-center gap-3">
+                          {product?.image_url && <img src={product.image_url} alt="" className="h-12 w-12 rounded-lg object-cover" />}
+                          <div>
+                            <h3 className="font-gothic text-base font-semibold text-slate-800">{product?.name ?? '상품 정보 없음'}</h3>
+                            <p className="mt-0.5 text-xs text-slate-500">신청자: {inq.recipient_name} · {inq.recipient_phone}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 rounded-lg border border-navy-700 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
+                          <span className="text-xs font-semibold text-slate-500">신청 이유: </span>{inq.reason}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          <span className="font-semibold">주소: </span>{inq.address} {inq.address_detail} · <span className="font-semibold">리뷰 플랫폼: </span>{inq.review_platform}
+                        </div>
+                      </div>
+                    </div>
+
+                    {inq.reject_reason && (
+                      <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                        <div className="mb-1 text-xs font-semibold text-red-400">거절 사유</div>
+                        <div className="text-sm text-slate-700 whitespace-pre-wrap">{inq.reject_reason}</div>
+                      </div>
+                    )}
+
+                    {inq.shipped_at && (
+                      <div className="mt-3 rounded-lg border border-cyan/30 bg-cyan/5 p-3 text-sm">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-cyan">
+                          <Truck className="h-3.5 w-3.5" /> 발송일: {formatDate(inq.shipped_at)}
+                          {remainingDays !== null && remainingDays > 0 && inq.status !== 'completed' && (
+                            <span className="ml-auto font-normal text-slate-500">리뷰 마감까지 {remainingDays}일</span>
+                          )}
+                          {remainingDays !== null && remainingDays <= 0 && inq.status !== 'completed' && (
+                            <span className="ml-auto font-normal text-red-400">기한 초과</span>
+                          )}
+                        </div>
+                        {inq.review_url && (
+                          <a href={inq.review_url} target="_blank" rel="noopener noreferrer" className="mt-1.5 flex items-center gap-1.5 break-all text-cyan hover:underline">
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {inq.review_url}
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {inq.completed_at && inq.admin_comment && (
+                      <div className="mt-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3">
+                        <div className="mb-1 text-xs font-semibold text-green-400">완료 코멘트 ({formatDate(inq.completed_at)})</div>
+                        <div className="text-sm text-slate-700 whitespace-pre-wrap">{inq.admin_comment}</div>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    {inq.status === 'pending' && (
+                      <div className="mt-3 flex justify-end gap-1.5">
+                        <button onClick={async () => { try { await approveTrialApplication(inq.id); refresh(); } catch (e: any) { alert(e.message); } }} className="btn-primary px-4 py-2 text-sm">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> 승인
+                        </button>
+                        <button onClick={() => { const reason = prompt('거절 사유를 입력하세요'); if (reason !== null) { rejectTrialApplication(inq.id, reason.trim()).then(refresh).catch((e: any) => alert(e.message)); } }} className="btn-ghost px-4 py-2 text-sm hover:text-red-400">
+                          <XCircle className="h-3.5 w-3.5" /> 거절
+                        </button>
+                        <button onClick={() => { if (confirm('이 신청을 삭제하시겠습니까?')) { deleteTrialApplication(inq.id).then(refresh).catch((e: any) => alert(e.message)); } }} className="btn-ghost px-3 py-2 text-sm hover:text-red-400">
+                          <Trash2 className="h-3.5 w-3.5" /> 삭제
+                        </button>
+                      </div>
+                    )}
+
+                    {inq.status === 'approved' && (
+                      <div className="mt-3 flex justify-end gap-1.5">
+                        <button onClick={async () => { try { await shipTrialApplication(inq.id); refresh(); } catch (e: any) { alert(e.message); } }} className="btn-primary px-4 py-2 text-sm">
+                          <Truck className="h-3.5 w-3.5" /> 발송 완료 처리
+                        </button>
+                      </div>
+                    )}
+
+                    {inq.status === 'shipped' && (
+                      <div className="mt-3 flex justify-end gap-1.5">
+                        <button onClick={() => {
+                          const comment = prompt('완료 코멘트를 입력하세요');
+                          if (comment !== null) {
+                            completeTrialApplication(inq.id, comment.trim()).then(refresh).catch((e: any) => alert(e.message));
+                          }
+                        }} className="btn-primary px-4 py-2 text-sm">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> 체험 완료 처리
+                        </button>
+                      </div>
+                    )}
+
+                    {(inq.status === 'completed' || inq.status === 'rejected') && (
+                      <div className="mt-3 flex justify-end gap-1.5">
+                        <button onClick={() => { if (confirm('이 신청을 삭제하시겠습니까?')) { deleteTrialApplication(inq.id).then(refresh).catch((e: any) => alert(e.message)); } }} className="btn-ghost px-3 py-2 text-sm hover:text-red-400">
+                          <Trash2 className="h-3.5 w-3.5" /> 삭제
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
