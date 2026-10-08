@@ -346,7 +346,38 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
   if (status === 'shipped' && !extra?.shipped_at) {
     patch.shipped_at = new Date().toISOString();
   }
+  if (status === 'delivered' && !extra?.delivered_at) {
+    patch.delivered_at = new Date().toISOString();
+  }
+  if (status === 'cancelled' && !extra?.cancelled_at) {
+    patch.cancelled_at = new Date().toISOString();
+  }
   await supabase.from('orders').update(patch).eq('id', orderId);
+}
+
+export async function requestOrderCancellation(
+  orderId: string,
+  cancelType: 'card' | 'manual',
+  reason: string,
+  refundInfo?: { bank: string; account: string; holder: string },
+): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  const patch: any = {
+    cancel_requested_at: new Date().toISOString(),
+    cancel_type: cancelType,
+    cancel_reason: reason || null,
+  };
+  if (cancelType === 'manual' && refundInfo) {
+    patch.refund_bank = refundInfo.bank;
+    patch.refund_account = refundInfo.account;
+    patch.refund_holder = refundInfo.holder;
+  }
+  const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
+  if (error) {
+    console.error('request cancellation error', error);
+    return false;
+  }
+  return true;
 }
 
 // ============================================================

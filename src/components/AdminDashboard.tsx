@@ -25,7 +25,7 @@ import ImageUpload from './ImageUpload';
 import RichTextEditor from './RichTextEditor';
 
 type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries';
-type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'cancel_request';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
   ['all', '전체', ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled']],
@@ -33,6 +33,7 @@ const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
   ['paid', '결제완료', ['paid', 'preparing']],
   ['shipped', '배송중', ['shipped']],
   ['delivered', '배송완료', ['delivered']],
+  ['cancel_request', '취소요청', ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled']],
   ['cancelled', '취소', ['cancelled']],
 ];
 
@@ -154,7 +155,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   }), [profiles, orders]);
 
   const orderSubTabConfig = orderSubTabs.find(t => t[0] === orderSubTab) ?? orderSubTabs[0];
-  const filteredOrders = useMemo(() => orders.filter(o => orderSubTabConfig[2].includes(o.status)), [orders, orderSubTabConfig]);
+  const filteredOrders = useMemo(() => {
+    if (orderSubTab === 'cancel_request') {
+      return orders.filter(o => o.cancel_requested_at && o.status !== 'cancelled');
+    }
+    return orders.filter(o => orderSubTabConfig[2].includes(o.status));
+  }, [orders, orderSubTabConfig, orderSubTab]);
 
   // ── Product ──
   function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setShowProductForm(true); }
@@ -847,7 +853,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           </div>
           <div className="flex flex-wrap gap-2 border-b border-navy-700 pb-2">
             {orderSubTabs.map(([key, label, statuses]) => {
-              const count = orders.filter(o => statuses.includes(o.status)).length;
+              const count = key === 'cancel_request'
+                  ? orders.filter(o => o.cancel_requested_at && o.status !== 'cancelled').length
+                  : orders.filter(o => statuses.includes(o.status)).length;
               const active = orderSubTab === key;
               return (
                 <button key={key} onClick={() => { setOrderSubTab(key); setOrderSelectedIds(new Set()); }}
@@ -887,6 +895,22 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                       </label>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy-700 pt-3">
+                      {o.cancel_requested_at && o.status !== 'cancelled' && (
+                        <div className="mt-3 rounded-lg border border-gold/30 bg-gold/5 p-3">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-gold-light"><Clock className="h-3.5 w-3.5" /> 회원 취소 요청</div>
+                          <div className="mt-1.5 space-y-0.5 text-xs text-slate-600">
+                            <div>취소 유형: {o.cancel_type === 'card' ? '카드 결제 취소' : '무통장입금 환불'}</div>
+                            {o.cancel_reason && <div>취소 사유: {o.cancel_reason}</div>}
+                            {o.cancel_type === 'manual' && o.refund_bank && (
+                              <div className="mt-1 rounded bg-white/60 px-2 py-1">
+                                <span className="font-medium text-slate-700">환불 계좌:</span> {o.refund_bank} {o.refund_account} ({o.refund_holder})
+                              </div>
+                            )}
+                            {o.cancel_type === 'card' && <p className="text-slate-500">카드 결제 자동 취소 — 별도 조치 불필요</p>}
+                          </div>
+                          <button onClick={() => handleOrderStatus(o, 'cancelled')} className="btn-primary mt-2 px-3 py-1.5 text-xs"><CheckCircle2 className="h-3.5 w-3.5" /> 취소 완료 처리</button>
+                        </div>
+                      )}
                       {o.status === 'pending' && (<>
                         <button onClick={() => handleOrderStatus(o, 'paid')} className="btn-primary px-3 py-1.5 text-xs"><CheckCircle2 className="h-3.5 w-3.5" /> 결제 확인</button>
                         <button onClick={() => handleOrderStatus(o, 'cancelled')} className="btn-ghost px-3 py-1.5 text-xs hover:text-red-400"><XCircle className="h-3.5 w-3.5" /> 주문 취소</button>

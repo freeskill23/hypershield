@@ -113,6 +113,13 @@ export interface Order {
   points_used: number;
   points_earned: number;
   created_at: string;
+  cancel_requested_at: string | null;
+  cancel_type: 'card' | 'manual' | null;
+  cancel_reason: string | null;
+  refund_bank: string | null;
+  refund_account: string | null;
+  refund_holder: string | null;
+  cancelled_at: string | null;
 }
 
 export interface OrderItem {

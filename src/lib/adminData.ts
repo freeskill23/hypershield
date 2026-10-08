@@ -212,6 +212,7 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
   const patch: Partial<Order> & { status: Order['status'] } = { status, ...extra };
   if (status === 'shipped' && !extra?.shipped_at) patch.shipped_at = new Date().toISOString();
   if (status === 'delivered' && !extra?.delivered_at) patch.delivered_at = new Date().toISOString();
+  if (status === 'cancelled' && !extra?.cancelled_at) patch.cancelled_at = new Date().toISOString();
   const { error } = await adminSupabase.from('orders').update(patch).eq('id', orderId);
   if (error) throw new Error(`주문 상태 변경 실패: ${error.message}`);
 }
