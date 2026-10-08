@@ -358,7 +358,7 @@ function AppRouter() {
   }, []);
 
   if (isAdminRoute) {
-    return <AdminApp onBackToSite={() => { window.location.hash = ''; }} />;
+    return <AdminApp onBackToSite={() => { window.location.replace(window.location.pathname + window.location.search); }} />;
   }
   return (
     <AuthProvider>

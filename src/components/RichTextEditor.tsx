@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import {
   Bold, Italic, Underline, List, ListOrdered, Quote,
   Link2, Heading2, Heading3, Undo, Redo,
@@ -13,14 +13,30 @@ interface Props {
 
 export default function RichTextEditor({ value, onChange, placeholder = '내용을 입력하세요...', minHeight = 200 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const isUserEditing = useRef(false);
+
+  // Only sync external value when not actively editing (e.g. initial load or programmatic change)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || isUserEditing.current) return;
+    if (el.innerHTML !== value) {
+      el.innerHTML = value;
+    }
+  }, [value]);
 
   const exec = useCallback((command: string, val?: string) => {
     document.execCommand(command, false, val);
-    if (ref.current) onChange(ref.current.innerHTML);
+    const el = ref.current;
+    if (el) onChange(el.innerHTML);
   }, [onChange]);
 
   const handleInput = useCallback(() => {
-    if (ref.current) onChange(ref.current.innerHTML);
+    const el = ref.current;
+    if (!el) return;
+    isUserEditing.current = true;
+    onChange(el.innerHTML);
+    // Reset after a tick so external value syncs can resume
+    requestAnimationFrame(() => { isUserEditing.current = false; });
   }, [onChange]);
 
   const handleLink = useCallback(() => {
@@ -73,7 +89,6 @@ export default function RichTextEditor({ value, onChange, placeholder = '내용�
         data-placeholder={placeholder}
         className="rich-editor prose max-w-none px-4 py-3 text-sm text-slate-800 focus:outline-none"
         style={{ minHeight }}
-        dangerouslySetInnerHTML={{ __html: value }}
       />
     </div>
   );
