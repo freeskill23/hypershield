@@ -181,7 +181,7 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
   if (status === 'shipped' && !extra?.shipped_at) patch.shipped_at = new Date().toISOString();
   if (status === 'delivered' && !extra?.delivered_at) patch.delivered_at = new Date().toISOString();
   const { error } = await adminSupabase.from('orders').update(patch).eq('id', orderId);
-  if (error) console.error('update order status error', error);
+  if (error) throw new Error(`주문 상태 변경 실패: ${error.message}`);
 }
 
 export async function batchUpdateOrderStatus(orderIds: string[], status: Order['status']) {
@@ -189,7 +189,7 @@ export async function batchUpdateOrderStatus(orderIds: string[], status: Order['
   const patch: Partial<Order> & { status: Order['status'] } = { status };
   if (status === 'delivered') patch.delivered_at = new Date().toISOString();
   const { error } = await adminSupabase.from('orders').update(patch).in('id', orderIds);
-  if (error) console.error('batch update order status error', error);
+  if (error) throw new Error(`일괄 주문 상태 변경 실패: ${error.message}`);
 }
 
 export async function setProfileRole(user_id: string, role: 'member' | 'admin') {
