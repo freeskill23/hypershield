@@ -24,6 +24,10 @@ function isIsland(address: string): boolean {
   return /울릉|독도|백령도|추자도|거문도|연평도|홍도|대마도|가거도|어청도|외도|초도|신도|모도|구곡도|가사도|나로도|안도|보라색도|장도|고사리도|소매물도|대매물도|하추자도|상추자도|비양도|우도|마라도|가파도|비양도|당사도|죽도|사승봉도|호도|국도|대도|소도|횡간도|단도|봉도|무월도|도담도|사선도|매화도|이월도|말도|원도|악어도|호암도|대장도|소장도|오리도|죽항도|당도|송도|화도|이도|구률도|갑선도|외양도|대야도|소야도|생연도|지도|무늬도|가덕도|거제도|진도|고군도|완도|노화도|보길도|청산도|소안도|영광|신지도|조도|완도|진도|고흥|여수|무안|신안|장흥|보성|해남|진도|완도|고군도|비금도|도화도|압해도|매화도|가사도|나로도|안도|보라색도/i.test(address);
 }
 
+function isValidPhoneNumber(phone: string): boolean {
+  return /^(?:02-\d{3,4}-\d{4}|0(?:1[016789]|[3-6]\d|70)-\d{3,4}-\d{4})$/.test(phone);
+}
+
 export default function Checkout({ cartItems, buyNowItem, addresses, userId, settings, onBack, onComplete }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +111,10 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     e.preventDefault();
     if (!shippingData.recipient_name || !shippingData.address) {
       setError('배송지 정보를 입력해 주세요.');
+      return;
+    }
+    if (!isValidPhoneNumber(shippingData.recipient_phone)) {
+      setError('연락처를 올바른 형식으로 입력해 주세요. 예: 010-0000-0000');
       return;
     }
     setBusy(true);
