@@ -4,8 +4,9 @@ import { AuthProvider, useAuth } from './lib/auth';
 import {
   useProducts, useCategories, useOrders, useUserOrderItems, useProfiles, usePosts,
   useSubscriptionPlans, useCart, useAddresses, useSettings, useInquiries, useReviews,
+  useTrialApplications,
 } from './lib/data';
-import { Profile, Post, Setting, Product, SelectedOption, Inquiry } from './lib/types';
+import { Profile, Post, Setting, Product, SelectedOption, Inquiry, TrialApplication } from './lib/types';
 import Gatekeeper from './components/Gatekeeper';
 import LandingPage from './components/LandingPage';
 import BoardList from './components/BoardList';
@@ -15,6 +16,7 @@ import ProductDetail from './components/ProductDetail';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import MyPage from './components/MyPage';
+import MyTrials from './components/MyTrials';
 import AdminApp from './components/AdminApp';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -26,6 +28,7 @@ type Route =
   | { name: 'product'; productId: string }
   | { name: 'cart' }
   | { name: 'checkout' }
+  | { name: 'trials' }
   | { name: 'mypage' };
 
 function routeToHash(r: Route): string {
@@ -36,6 +39,7 @@ function routeToHash(r: Route): string {
     case 'shop': return r.categoryId ? `#shop/${r.categoryId}` : '#shop';
     case 'product': return `#product/${r.productId}`;
     case 'cart': return '#cart';
+    case 'trials': return '#trials';
     case 'checkout': return '#checkout';
     case 'mypage': return '#mypage';
   }
@@ -50,6 +54,7 @@ function hashToRoute(hash: string): Route {
   if (h.startsWith('product/')) return { name: 'product', productId: h.slice(8) };
   if (h === 'cart') return { name: 'cart' };
   if (h === 'checkout') return { name: 'checkout' };
+  if (h === 'trials') return { name: 'trials' };
   if (h === 'mypage') return { name: 'mypage' };
   return { name: 'landing' };
 }
@@ -74,6 +79,7 @@ function Shell() {
   const addressesHook = useAddresses(profile?.id);
   const inquiriesHook = useInquiries(profile?.id, authReady);
   const reviewsHook = useReviews(true);
+  const trialsHook = useTrialApplications(profile?.id, authReady);
 
   const refreshAll = useCallback(() => {
     productsHook.refresh();
@@ -88,7 +94,8 @@ function Shell() {
     addressesHook.refresh();
     inquiriesHook.refresh();
     reviewsHook.refresh();
-  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook, inquiriesHook, reviewsHook]);
+    trialsHook.refresh();
+  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook, inquiriesHook, reviewsHook, trialsHook]);
 
   const navigate = useCallback((r: Route) => {
     setRoute(r);
@@ -184,6 +191,7 @@ function Shell() {
         addresses={addressesHook.items}
         inquiries={inquiriesHook.items}
         reviews={reviewsHook.items}
+        trials={trialsHook.items}
         onRefreshCart={cartHook.refresh}
         cartCount={cartHook.items.length}
         buyNowItem={buyNowItem}
@@ -196,7 +204,7 @@ function Shell() {
 function ShellContent({
   profile, route, navigate, signOut, refreshAll,
   products, categories, orders, orderItems, profiles, posts, plans, settings,
-  cartItems, addresses, inquiries, reviews, onRefreshCart, cartCount,
+  cartItems, addresses, inquiries, reviews, trials, onRefreshCart, cartCount,
   buyNowItem, onBuyNow,
 }: {
   profile: Profile;
@@ -216,6 +224,7 @@ function ShellContent({
   addresses: any[];
   inquiries: Inquiry[];
   reviews: any[];
+  trials: TrialApplication[];
   onRefreshCart: () => void;
   cartCount: number;
   buyNowItem: { product: Product; quantity: number; selected_options?: SelectedOption[] } | null;
@@ -320,6 +329,13 @@ function ShellContent({
               navigate({ name: 'mypage' });
             }}
           />
+        ) : route.name === 'trials' ? (
+          <MyTrials
+            trials={trials}
+            products={products}
+            userId={profile.id}
+            onRefresh={refreshAll}
+          />
         ) : route.name === 'mypage' ? (
           <MyPage
             profile={profile}
@@ -341,6 +357,7 @@ function ShellContent({
             onSelectCategory={(id) => { setSelectedCategoryId(id); navigate({ name: 'shop', categoryId: id }); }}
             selectedCategoryId={selectedCategoryId}
             onGoBoard={() => navigate({ name: 'board' })}
+            onGoTrials={() => navigate({ name: 'trials' })}
           />
         )}
       </main>

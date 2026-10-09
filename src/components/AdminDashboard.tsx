@@ -4,7 +4,7 @@ import {
   XCircle, Trash2, Edit2, Banknote, Truck, MapPin, Calendar, Tag,
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
-  MessageSquare, Star, Upload, X, Gift,
+  MessageSquare, Star, Upload, X, Gift, Search,
 } from 'lucide-react';
 import {
   Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus,
@@ -129,6 +129,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [showProductForm, setShowProductForm] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [pf, setPf] = useState<ProductForm>(emptyProductForm);
+  const [productSearch, setProductSearch] = useState('');
 
 
   const [newCat, setNewCat] = useState('');
@@ -185,6 +186,19 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     }
     return orders.filter(o => orderSubTabConfig[2].includes(o.status));
   }, [orders, orderSubTabConfig, orderSubTab]);
+
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products;
+    const q = productSearch.toLowerCase().trim();
+    return products.filter(p => {
+      const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
+      const catNames = catIds.map(id => categories.find(c => c.id === id)?.name ?? '').join(' ');
+      return p.name.toLowerCase().includes(q)
+        || (p.sku ?? '').toLowerCase().includes(q)
+        || (p.description ?? '').toLowerCase().includes(q)
+        || catNames.toLowerCase().includes(q);
+    });
+  }, [products, productSearch, categories]);
 
   // ── Product ──
   function openCreateProduct() { setEditProduct(null); setPf(emptyProductForm); setShowProductForm(true); }
@@ -711,9 +725,20 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="font-gothic text-lg font-semibold text-slate-800">상품 관리</h2>
-            <button onClick={openCreateProduct} className="btn-primary px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 상품 등록</button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="상품명, SKU, 카테고리 검색..."
+                  className="input-field h-9 w-56 pl-9 text-sm"
+                />
+              </div>
+              <button onClick={openCreateProduct} className="btn-primary px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 상품 등록</button>
+            </div>
           </div>
 
           {showProductForm && (
@@ -833,7 +858,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
           {/* Product list */}
           <div className="space-y-3">
-            {products.map((p, idx) => {
+            {filteredProducts.map((p) => {
+              const idx = products.indexOf(p);
               const discount = calcDiscountRate(p.original_price, p.club_price);
               const productCatIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
               const productCatNames = productCatIds.map(id => categories.find(c => c.id === id)?.name).filter(Boolean);
@@ -870,11 +896,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 </div>
               );
             })}
-            {products.length === 0 && (
+            {filteredProducts.length === 0 && (
               <div className="card-surface grid place-items-center py-16 text-center">
                 <Package className="mb-3 h-10 w-10 text-slate-700" />
-                <p className="text-sm text-slate-500">등록된 상품이 없습니다.</p>
-                <button onClick={openCreateProduct} className="btn-primary mt-4 px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 첫 상품 등록</button>
+                <p className="text-sm text-slate-500">{productSearch.trim() ? '검색 결과가 없습니다.' : '등록된 상품이 없습니다.'}</p>
+                {!productSearch.trim() && <button onClick={openCreateProduct} className="btn-primary mt-4 px-4 py-2 text-sm"><Plus className="h-4 w-4" /> 첫 상품 등록</button>}
               </div>
             )}
           </div>
