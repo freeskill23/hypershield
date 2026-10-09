@@ -64,6 +64,7 @@ export interface Product {
   sku: string | null;
   stock: number;
   is_active: boolean;
+  is_trial_available: boolean;
   sort_order: number;
   detail_link: string | null;
   options: ProductOption[] | null;

@@ -45,8 +45,8 @@ interface Props {
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
-interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; use_default_shipping: boolean; shipping_fee: string; shipping_type: string; }
-const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, sort_order: '0', options: [], youtube_urls: [], use_default_shipping: true, shipping_fee: '', shipping_type: 'default' };
+interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; is_trial_available: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; use_default_shipping: boolean; shipping_fee: string; shipping_type: string; }
+const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, is_trial_available: false, sort_order: '0', options: [], youtube_urls: [], use_default_shipping: true, shipping_fee: '', shipping_type: 'default' };
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -206,7 +206,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setEditProduct(p);
     const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
     const opts: OptionFormRow[] = (p.options ?? []).map(o => ({ name: o.name, values: o.values.map(v => ({ label: v.label, price_addition: String(v.price_addition) })) }));
-    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [], use_default_shipping: p.use_default_shipping ?? true, shipping_fee: p.shipping_fee != null ? String(p.shipping_fee) : '', shipping_type: p.shipping_type ?? 'default' });
+    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, is_trial_available: p.is_trial_available ?? false, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [], use_default_shipping: p.use_default_shipping ?? true, shipping_fee: p.shipping_fee != null ? String(p.shipping_fee) : '', shipping_type: p.shipping_type ?? 'default' });
     setShowProductForm(true);
   }
   function toggleProductCategory(catId: string) {
@@ -267,8 +267,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         shipping_fee: shipFee,
         shipping_type: pf.shipping_type,
       };
-      if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active });
-      else await createProduct({ ...common, description: pf.description.trim() || undefined });
+      if (editProduct) await updateProduct(editProduct.id, { ...common, description: pf.description.trim() || null, is_active: pf.is_active, is_trial_available: pf.is_trial_available });
+      else await createProduct({ ...common, description: pf.description.trim() || undefined, is_trial_available: pf.is_trial_available });
       setShowProductForm(false); refresh();
     } finally { setBusy(false); }
   }
@@ -290,6 +290,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       use_default_shipping: p.use_default_shipping ?? true,
       shipping_fee: p.shipping_fee ?? null,
       shipping_type: p.shipping_type ?? 'default',
+      is_trial_available: p.is_trial_available ?? false,
     });
     refresh();
   }
@@ -848,6 +849,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.is_active} onChange={e => setPf({ ...pf, is_active: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 판매 중</label>
                   </div>
                 )}
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={pf.is_trial_available} onChange={e => setPf({ ...pf, is_trial_available: e.target.checked })} className="h-4 w-4 rounded border-navy-700" /> 체험단 신청 가능</label>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button type="submit" disabled={busy} className="btn-primary px-5 py-2.5 text-sm">{busy ? '저장 중...' : editProduct ? '수정하기' : '등록하기'}</button>

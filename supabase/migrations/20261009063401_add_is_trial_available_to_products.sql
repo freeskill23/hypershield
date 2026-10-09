@@ -1,0 +1,1 @@
+ALTER TABLE products ADD COLUMN IF NOT EXISTS is_trial_available boolean NOT NULL DEFAULT false;

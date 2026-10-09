@@ -45,7 +45,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
   const selected = trials.find((t) => t.id === selectedId);
   const productMap = new Map(products.map((p) => [p.id, p]));
   const usedProductIds = new Set(trials.map((t) => t.product_id));
-  const availableProducts = products.filter((p) => p.is_active && !usedProductIds.has(p.id));
+  const availableProducts = products.filter((p) => p.is_active && p.is_trial_available && !usedProductIds.has(p.id));
   const completedCount = trials.filter((t) => t.status === 'completed').length;
 
   async function handleSubmit(e: React.FormEvent) {

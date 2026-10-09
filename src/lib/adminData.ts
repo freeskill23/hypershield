@@ -131,6 +131,7 @@ export async function createProduct(input: {
   detail_link?: string | null; options?: ProductOption[] | null;
   youtube_urls?: string[] | null;
   use_default_shipping?: boolean; shipping_fee?: number | null; shipping_type?: string;
+  is_trial_available?: boolean;
 }): Promise<Product | null> {
   if (!isAdminSupabaseConfigured || !adminSupabase) return null;
   const { data, error } = await adminSupabase.from('products').insert({
@@ -146,6 +147,7 @@ export async function createProduct(input: {
     use_default_shipping: input.use_default_shipping ?? true,
     shipping_fee: input.shipping_fee ?? null,
     shipping_type: input.shipping_type ?? 'default',
+    is_trial_available: input.is_trial_available ?? false,
   }).select().single();
   if (error) { console.error('create product error', error); return null; }
   return data as Product;

@@ -86,7 +86,7 @@ export default function ShopMain({
           </div>
           <div className="relative flex-1">
             <h2 className="font-gothic text-lg font-bold text-slate-800">체험단 신청하기</h2>
-            <p className="mt-0.5 text-sm text-slate-400">상품 무료 체험 후 리뷰를 작성해보세요.</p>
+            <p className="mt-0.5 text-sm text-slate-400">연구독시 년 12회 무료 체험 혜택</p>
           </div>
           <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-gold-light" />
         </button>
