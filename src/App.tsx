@@ -22,7 +22,7 @@ type Route =
   | { name: 'landing' }
   | { name: 'board' }
   | { name: 'post'; postId: string }
-  | { name: 'shop' }
+  | { name: 'shop'; categoryId?: string | null }
   | { name: 'product'; productId: string }
   | { name: 'cart' }
   | { name: 'checkout' }
@@ -33,7 +33,7 @@ function routeToHash(r: Route): string {
     case 'landing': return '';
     case 'board': return '#board';
     case 'post': return `#post/${r.postId}`;
-    case 'shop': return '#shop';
+    case 'shop': return r.categoryId ? `#shop/${r.categoryId}` : '#shop';
     case 'product': return `#product/${r.productId}`;
     case 'cart': return '#cart';
     case 'checkout': return '#checkout';
@@ -45,6 +45,7 @@ function hashToRoute(hash: string): Route {
   const h = hash.replace('#', '');
   if (h === 'board') return { name: 'board' };
   if (h.startsWith('post/')) return { name: 'post', postId: h.slice(5) };
+  if (h.startsWith('shop/')) return { name: 'shop', categoryId: h.slice(5) };
   if (h === 'shop') return { name: 'shop' };
   if (h.startsWith('product/')) return { name: 'product', productId: h.slice(8) };
   if (h === 'cart') return { name: 'cart' };
@@ -220,15 +221,24 @@ function ShellContent({
   buyNowItem: { product: Product; quantity: number; selected_options?: SelectedOption[] } | null;
   onBuyNow: (item: { product: Product; quantity: number; selected_options?: SelectedOption[] }) => void;
 }) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    route.name === 'shop' ? (route.categoryId ?? null) : null,
+  );
+
+  useEffect(() => {
+    if (route.name === 'shop') {
+      setSelectedCategoryId(route.categoryId ?? null);
+    } else {
+      setSelectedCategoryId(null);
+    }
+  }, [route]);
 
   return (
     <div className="min-h-screen bg-navy-950">
       <header className="sticky top-0 z-40 border-b border-navy-700 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 md:px-8">
           <button
-            onClick={() => navigate({ name: 'shop' })}
-            className="text-left transition hover:text-cyan"
+            onClick={() => navigate({ name: 'shop' })}            className="text-left transition hover:text-cyan"
           >
             <div className="text-[9px] font-medium uppercase tracking-[0.3em] text-slate-500">HYPERSHIELD</div>
             <div className="font-gothic text-base font-bold tracking-tight text-slate-800">하이퍼쉴드 멤버쉽</div>
@@ -328,7 +338,7 @@ function ShellContent({
             categories={categories}
             userTier={profile.subscription_tier}
             onSelectProduct={(id) => navigate({ name: 'product', productId: id })}
-            onSelectCategory={setSelectedCategoryId}
+            onSelectCategory={(id) => { setSelectedCategoryId(id); navigate({ name: 'shop', categoryId: id }); }}
             selectedCategoryId={selectedCategoryId}
             onGoBoard={() => navigate({ name: 'board' })}
           />

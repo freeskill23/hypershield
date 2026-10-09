@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Lock, Mail, KeyRound, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
 import { useAdminAuth } from '../lib/adminAuth';
+import { translateAuthError } from '../lib/format';
 
 export default function AdminLogin({ onBackToSite }: { onBackToSite: () => void }) {
   const { signIn, error } = useAdminAuth();
@@ -18,7 +19,7 @@ export default function AdminLogin({ onBackToSite }: { onBackToSite: () => void 
     try {
       await signIn({ email: email.trim(), password });
     } catch (err: any) {
-      setLocalError(err.message || '로그인 실패');
+      setLocalError(translateAuthError(err.message) || '로그인 실패');
     } finally {
       setBusy(false);
     }

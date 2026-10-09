@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { Profile, SubscriptionStatus } from './types';
+import { translateAuthError } from './format';
 
 interface AuthState {
   profile: Profile | null;
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await loadProfile(data.user.id);
         setState({ profile, loading: false, error: null });
       } catch (e: any) {
-        setState({ profile: null, loading: false, error: e.message || '가입 실패' });
+        setState({ profile: null, loading: false, error: translateAuthError(e.message) || '가입 실패' });
         throw e;
       }
     },
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await loadProfile(data.user.id);
         setState({ profile, loading: false, error: null });
       } catch (e: any) {
-        setState({ profile: null, loading: false, error: e.message || '로그인 실패' });
+        setState({ profile: null, loading: false, error: translateAuthError(e.message) || '로그인 실패' });
         throw e;
       }
     },

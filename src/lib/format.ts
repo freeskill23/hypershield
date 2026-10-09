@@ -56,3 +56,18 @@ export function getRemainingDays(iso: string | null): number | null {
   const diff = new Date(iso).getTime() - Date.now();
   return Math.ceil(diff / 86400000);
 }
+
+export function translateAuthError(message: string): string {
+  const map: Record<string, string> = {
+    'Invalid login credentials': '이메일 또는 비밀번호가 올바르지 않습니다.',
+    'Invalid credentials': '이메일 또는 비밀번호가 올바르지 않습니다.',
+    'Email not confirmed': '이메일 인증이 완료되지 않았습니다. 이메일함을 확인해 주세요.',
+    'User already registered': '이미 가입된 이메일입니다.',
+    'Password should be at least 6 characters': '비밀번호는 최소 6자 이상이어야 합니다.',
+    'Unable to validate email address': '올바르지 않은 이메일 형식입니다.',
+  };
+  for (const [en, ko] of Object.entries(map)) {
+    if (message.includes(en)) return ko;
+  }
+  return message;
+}

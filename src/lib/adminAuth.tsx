@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { adminSupabase, isAdminSupabaseConfigured } from './adminSupabase';
 import { Profile } from './types';
+import { translateAuthError } from './format';
 
 interface AdminAuthState {
   profile: Profile | null;
@@ -120,7 +121,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         }
         setState({ profile, loading: false, error: null });
       } catch (e: any) {
-        setState({ profile: null, loading: false, error: e.message || '로그인 실패' });
+        setState({ profile: null, loading: false, error: translateAuthError(e.message) || '로그인 실패' });
         throw e;
       }
     },

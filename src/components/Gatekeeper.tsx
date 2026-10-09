@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Megaphone, Lock, Mail, KeyRound, User, ArrowRight, Shield, TrendingDown, Sparkles, MessageCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Megaphone, Mail, KeyRound, User, ArrowRight, Shield, TrendingDown, Sparkles, MessageCircle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { translateAuthError } from '../lib/format';
 
 export default function Gatekeeper() {
   const { signIn, signUp, error } = useAuth();
@@ -11,6 +12,39 @@ export default function Gatekeeper() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [cafeNickname, setCafeNickname] = useState('');
+  const [saveEmail, setSaveEmail] = useState(false);
+  const [savePassword, setSavePassword] = useState(false);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('hypershield_saved_email');
+    const savedPassword = localStorage.getItem('hypershield_saved_password');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setSaveEmail(true);
+    }
+    if (savedPassword) {
+      setPassword(savedPassword);
+      setSavePassword(true);
+    }
+  }, []);
+
+  function handleSaveEmailChange(checked: boolean) {
+    setSaveEmail(checked);
+    if (checked) {
+      localStorage.setItem('hypershield_saved_email', email.trim());
+    } else {
+      localStorage.removeItem('hypershield_saved_email');
+    }
+  }
+
+  function handleSavePasswordChange(checked: boolean) {
+    setSavePassword(checked);
+    if (checked) {
+      localStorage.setItem('hypershield_saved_password', password);
+    } else {
+      localStorage.removeItem('hypershield_saved_password');
+    }
+  }
 
   const shownError = localError || error;
 
@@ -20,8 +54,18 @@ export default function Gatekeeper() {
     setLocalError(null);
     try {
       await signIn({ email: email.trim(), password });
+      if (saveEmail) {
+        localStorage.setItem('hypershield_saved_email', email.trim());
+      } else {
+        localStorage.removeItem('hypershield_saved_email');
+      }
+      if (savePassword) {
+        localStorage.setItem('hypershield_saved_password', password);
+      } else {
+        localStorage.removeItem('hypershield_saved_password');
+      }
     } catch (err: any) {
-      setLocalError(err.message || '로그인 실패');
+      setLocalError(translateAuthError(err.message) || '로그인 실패');
     } finally {
       setBusy(false);
     }
@@ -39,7 +83,7 @@ export default function Gatekeeper() {
     try {
       await signUp({ email: email.trim(), password, full_name: fullName.trim(), cafe_nickname: cafeNickname.trim() });
     } catch (err: any) {
-      setLocalError(err.message || '가입 실패');
+      setLocalError(translateAuthError(err.message) || '가입 실패');
     } finally {
       setBusy(false);
     }
@@ -135,6 +179,26 @@ export default function Gatekeeper() {
                       <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••" className="input-field pl-10" />
                     </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={saveEmail}
+                        onChange={(e) => handleSaveEmailChange(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-cyan focus:ring-cyan"
+                      />
+                      이메일 저장
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={savePassword}
+                        onChange={(e) => handleSavePasswordChange(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-slate-300 text-cyan focus:ring-cyan"
+                      />
+                      비밀번호 저장
+                    </label>
                   </div>
                   <button type="submit" disabled={busy} className="btn-primary w-full">
                     {busy ? '로그인 중...' : <>입장하기 <ArrowRight className="h-4 w-4" /></>}
