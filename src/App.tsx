@@ -8,6 +8,7 @@ import {
 } from './lib/data';
 import { Profile, Post, Setting, Product, SelectedOption, Inquiry, TrialApplication } from './lib/types';
 import Gatekeeper from './components/Gatekeeper';
+import SubscriptionGate from './components/SubscriptionGate';
 import LandingPage from './components/LandingPage';
 import BoardList from './components/BoardList';
 import BoardDetail from './components/BoardDetail';
@@ -307,6 +308,7 @@ function ShellContent({
             product={products.find((p) => p.id === route.productId) ?? null}
             settings={settings}
             reviews={reviews.filter((r: any) => r.product_id === route.productId)}
+            hasActiveSubscription={profile.subscription_status === 'active'}
             onBack={() => navigate({ name: 'shop' })}
             onGoCart={() => { onRefreshCart(); navigate({ name: 'cart' }); }}
             onBuyNow={onBuyNow}

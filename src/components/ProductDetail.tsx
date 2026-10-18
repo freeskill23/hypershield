@@ -42,13 +42,14 @@ interface Props {
   product: Product | null;
   settings?: Setting[];
   reviews?: Review[];
+  hasActiveSubscription?: boolean;
   onBack: () => void;
   onGoCart: () => void;
   onBuyNow?: (item: { product: Product; quantity: number; selected_options?: SelectedOption[] }) => void;
   onAddedToCart?: () => void;
 }
 
-export default function ProductDetail({ product, settings, reviews = [], onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
+export default function ProductDetail({ product, settings, reviews = [], hasActiveSubscription = true, onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -171,16 +172,30 @@ export default function ProductDetail({ product, settings, reviews = [], onBack,
             <h1 className="font-gothic text-xl font-bold text-slate-800">{product.name}</h1>
             {product.sku && <p className="mt-1 text-xs text-slate-500">SKU: {product.sku}</p>}
 
-            <div className="mt-4 flex items-baseline gap-3">
-              <span className="font-gothic text-2xl font-bold text-cyan">{formatKRW(product.club_price)}</span>
-              {product.original_price > product.club_price && (
-                <span className="text-base text-slate-500 line-through">{formatKRW(product.original_price)}</span>
-              )}
-            </div>
-            {discount > 0 && (
-              <div className="mt-1 text-sm text-slate-400">
-                <span className="font-bold text-red-400">{discount}%</span> 할인 ·
-                <span className="font-bold text-cyan"> {formatKRW(product.original_price - product.club_price)}</span> 절약
+            {hasActiveSubscription ? (
+              <>
+                <div className="mt-4 flex items-baseline gap-3">
+                  <span className="font-gothic text-2xl font-bold text-cyan">{formatKRW(product.club_price)}</span>
+                  {product.original_price > product.club_price && (
+                    <span className="text-base text-slate-500 line-through">{formatKRW(product.original_price)}</span>
+                  )}
+                </div>
+                {discount > 0 && (
+                  <div className="mt-1 text-sm text-slate-400">
+                    <span className="font-bold text-red-400">{discount}%</span> 할인 ·
+                    <span className="font-bold text-cyan"> {formatKRW(product.original_price - product.club_price)}</span> 절약
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mt-4 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  {discount > 0 && (
+                    <span className="rounded-md bg-red-500/90 px-2 py-0.5 text-sm font-bold text-white">{discount}%</span>
+                  )}
+                  <span className="text-sm font-medium text-gold-deep">구독 결제 시 회원 할인가 적용</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">회원 등급 구독 후 할인가로 구매할 수 있습니다.</p>
               </div>
             )}
 
@@ -291,43 +306,51 @@ export default function ProductDetail({ product, settings, reviews = [], onBack,
               </div>
             </div>
 
-            <div className="mt-4 border-t border-navy-700 pt-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">총 상품 금액</span>
-                <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(totalPrice)}</span>
-              </div>
-              {optionAddition !== 0 && (
-                <div className="mt-1 text-right text-xs text-slate-500">옵션 추가 금액: {formatKRW(optionAddition * qty)}</div>
-              )}
-              <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-                <span>배송비</span>
-                <span className={isFreeShipping ? 'font-medium text-green-500' : ''}>
-                  {isFreeShipping ? '무료' : formatKRW(productShippingFee)}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 flex gap-2">
-              <button onClick={handleAddToCart} disabled={busy || !allOptionsSelected} className="btn-ghost flex-1">
-                {!allOptionsSelected ? (
-                  <><Package className="h-4 w-4" /> 옵션을 선택하세요</>
-                ) : added ? (
-                  <><Check className="h-4 w-4" /> 추가됨</>
-                ) : (
-                  <><ShoppingCart className="h-4 w-4" /> 장바구니</>
+            {hasActiveSubscription && (
+              <div className="mt-4 border-t border-navy-700 pt-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">총 상품 금액</span>
+                  <span className="font-gothic text-xl font-bold text-cyan">{formatKRW(totalPrice)}</span>
+                </div>
+                {optionAddition !== 0 && (
+                  <div className="mt-1 text-right text-xs text-slate-500">옵션 추가 금액: {formatKRW(optionAddition * qty)}</div>
                 )}
-              </button>
-              <button
-                onClick={handleBuyNow}
-                disabled={!allOptionsSelected || !onBuyNow}
-                className="btn-primary flex-1"
-              >
-                <Zap className="h-4 w-4" /> 바로 구매
-              </button>
-              <button onClick={onGoCart} className="btn-ghost px-4 py-2.5">
-                장바구니
-              </button>
-            </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                  <span>배송비</span>
+                  <span className={isFreeShipping ? 'font-medium text-green-500' : ''}>
+                    {isFreeShipping ? '무료' : formatKRW(productShippingFee)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {hasActiveSubscription ? (
+              <div className="mt-4 flex gap-2">
+                <button onClick={handleAddToCart} disabled={busy || !allOptionsSelected} className="btn-ghost flex-1">
+                  {!allOptionsSelected ? (
+                    <><Package className="h-4 w-4" /> 옵션을 선택하세요</>
+                  ) : added ? (
+                    <><Check className="h-4 w-4" /> 추가됨</>
+                  ) : (
+                    <><ShoppingCart className="h-4 w-4" /> 장바구니</>
+                  )}
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  disabled={!allOptionsSelected || !onBuyNow}
+                  className="btn-primary flex-1"
+                >
+                  <Zap className="h-4 w-4" /> 바로 구매
+                </button>
+                <button onClick={onGoCart} className="btn-ghost px-4 py-2.5">
+                  장바구니
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-navy-700 bg-navy-900/50 p-4 text-center">
+                <p className="text-sm text-slate-400">구독 결제 후 구매할 수 있습니다.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
