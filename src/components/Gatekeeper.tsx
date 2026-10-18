@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Mail, KeyRound, User, ArrowRight, Shield, TrendingDown, Sparkles, MessageCircle } from 'lucide-react';
+import { Megaphone, Mail, KeyRound, User, ArrowRight, Shield, TrendingDown, Sparkles, Check } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { translateAuthError } from '../lib/format';
+import type { CafeMembership } from '../lib/types';
+
+const CAFE_MEMBERSHIP_OPTIONS: { value: CafeMembership; label: string }[] = [
+  { value: 'none', label: '회원 아님' },
+  { value: 'sprout', label: '카페회원 (새싹)' },
+  { value: 'general', label: '카페회원 (일반)' },
+  { value: 'faithful', label: '카페회원 (성실)' },
+  { value: 'special', label: '특별회원' },
+];
 
 export default function Gatekeeper() {
   const { signIn, signUp, error } = useAuth();
@@ -11,7 +20,7 @@ export default function Gatekeeper() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [cafeNickname, setCafeNickname] = useState('');
+  const [cafeMembership, setCafeMembership] = useState<CafeMembership>('none');
   const [saveEmail, setSaveEmail] = useState(false);
   const [savePassword, setSavePassword] = useState(false);
 
@@ -81,7 +90,7 @@ export default function Gatekeeper() {
       return;
     }
     try {
-      await signUp({ email: email.trim(), password, full_name: fullName.trim(), cafe_nickname: cafeNickname.trim() });
+      await signUp({ email: email.trim(), password, full_name: fullName.trim(), cafe_membership: cafeMembership });
     } catch (err: any) {
       setLocalError(translateAuthError(err.message) || '가입 실패');
     } finally {
@@ -215,13 +224,32 @@ export default function Gatekeeper() {
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-500">하이퍼쉴드 카페 닉네임</label>
-                    <div className="relative">
-                      <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <input value={cafeNickname} onChange={(e) => setCafeNickname(e.target.value)}
-                        placeholder="카페 닉네임 (선택)" className="input-field pl-10" />
+                    <label className="mb-1.5 block text-xs font-medium text-slate-500">하이퍼쉴드 카페 회원인가요?</label>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {CAFE_MEMBERSHIP_OPTIONS.map((opt) => (
+                        <label
+                          key={opt.value}
+                          className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
+                            cafeMembership === opt.value
+                              ? 'border-cyan bg-cyan/5 text-slate-800 font-medium'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition ${cafeMembership === opt.value ? 'border-cyan bg-cyan' : 'border-slate-300'}`}>
+                            {cafeMembership === opt.value && <Check className="h-2.5 w-2.5 text-white" />}
+                          </span>
+                          <input
+                            type="radio"
+                            name="cafe_membership"
+                            value={opt.value}
+                            checked={cafeMembership === opt.value}
+                            onChange={() => setCafeMembership(opt.value)}
+                            className="sr-only"
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
                     </div>
-                    <p className="mt-1 text-[11px] text-slate-400">카페 닉네임은 특별회원 확인용으로 사용됩니다.</p>
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-500">이메일</label>

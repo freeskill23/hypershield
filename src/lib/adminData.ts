@@ -237,6 +237,11 @@ export async function setProfileRole(user_id: string, role: 'member' | 'admin') 
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   await adminSupabase.from('profiles').update({ role }).eq('id', user_id);
 }
+
+export async function setSpecialMemberStatus(user_id: string, status: 'requested' | 'approved' | null) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  await adminSupabase.from('profiles').update({ special_member_status: status }).eq('id', user_id);
+}
 export async function deleteProfile(user_id: string) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   await adminSupabase.from('profiles').delete().eq('id', user_id);

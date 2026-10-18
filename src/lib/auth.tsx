@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { Profile, SubscriptionStatus } from './types';
+import { Profile, SubscriptionStatus, CafeMembership } from './types';
 import { translateAuthError } from './format';
 
 interface AuthState {
@@ -10,7 +10,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  signUp: (input: { email: string; password: string; full_name: string; cafe_nickname: string }) => Promise<void>;
+  signUp: (input: { email: string; password: string; full_name: string; cafe_nickname?: string; cafe_membership: CafeMembership }) => Promise<void>;
   signIn: (input: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -94,14 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   const signUp = useCallback(
-    async (input: { email: string; password: string; full_name: string; cafe_nickname: string }) => {
+    async (input: { email: string; password: string; full_name: string; cafe_nickname?: string; cafe_membership: CafeMembership }) => {
       setState((s) => ({ ...s, error: null }));
       try {
         if (!isSupabaseConfigured || !supabase) throw new Error('Supabase가 설정되지 않았습니다.');
         const { data, error } = await supabase.auth.signUp({
           email: input.email,
           password: input.password,
-          options: { data: { full_name: input.full_name, cafe_nickname: input.cafe_nickname } },
+          options: { data: { full_name: input.full_name, cafe_nickname: input.cafe_nickname ?? '', cafe_membership: input.cafe_membership } },
         });
         if (error) throw error;
         if (!data.user) throw new Error('가입에 실패했습니다.');

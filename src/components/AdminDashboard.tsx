@@ -7,7 +7,7 @@ import {
   MessageSquare, Star, Upload, X, Gift, Search,
 } from 'lucide-react';
 import {
-  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus,
+  Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus, CafeMembership, SpecialMemberStatus,
 } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber, getRemainingDays } from '../lib/format';
 import {
@@ -15,7 +15,7 @@ import {
   createCategory, updateCategory, deleteCategory,
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
-  updateOrderStatus, batchUpdateOrderStatus, setProfileRole, deleteProfile,
+  updateOrderStatus, batchUpdateOrderStatus, setProfileRole, deleteProfile, setSpecialMemberStatus,
   changeMemberGrade, batchChangeMemberGrade,
   updateSetting, getSettingValue,
   resetMemberPassword,
@@ -151,6 +151,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [orderSelectedIds, setOrderSelectedIds] = useState<Set<string>>(new Set());
   const [batchPlanId, setBatchPlanId] = useState('');
+  const [memberFilter, setMemberFilter] = useState<'all' | 'special_requested' | 'special_approved'>('all');
   const [pwModalId, setPwModalId] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
@@ -412,6 +413,17 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
   // ── Member ──
   async function handleToggleRole(p: Profile) { await setProfileRole(p.id, p.role === 'admin' ? 'member' : 'admin'); refresh(); }
+  async function handleApproveSpecial(p: Profile) { await setSpecialMemberStatus(p.id, 'approved'); refresh(); }
+  async function handleUnapproveSpecial(p: Profile) { await setSpecialMemberStatus(p.id, 'requested'); refresh(); }
+  async function handleClearSpecial(p: Profile) { await setSpecialMemberStatus(p.id, null); refresh(); }
+  const cafeMembershipLabel: Record<CafeMembership, string> = {
+    none: '회원 아님', sprout: '카페회원 (새싹)', general: '카페회원 (일반)', faithful: '카페회원 (성실)', special: '특별회원',
+  };
+  const filteredProfiles = useMemo(() => {
+    if (memberFilter === 'special_requested') return profiles.filter(p => p.special_member_status === 'requested');
+    if (memberFilter === 'special_approved') return profiles.filter(p => p.special_member_status === 'approved');
+    return profiles;
+  }, [profiles, memberFilter]);
   async function handleDeleteProfileAction(p: Profile) { if (confirm(`${p.full_name} 회원을 삭제하시겠습니까?`)) { await deleteProfile(p.id); refresh(); } }
   async function handleChangeGrade(p: Profile, planId: string) {
     const plan = plans.find(pl => pl.id === planId); if (!plan) return;
@@ -422,7 +434,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
   function toggleSelectAll() {
-    setSelectedIds(prev => prev.size === profiles.length ? new Set() : new Set(profiles.map(p => p.id)));
+    setSelectedIds(prev => prev.size === filteredProfiles.length ? new Set() : new Set(filteredProfiles.map(p => p.id)));
   }
   async function handleBatchChangeGrade() {
     if (!batchPlanId || selectedIds.size === 0) return;
@@ -529,6 +541,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setSelectedIds(new Set()); setBatchPlanId('');
     setOrderSelectedIds(new Set());
     setOrderSubTab('all');
+    setMemberFilter('all');
     setTracking({});
     setPwModalId(null);
     setInquiryReplyId(null);
@@ -1016,8 +1029,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {tab === 'members' && (
         <div className="space-y-4">
           <p className="text-xs text-slate-500">회원의 구독 활성/비활성 및 기간은 PG 결제 연동 후 결제일에 따라 자동으로 처리됩니다. 관리자는 회원의 등급만 변경할 수 있습니다.</p>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 관리</h2>
+            <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+              {([['all', '전체'], ['special_requested', '특별회원미승인'], ['special_approved', '특별회원승인']] as [typeof memberFilter, string][]).map(([k, label]) => (
+                <button key={k} onClick={() => setMemberFilter(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${memberFilter === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
+              ))}
+            </div>
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-500">{selectedIds.size}명 선택됨</span>
@@ -1032,16 +1050,17 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               </div>
             )}
           </div>
-          {profiles.length === 0 ? (
-            <div className="card-surface grid place-items-center py-16 text-center"><Users className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">가입한 회원이 없습니다.</p></div>
+          {filteredProfiles.length === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center"><Users className="mb-3 h-10 w-10 text-slate-700" /><p className="text-sm text-slate-500">해당하는 회원이 없습니다.</p></div>
           ) : (
             <div className="card-surface overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-4 py-3"><input type="checkbox" checked={selectedIds.size === profiles.length && profiles.length > 0} onChange={toggleSelectAll} className="h-4 w-4 rounded border-navy-700" /></th>
+                    <th className="px-4 py-3"><input type="checkbox" checked={selectedIds.size === filteredProfiles.length && filteredProfiles.length > 0} onChange={toggleSelectAll} className="h-4 w-4 rounded border-navy-700" /></th>
                     <th className="px-4 py-3 font-medium">회원</th>
-                    <th className="px-4 py-3 font-medium">카페 닉네임</th>
+                    <th className="px-4 py-3 font-medium">카페 회원 여부</th>
+                    <th className="px-4 py-3 font-medium">특별회원</th>
                     <th className="px-4 py-3 font-medium">연락처</th>
                     <th className="px-4 py-3 font-medium">구독 상태</th>
                     <th className="px-4 py-3 font-medium">등급</th>
@@ -1053,10 +1072,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-700">
-                  {profiles.map(p => {
+                  {filteredProfiles.map(p => {
                     const sc = subStatusConfig[p.subscription_status] ?? subStatusConfig.none;
                     const plan = plans.find(pl => pl.id === p.subscription_plan_id);
                     const selected = selectedIds.has(p.id);
+                    const cm = p.cafe_membership ?? 'none';
+                    const sms = p.special_member_status;
                     return (
                       <tr key={p.id} className={`transition hover:bg-slate-100 ${selected ? 'bg-cyan/5' : ''}`}>
                         <td className="px-4 py-3"><input type="checkbox" checked={selected} onChange={() => toggleSelect(p.id)} className="h-4 w-4 rounded border-navy-700" /></td>
@@ -1067,10 +1088,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          {p.cafe_nickname ? (
-                            <span className="text-sm font-medium text-gold-deep">{p.cafe_nickname}</span>
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cm === 'special' ? 'border-gold/40 text-gold-deep bg-gold/5' : cm === 'none' ? 'border-slate-300 text-slate-500' : 'border-cyan/40 text-cyan bg-cyan/5'}`}>{cafeMembershipLabel[cm]}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {sms === 'approved' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-green-500/40 bg-green-500/5 px-2.5 py-0.5 text-xs font-medium text-green-400"><CheckCircle2 className="h-3 w-3" /> 승인됨</span>
+                          ) : sms === 'requested' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/5 px-2.5 py-0.5 text-xs font-medium text-amber-600"><Clock className="h-3 w-3" /> 미승인</span>
                           ) : (
-                            <span className="text-xs text-slate-400">미입력</span>
+                            <span className="text-xs text-slate-400">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-slate-600">{p.phone ?? '—'}</td>
@@ -1087,6 +1113,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
                             <IconBtn onClick={() => handleToggleRole(p)} title={p.role === 'admin' ? '정회원으로 강등' : '관리자로 승격'} icon={p.role === 'admin' ? UserIcon : Crown} hover="hover:border-gold hover:text-gold" />
                             {p.id !== profile.id && <IconBtn onClick={() => { setPwModalId(p.id); setPwValue(''); setPwErr(null); setPwSuccess(false); }} title="비밀번호 변경" icon={KeyRound} hover="hover:border-cyan hover:text-cyan" />}
+                            {sms === 'requested' ? (
+                              <button onClick={() => handleApproveSpecial(p)} title="특별회원 승인" className="inline-flex items-center gap-1 rounded-md border border-green-500/50 px-2 py-1 text-xs font-medium text-green-500 hover:bg-green-500/10"><CheckCircle2 className="h-3.5 w-3.5" /> 승인</button>
+                            ) : sms === 'approved' ? (
+                              <button onClick={() => handleUnapproveSpecial(p)} title="특별회원 승인 취소" className="inline-flex items-center gap-1 rounded-md border border-amber-500/50 px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-500/10"><XCircle className="h-3.5 w-3.5" /> 승인취소</button>
+                            ) : null}
+                            {sms && <IconBtn onClick={() => handleClearSpecial(p)} title="특별회원 표시 해제" icon={XCircle} hover="hover:border-slate-500 hover:text-slate-500" />}
                             <select value={p.subscription_plan_id ?? ''} onChange={e => handleChangeGrade(p, e.target.value)} className="input-field h-7 w-24 px-1 py-0.5 text-xs" disabled={!plans.filter(pl => pl.is_active).length}>
                               <option value="" disabled>등급 선택</option>
                               {plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}

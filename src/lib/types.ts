@@ -1,5 +1,9 @@
 export type Role = 'member' | 'admin';
 
+export type CafeMembership = 'none' | 'sprout' | 'general' | 'faithful' | 'special';
+
+export type SpecialMemberStatus = 'requested' | 'approved';
+
 export type SubscriptionStatus = 'none' | 'active' | 'past_due' | 'cancelled' | 'expired';
 
 export interface Profile {
@@ -8,6 +12,8 @@ export interface Profile {
   full_name: string;
   role: Role;
   cafe_nickname: string | null;
+  cafe_membership: CafeMembership | null;
+  special_member_status: SpecialMemberStatus | null;
   phone: string | null;
   subscription_plan_id: string | null;
   subscription_tier: string | null;

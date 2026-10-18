@@ -22,17 +22,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
     .filter((p) => p.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
 
-  const premiumPlan = activePlans.find((p) => p.tier === 'premium');
-  const standardPlan = activePlans.find((p) => p.tier === 'standard');
-
-  const showStandard = standardPlan && !profile.cafe_nickname;
-  const showPremium = premiumPlan && !!profile.cafe_nickname;
-
-  const visiblePlans = activePlans.filter((p) => {
-    if (p.tier === 'premium') return showPremium || (showStandard && !premiumPlan);
-    if (p.tier === 'standard') return showStandard || (!showPremium && !premiumPlan);
-    return true;
-  });
+  const visiblePlans = activePlans;
 
   async function handleSubscribe(plan: SubscriptionPlan) {
     setError(null);
