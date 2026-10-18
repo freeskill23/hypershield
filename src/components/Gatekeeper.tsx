@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Mail, KeyRound, User, ArrowRight, Shield, TrendingDown, Sparkles, Check } from 'lucide-react';
+import { Megaphone, Mail, KeyRound, User, ArrowRight, Shield, TrendingDown, Sparkles, Check, MessageCircle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { translateAuthError } from '../lib/format';
 import type { CafeMembership } from '../lib/types';
@@ -20,6 +20,7 @@ export default function Gatekeeper() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [cafeNickname, setCafeNickname] = useState('');
   const [cafeMembership, setCafeMembership] = useState<CafeMembership>('none');
   const [saveEmail, setSaveEmail] = useState(false);
   const [savePassword, setSavePassword] = useState(false);
@@ -90,7 +91,7 @@ export default function Gatekeeper() {
       return;
     }
     try {
-      await signUp({ email: email.trim(), password, full_name: fullName.trim(), cafe_membership: cafeMembership });
+      await signUp({ email: email.trim(), password, full_name: fullName.trim(), cafe_nickname: cafeNickname.trim(), cafe_membership: cafeMembership });
     } catch (err: any) {
       setLocalError(translateAuthError(err.message) || '가입 실패');
     } finally {
@@ -221,6 +222,14 @@ export default function Gatekeeper() {
                       <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <input required value={fullName} onChange={(e) => setFullName(e.target.value)}
                         placeholder="홍길동" className="input-field pl-10" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-500">하이퍼쉴드 카페 닉네임</label>
+                    <div className="relative">
+                      <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input value={cafeNickname} onChange={(e) => setCafeNickname(e.target.value)}
+                        placeholder="카페 닉네임 (선택)" className="input-field pl-10" />
                     </div>
                   </div>
                   <div>
