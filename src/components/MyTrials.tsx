@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Gift, Plus, ArrowLeft, Clock, CheckCircle2, XCircle, Truck, Package,
-  X, AlertCircle, ExternalLink, MapPin, Phone, User, Home,
+  X, AlertCircle, ExternalLink, MapPin, Phone, User, Home, ShieldCheck,
 } from 'lucide-react';
-import { TrialApplication, Product } from '../lib/types';
+import { TrialApplication, Product, TrialEligibility } from '../lib/types';
 import { formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
-import { createTrialApplication, submitTrialReviewUrl } from '../lib/data';
+import { createTrialApplication, submitTrialReviewUrl, fetchTrialEligibility } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
@@ -27,6 +27,16 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
   const [showForm, setShowForm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [eligibility, setEligibility] = useState<TrialEligibility | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId) { setEligibility(null); return; }
+    fetchTrialEligibility(userId).then((e) => {
+      if (!cancelled) setEligibility(e);
+    });
+    return () => { cancelled = true; };
+  }, [userId, trials.length]);
 
   // form state
   const [productId, setProductId] = useState('');
@@ -68,6 +78,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
       if (result.ok) {
         setShowForm(false);
         setProductId(''); setReason(''); setName(''); setPhone(''); setAddress(''); setAddressDetail(''); setReviewPlatform(''); setAgreed(false);
+        if (userId) fetchTrialEligibility(userId).then(setEligibility);
         onRefresh();
       } else {
         alert(result.error || '신청에 실패했습니다.');
@@ -375,17 +386,53 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
   }
 
   // ── List view ──
+  const canApply = !!eligibility?.eligible;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
-          <p className="mt-0.5 text-xs text-slate-400">완료된 체험단 {completedCount}회 / 연 12회 가능</p>
+          <p className="mt-0.5 text-xs text-slate-400">
+            완료된 체험단 {completedCount}회 / 연 12회 가능 (월 1회)
+          </p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary px-4 py-2 text-sm">
+        <button
+          onClick={() => {
+            if (!canApply && eligibility) {
+              alert(eligibility.reason);
+              return;
+            }
+            setShowForm(true);
+          }}
+          disabled={!eligibility}
+          className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
+        >
           <Plus className="h-4 w-4" /> 체험단 신청
         </button>
       </div>
+
+      {eligibility && !eligibility.eligible && (
+        <div className="flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/5 p-4 text-sm text-gold-deep">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-medium">지금은 체험단 신청이 불가능합니다.</p>
+            <p className="mt-1 text-xs text-slate-600">{eligibility.reason}</p>
+          </div>
+        </div>
+      )}
+
+      {eligibility && eligibility.eligible && (
+        <div className="flex items-start gap-2 rounded-lg border border-cyan/30 bg-cyan/5 p-4 text-sm text-slate-700">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan" />
+          <div>
+            <p className="font-medium text-cyan">체험단 신청 가능</p>
+            <p className="mt-1 text-xs text-slate-500">
+              이번 달 신청 {eligibility.current_month_count}/{eligibility.max_per_month}회 ·
+              최근 12개월 {eligibility.year_count}/{eligibility.max_per_year}회
+            </p>
+          </div>
+        </div>
+      )}
 
       {trials.length === 0 ? (
         <div className="card-surface grid place-items-center py-16 text-center">

@@ -4,7 +4,7 @@ import type { PaymentResponse, IssueBillingKeyResponse } from '@portone/browser-
 // PortOne client-side keys are public-safe (protected by PortOne's own auth).
 // We embed fallback values so the build works even when .env is not present
 // at build time, mirroring the supabase.ts fallback pattern.
-const FALLBACK_STORE_ID = 'store-ipc8b';
+const FALLBACK_STORE_ID = 'store-11f4c1d7-6284-4f3a-85ba-eaef0cd6d858';
 const FALLBACK_CHANNEL_KEY = 'channel-key-6a54b6b2-756b-4cf6-a5af-8fc0e33baa19';
 
 const STORE_ID = (import.meta.env.VITE_PORTONE_STORE_ID as string | undefined) || FALLBACK_STORE_ID;

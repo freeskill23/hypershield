@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review, TrialApplication,
+  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review, TrialApplication, TrialEligibility,
 } from './types';
 
 // ============================================================
@@ -876,6 +876,19 @@ export async function createTrialApplication(input: {
   if (!isSupabaseConfigured || !supabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return { ok: false, error: '로그인이 필요합니다.' };
+
+  const { data: elig, error: eligErr } = await supabase
+    .rpc('get_trial_eligibility', { p_user_id: userData.user.id })
+    .maybeSingle();
+  if (eligErr) {
+    console.error('trial eligibility check error', eligErr);
+    return { ok: false, error: '신청 자격을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+  }
+  const e = elig as TrialEligibility | null;
+  if (e && !e.eligible) {
+    return { ok: false, error: e.reason };
+  }
+
   const { error } = await supabase.from('trial_applications').insert({
     user_id: userData.user.id,
     product_id: input.product_id,
@@ -889,6 +902,18 @@ export async function createTrialApplication(input: {
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+export async function fetchTrialEligibility(userId: string): Promise<TrialEligibility | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase
+    .rpc('get_trial_eligibility', { p_user_id: userId })
+    .maybeSingle();
+  if (error) {
+    console.error('fetch trial eligibility error', error);
+    return null;
+  }
+  return (data as TrialEligibility) ?? null;
 }
 
 export async function submitTrialReviewUrl(id: string, reviewUrl: string): Promise<{ ok: boolean; error?: string }> {

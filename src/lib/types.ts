@@ -225,3 +225,12 @@ export interface TrialApplication {
   created_at: string;
   updated_at: string;
 }
+
+export interface TrialEligibility {
+  eligible: boolean;
+  reason: string;
+  current_month_count: number;
+  year_count: number;
+  max_per_month: number;
+  max_per_year: number;
+}
