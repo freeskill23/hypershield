@@ -1,8 +1,14 @@
 import * as PortOne from '@portone/browser-sdk/v2';
 import type { PaymentResponse, IssueBillingKeyResponse } from '@portone/browser-sdk/v2';
 
-const STORE_ID = import.meta.env.VITE_PORTONE_STORE_ID as string | undefined;
-const CHANNEL_KEY = import.meta.env.VITE_PORTONE_CHANNEL_KEY as string | undefined;
+// PortOne client-side keys are public-safe (protected by PortOne's own auth).
+// We embed fallback values so the build works even when .env is not present
+// at build time, mirroring the supabase.ts fallback pattern.
+const FALLBACK_STORE_ID = 'store-ipc8b';
+const FALLBACK_CHANNEL_KEY = 'channel-key-6a54b6b2-756b-4cf6-a5af-8fc0e33baa19';
+
+const STORE_ID = (import.meta.env.VITE_PORTONE_STORE_ID as string | undefined) || FALLBACK_STORE_ID;
+const CHANNEL_KEY = (import.meta.env.VITE_PORTONE_CHANNEL_KEY as string | undefined) || FALLBACK_CHANNEL_KEY;
 
 export function isPaymentConfigured(): boolean {
   return !!STORE_ID && !!CHANNEL_KEY;

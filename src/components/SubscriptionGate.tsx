@@ -22,7 +22,18 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
     .filter((p) => p.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
 
-  const visiblePlans = activePlans;
+  const isApprovedSpecial = profile.special_member_status === 'approved';
+
+  const visiblePlans = activePlans.filter((p) =>
+    isApprovedSpecial ? p.tier === 'premium' : p.tier !== 'premium'
+  );
+
+  const headline = isApprovedSpecial
+    ? '특별회원 구독'
+    : '일반회원 구독';
+  const subline = isApprovedSpecial
+    ? '특별회원으로 승인되었습니다. 특별회원 전용 구독 상품만 노출됩니다.'
+    : '하이퍼쉴드 멤버쉽은 회원제 쇼핑몰입니다. 등록된 일반회원 구독 상품을 결제하면 모든 제품을 할인가로 구매할 수 있습니다.';
 
   async function handleSubscribe(plan: SubscriptionPlan) {
     setError(null);
@@ -131,16 +142,14 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-3xl">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-4 py-1.5 text-xs font-medium text-gold-deep">
-              <Crown className="h-3.5 w-3.5" /> 회원 등급 선택
+            <div className={`mx-auto mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-medium ${isApprovedSpecial ? 'border-gold/30 bg-gold/5 text-gold-deep' : 'border-cyan/30 bg-cyan/5 text-cyan'}`}>
+              <Crown className="h-3.5 w-3.5" /> {headline}
             </div>
             <h1 className="font-gothic text-2xl font-bold text-slate-800">
               {profile.full_name}님, 회원 등급을 선택해 주세요
             </h1>
             <p className="mt-3 text-sm text-slate-500">
-              하이퍼쉴드 멤버쉽은 회원제 쇼핑몰입니다.
-              <br />
-              등급별 구독료를 결제하면 모든 제품을 할인가로 구매할 수 있습니다.
+              {subline}
             </p>
           </div>
 
@@ -218,7 +227,9 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
             ))}
             {visiblePlans.length === 0 && (
               <div className="card-surface col-span-full p-8 text-center text-sm text-slate-500">
-                현재 선택 가능한 회원 등급이 없습니다. 관리자에게 문의해 주세요.
+                {isApprovedSpecial
+                  ? '현재 특별회원 전용 구독 상품이 없습니다. 관리자에게 문의해 주세요.'
+                  : '현재 선택 가능한 회원 등급이 없습니다. 관리자에게 문의해 주세요.'}
               </div>
             )}
           </div>
