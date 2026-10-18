@@ -3,3 +3,9 @@ verify_jwt = true
 
 [functions.admin-reset-password]
 verify_jwt = true
+
+[functions.charge-subscription]
+verify_jwt = true
+
+[functions.portone-webhook]
+verify_jwt = false

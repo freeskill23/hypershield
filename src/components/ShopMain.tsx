@@ -7,22 +7,26 @@ interface Props {
   products: Product[];
   categories: Category[];
   userTier: string | null;
+  hasActiveSubscription: boolean;
   onSelectProduct: (id: string) => void;
   onSelectCategory: (categoryId: string | null) => void;
   selectedCategoryId: string | null;
   onGoBoard: () => void;
   onGoTrials: () => void;
+  onSubscribe: () => void;
 }
 
 export default function ShopMain({
   products,
   categories,
   userTier,
+  hasActiveSubscription,
   onSelectProduct,
   onSelectCategory,
   selectedCategoryId,
   onGoBoard,
   onGoTrials,
+  onSubscribe,
 }: Props) {
   const [search, setSearch] = useState('');
 
@@ -76,20 +80,37 @@ export default function ShopMain({
           <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-cyan" />
         </button>
 
-        <button
-          onClick={onGoTrials}
-          className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-navy-700 bg-gradient-to-r from-navy-900 via-navy-850 to-navy-900 p-5 text-left transition hover:border-gold/40 md:p-6"
-        >
-          <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gold/10 blur-3xl" />
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gold/10 text-gold-light transition group-hover:bg-gold/20">
-            <Gift className="h-6 w-6" />
-          </div>
-          <div className="relative flex-1">
-            <h2 className="font-gothic text-lg font-bold text-slate-800">체험단 신청하기</h2>
-            <p className="mt-0.5 text-sm text-slate-400">연구독시 년 12회 무료 체험 혜택</p>
-          </div>
-          <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-gold-light" />
-        </button>
+        {hasActiveSubscription ? (
+          <button
+            onClick={onGoTrials}
+            className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-navy-700 bg-gradient-to-r from-navy-900 via-navy-850 to-navy-900 p-5 text-left transition hover:border-gold/40 md:p-6"
+          >
+            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gold/10 blur-3xl" />
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gold/10 text-gold-light transition group-hover:bg-gold/20">
+              <Gift className="h-6 w-6" />
+            </div>
+            <div className="relative flex-1">
+              <h2 className="font-gothic text-lg font-bold text-slate-800">체험단 신청하기</h2>
+              <p className="mt-0.5 text-sm text-slate-400">연구독시 년 12회 무료 체험 혜택</p>
+            </div>
+            <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-gold-light" />
+          </button>
+        ) : (
+          <button
+            onClick={onSubscribe}
+            className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-navy-700 bg-gradient-to-r from-navy-900 via-navy-850 to-navy-900 p-5 text-left transition hover:border-gold/40 md:p-6"
+          >
+            <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gold/10 blur-3xl" />
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gold/10 text-gold-light transition group-hover:bg-gold/20">
+              <Gift className="h-6 w-6" />
+            </div>
+            <div className="relative flex-1">
+              <h2 className="font-gothic text-lg font-bold text-slate-800">구독신청하기</h2>
+              <p className="mt-0.5 text-sm text-slate-400">구독 결제 시 체험단 신청 혜택</p>
+            </div>
+            <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-gold-light" />
+          </button>
+        )}
       </div>
 
       {/* Search + categories */}
@@ -168,16 +189,27 @@ export default function ShopMain({
                   <h3 className="line-clamp-2 text-sm font-medium text-slate-800 transition group-hover:text-cyan">
                     {product.name}
                   </h3>
-                  <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="font-gothic text-base font-bold text-cyan">
-                      {formatKRW(product.club_price)}
-                    </span>
-                    {product.original_price > product.club_price && (
-                      <span className="text-xs text-slate-500 line-through">
-                        {formatKRW(product.original_price)}
+                  {hasActiveSubscription ? (
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="font-gothic text-base font-bold text-cyan">
+                        {formatKRW(product.club_price)}
                       </span>
-                    )}
-                  </div>
+                      {product.original_price > product.club_price && (
+                        <span className="text-xs text-slate-500 line-through">
+                          {formatKRW(product.original_price)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      {discount > 0 && (
+                        <span className="rounded-md bg-red-500/90 px-1.5 py-0.5 text-xs font-bold text-white">
+                          {discount}%
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-500">구독 결제 시 할인가</span>
+                    </div>
+                  )}
                 </div>
               </button>
             );

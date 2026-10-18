@@ -595,6 +595,56 @@ export async function deactivateSubscription(userId: string) {
 }
 
 // ============================================================
+// Subscription billing key storage (PortOne/KCP recurring)
+// ============================================================
+
+export async function saveBillingKey(input: {
+  user_id: string;
+  portone_billing_key: string;
+  portone_issue_id?: string;
+  plan_id?: string;
+  card_company?: string | null;
+  card_number_masked?: string | null;
+}): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  await supabase.from('subscription_billing_keys')
+    .update({ is_active: false })
+    .eq('user_id', input.user_id)
+    .eq('is_active', true);
+  const { error } = await supabase.from('subscription_billing_keys').insert({
+    user_id: input.user_id,
+    portone_billing_key: input.portone_billing_key,
+    portone_issue_id: input.portone_issue_id ?? null,
+    plan_id: input.plan_id ?? null,
+    card_company: input.card_company ?? null,
+    card_number_masked: input.card_number_masked ?? null,
+    is_active: true,
+  });
+  if (error) { console.error('save billing key error', error); return false; }
+  return true;
+}
+
+export async function recordSubscriptionPayment(input: {
+  user_id: string;
+  plan_id?: string;
+  portone_payment_id: string;
+  amount: number;
+  status: string;
+  error_message?: string;
+}): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  const { error } = await supabase.from('subscription_payments').insert({
+    user_id: input.user_id,
+    plan_id: input.plan_id ?? null,
+    portone_payment_id: input.portone_payment_id,
+    amount: input.amount,
+    status: input.status,
+    error_message: input.error_message ?? null,
+  });
+  if (error) console.error('record sub payment error', error);
+}
+
+// ============================================================
 // Profile operations (admin)
 // ============================================================
 

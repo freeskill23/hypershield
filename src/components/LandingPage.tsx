@@ -125,9 +125,9 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
             <div className="mb-4 inline-grid h-12 w-12 place-items-center rounded-xl bg-gold/10">
               <Sparkles className="h-6 w-6 text-gold" />
             </div>
-            <h3 className="font-gothic text-lg font-semibold text-slate-800">더 좋은 품질</h3>
+            <h3 className="font-gothic text-lg font-semibold text-slate-800">연회원구독혜택</h3>
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              과도하게 높은 광고비용을 빼고 더 좋은 품질을 만드는 연구비용으로 활용하고 더 좋은 제품을 더 저렴하게 공급하겠습니다.
+              연회원 구독시 1년에 12번 무료 체험 신청이 가능합니다.
             </p>
           </div>
 

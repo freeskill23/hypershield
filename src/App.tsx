@@ -29,6 +29,7 @@ type Route =
   | { name: 'cart' }
   | { name: 'checkout' }
   | { name: 'trials' }
+  | { name: 'subscribe' }
   | { name: 'mypage' };
 
 function routeToHash(r: Route): string {
@@ -40,6 +41,7 @@ function routeToHash(r: Route): string {
     case 'product': return `#product/${r.productId}`;
     case 'cart': return '#cart';
     case 'trials': return '#trials';
+    case 'subscribe': return '#subscribe';
     case 'checkout': return '#checkout';
     case 'mypage': return '#mypage';
   }
@@ -55,6 +57,7 @@ function hashToRoute(hash: string): Route {
   if (h === 'cart') return { name: 'cart' };
   if (h === 'checkout') return { name: 'checkout' };
   if (h === 'trials') return { name: 'trials' };
+  if (h === 'subscribe') return { name: 'subscribe' };
   if (h === 'mypage') return { name: 'mypage' };
   return { name: 'landing' };
 }
@@ -336,6 +339,13 @@ function ShellContent({
             userId={profile.id}
             onRefresh={refreshAll}
           />
+        ) : route.name === 'subscribe' ? (
+          <SubscriptionGate
+            profile={profile}
+            plans={plans}
+            onSignOut={signOut}
+            onActivated={refreshAll}
+          />
         ) : route.name === 'mypage' ? (
           <MyPage
             profile={profile}
@@ -353,11 +363,13 @@ function ShellContent({
             products={products}
             categories={categories}
             userTier={profile.subscription_tier}
+            hasActiveSubscription={profile.subscription_status === 'active'}
             onSelectProduct={(id) => navigate({ name: 'product', productId: id })}
             onSelectCategory={(id) => { setSelectedCategoryId(id); navigate({ name: 'shop', categoryId: id }); }}
             selectedCategoryId={selectedCategoryId}
             onGoBoard={() => navigate({ name: 'board' })}
             onGoTrials={() => navigate({ name: 'trials' })}
+            onSubscribe={() => navigate({ name: 'subscribe' })}
           />
         )}
       </main>

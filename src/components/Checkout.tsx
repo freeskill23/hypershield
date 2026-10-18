@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck,
+  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck, Loader2,
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product, SelectedOption } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
 import { createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
+import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
+import { supabase } from '../lib/supabase';
 import AddressSearchButton from './AddressSearchButton';
 
 interface Props {
@@ -41,7 +43,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     address_detail: '',
     shipping_message: '',
   });
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'manual'>('manual');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'manual'>('card');
 
   const isBuyNow = !!buyNowItem;
   const checkoutItems: CartItemWithProduct[] = isBuyNow && buyNowItem
@@ -120,14 +122,50 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     setBusy(true);
     setError(null);
     try {
-      const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow);
-      if (paymentMethod === 'card' && order) {
-        await updateOrderStatus(order.id, 'paid');
-      }
-      if (order) {
-        onComplete();
+      const orderName = checkoutItems.length === 1
+        ? (checkoutItems[0].product?.name ?? '상품 결제')
+        : `상품 ${checkoutItems.length}건 결제`;
+
+      if (paymentMethod === 'card' && isPaymentConfigured()) {
+        const paymentId = generatePaymentId('order');
+        const { data: userData } = await supabase.auth.getUser();
+        const response = await requestProductPayment({
+          paymentId,
+          orderName,
+          totalAmount: finalAmount,
+          customer: {
+            fullName: shippingData.recipient_name,
+            phoneNumber: shippingData.recipient_phone,
+            email: userData.user?.email,
+          },
+          redirectUrl: window.location.origin + window.location.pathname + '#checkout',
+        });
+
+        if (response && response.code) {
+          setError(response.message || '결제에 실패했습니다.');
+          return;
+        }
+
+        if (!response) {
+          setError('결제가 완료되지 않았습니다.');
+          return;
+        }
+
+        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: 'card' }, 0, isBuyNow);
+        if (order) {
+          await updateOrderStatus(order.id, 'paid', { portone_payment_id: paymentId });
+          onComplete();
+        } else {
+          setError('주문 생성에 실패했습니다.');
+        }
       } else {
-        setError('주문 생성에 실패했습니다.');
+        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow);
+        if (order) {
+          if (paymentMethod === 'card') await updateOrderStatus(order.id, 'paid');
+          onComplete();
+        } else {
+          setError('주문 생성에 실패했습니다.');
+        }
       }
     } catch (e: any) {
       setError(e.message || '주문 중 오류가 발생했습니다.');
@@ -316,20 +354,29 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
             <div className="space-y-3">
               <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${paymentMethod === 'card' ? 'border-cyan bg-cyan/5 text-slate-800' : 'border-slate-200 text-slate-500'}`}>
                 <input type="radio" name="payment_method" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} />
-                카드 결제
+                카드 결제 (NHN KCP)
               </label>
               <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${paymentMethod === 'manual' ? 'border-cyan bg-cyan/5 text-slate-800' : 'border-slate-200 text-slate-500'}`}>
                 <input type="radio" name="payment_method" checked={paymentMethod === 'manual'} onChange={() => setPaymentMethod('manual')} />
                 기타 결제 / 관리자 확인
               </label>
             </div>
-            <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-              <span>
-                현재는 주문 생성만 가능합니다. 결제 연동은 추후 NHN KCP 연동 후 적용됩니다.
-                주문 생성 후 관리자가 확인하여 처리합니다.
-              </span>
-            </div>
+            {paymentMethod === 'card' && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                <span>
+                  NHN KCP 결제창을 통해 카드 결제가 진행됩니다. 결제 완료 시 주문이 자동 결제 완료 처리됩니다.
+                </span>
+              </div>
+            )}
+            {paymentMethod === 'manual' && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                <span>
+                  주문 생성 후 관리자가 확인하여 처리합니다.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -381,7 +428,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
               </div>
             </div>
             <button type="submit" disabled={busy} className="btn-primary mt-5 w-full">
-              {busy ? '주문 중...' : <><Check className="h-4 w-4" /> 주문 생성</>}
+              {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> 결제 중...</> : <><Check className="h-4 w-4" /> {paymentMethod === 'card' ? '결제하기' : '주문 생성'}</>}
             </button>
             {error && (
               <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
