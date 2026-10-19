@@ -340,7 +340,11 @@ export async function createOrder(
   return order as Order;
 }
 
-export async function updateOrderStatus(orderId: string, status: Order['status'], extra?: Partial<Order>) {
+export async function updateOrderStatus(
+  orderId: string,
+  status: Order['status'],
+  extra?: Partial<Order> & { portone_payment_id?: string },
+) {
   if (!isSupabaseConfigured || !supabase) return;
   const patch: any = { status, ...extra };
   if (status === 'shipped' && !extra?.shipped_at) {
@@ -562,86 +566,19 @@ export async function deletePlan(id: string) {
   await supabase.from('subscription_plans').delete().eq('id', id);
 }
 
-// ============================================================
-// Subscription activation (admin manually activates for now;
-// NHNKCP integration will be done later)
-// ============================================================
+export async function confirmManualSubscriptionPayment(input: {
+  paymentId: string;
+  planId: string;
+}): Promise<{ ok: boolean; error?: string; expiresAt?: string | null }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: '결제 서비스를 사용할 수 없습니다.' };
 
-export async function activateSubscription(
-  userId: string,
-  planId: string,
-  tier: string,
-  months: number = 1,
-) {
-  if (!isSupabaseConfigured || !supabase) return;
-  const now = new Date();
-  const expires = new Date(now);
-  expires.setMonth(expires.getMonth() + months);
-
-  await supabase.from('profiles').update({
-    subscription_plan_id: planId,
-    subscription_tier: tier,
-    subscription_status: 'active',
-    subscription_expires_at: expires.toISOString(),
-    subscription_started_at: now.toISOString(),
-  }).eq('id', userId);
-}
-
-export async function deactivateSubscription(userId: string) {
-  if (!isSupabaseConfigured || !supabase) return;
-  await supabase.from('profiles').update({
-    subscription_status: 'expired',
-  }).eq('id', userId);
-}
-
-// ============================================================
-// Subscription billing key storage (PortOne/KCP recurring)
-// ============================================================
-
-export async function saveBillingKey(input: {
-  user_id: string;
-  portone_billing_key: string;
-  portone_issue_id?: string;
-  plan_id?: string;
-  card_company?: string | null;
-  card_number_masked?: string | null;
-}): Promise<boolean> {
-  if (!isSupabaseConfigured || !supabase) return false;
-  await supabase.from('subscription_billing_keys')
-    .update({ is_active: false })
-    .eq('user_id', input.user_id)
-    .eq('is_active', true);
-  const { error } = await supabase.from('subscription_billing_keys').insert({
-    user_id: input.user_id,
-    portone_billing_key: input.portone_billing_key,
-    portone_issue_id: input.portone_issue_id ?? null,
-    plan_id: input.plan_id ?? null,
-    card_company: input.card_company ?? null,
-    card_number_masked: input.card_number_masked ?? null,
-    is_active: true,
+  const { data, error } = await supabase.functions.invoke('confirm-subscription-payment', {
+    body: input,
   });
-  if (error) { console.error('save billing key error', error); return false; }
-  return true;
-}
-
-export async function recordSubscriptionPayment(input: {
-  user_id: string;
-  plan_id?: string;
-  portone_payment_id: string;
-  amount: number;
-  status: string;
-  error_message?: string;
-}): Promise<void> {
-  if (!isSupabaseConfigured || !supabase) return;
-  const { error } = await supabase.from('subscription_payments').insert({
-    user_id: input.user_id,
-    plan_id: input.plan_id ?? null,
-    portone_payment_id: input.portone_payment_id,
-    amount: input.amount,
-    status: input.status,
-    error_message: input.error_message ?? null,
-  });
-  if (error) console.error('record sub payment error', error);
+  if (error || !data || data.ok !== true) {
+    return { ok: false, error: data?.error || '결제 확인에 실패했습니다.' };
+  }
+  return { ok: true, expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null };
 }
 
 // ============================================================

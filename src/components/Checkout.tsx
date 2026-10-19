@@ -127,6 +127,10 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         : `상품 ${checkoutItems.length}건 결제`;
 
       if (paymentMethod === 'card' && isPaymentConfigured()) {
+        if (!supabase) {
+          setError('결제 서비스를 사용할 수 없습니다.');
+          return;
+        }
         const paymentId = generatePaymentId('order');
         const { data: userData } = await supabase.auth.getUser();
         const response = await requestProductPayment({

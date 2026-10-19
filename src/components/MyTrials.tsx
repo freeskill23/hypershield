@@ -393,7 +393,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
         <div>
           <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
           <p className="mt-0.5 text-xs text-slate-400">
-            완료된 체험단 {completedCount}회 / 연 12회 가능 (월 1회)
+            완료된 체험단 {completedCount}회 · 월 구독 기간마다 1회 무료 신청
           </p>
         </div>
         <button
@@ -427,8 +427,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
           <div>
             <p className="font-medium text-cyan">체험단 신청 가능</p>
             <p className="mt-1 text-xs text-slate-500">
-              이번 달 신청 {eligibility.current_month_count}/{eligibility.max_per_month}회 ·
-              최근 12개월 {eligibility.year_count}/{eligibility.max_per_year}회
+              현재 구독 기간 신청 {eligibility.current_month_count}/{eligibility.max_per_month}회
             </p>
           </div>
         </div>

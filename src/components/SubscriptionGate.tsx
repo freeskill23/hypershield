@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { Crown, Check, AlertCircle, ArrowRight, Loader2, CreditCard } from 'lucide-react';
 import { Profile, SubscriptionPlan } from '../lib/types';
 import { formatKRW } from '../lib/format';
-import { requestBillingKey, generatePaymentId, isPaymentConfigured } from '../lib/payment';
-import { saveBillingKey, recordSubscriptionPayment, activateSubscription } from '../lib/data';
-import { supabase } from '../lib/supabase';
+import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
+import { confirmManualSubscriptionPayment } from '../lib/data';
 
 interface Props {
   profile: Profile;
@@ -44,86 +43,34 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
     }
     setBusy(plan.id);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const email = userData.user?.email ?? profile.email;
-      const issueId = generatePaymentId('issue');
-
-      const response = await requestBillingKey({
-        issueId,
-        issueName: `${plan.name} 구독 결제`,
+      const paymentId = generatePaymentId('sub');
+      const response = await requestProductPayment({
+        paymentId,
+        orderName: `${plan.name} 월 구독료`,
+        totalAmount: plan.monthly_price,
         customer: {
           fullName: profile.full_name,
-          email,
+          email: profile.email,
         },
         redirectUrl: window.location.origin + window.location.pathname + '#subscribe',
       });
 
       if (!response) {
-        setError('빌링키 발급이 완료되지 않았습니다.');
+        setError('결제가 완료되지 않았습니다.');
         return;
       }
       if (response.code) {
-        setError(response.message || '빌링키 발급에 실패했습니다.');
+        setError(response.message || '결제에 실패했습니다.');
         return;
       }
 
-      const billingKey = response.billingKey;
-      if (!billingKey) {
-        setError('빌링키를 받지 못했습니다.');
+      const result = await confirmManualSubscriptionPayment({ paymentId, planId: plan.id });
+      if (!result.ok) {
+        setError(result.error || '결제 확인에 실패했습니다.');
         return;
       }
 
-      await saveBillingKey({
-        user_id: profile.id,
-        portone_billing_key: billingKey,
-        portone_issue_id: issueId,
-        plan_id: plan.id,
-        card_company: (response as any).cardCompany ?? null,
-        card_number_masked: (response as any).cardNumber ?? null,
-      });
-
-      const paymentId = generatePaymentId('sub');
-      const apiUrl = `${(supabase as any).supabaseUrl}/functions/v1/charge-subscription`;
-      const chargeRes = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${(supabase as any).supabaseKey}`,
-          apikey: (supabase as any).supabaseKey,
-        },
-        body: JSON.stringify({
-          userId: profile.id,
-          planId: plan.id,
-          billingKey,
-          paymentId,
-          amount: plan.monthly_price,
-          orderName: `${plan.name} 월 구독료`,
-        }),
-      });
-      const chargeData = await chargeRes.json().catch(() => ({}));
-      if (!chargeRes.ok || chargeData.error) {
-        await recordSubscriptionPayment({
-          user_id: profile.id,
-          plan_id: plan.id,
-          portone_payment_id: paymentId,
-          amount: plan.monthly_price,
-          status: 'failed',
-          error_message: chargeData.error || '최초 결제 실패',
-        });
-        setError(chargeData.error || '최초 결제에 실패했습니다. 카드 정보를 확인해 주세요.');
-        return;
-      }
-
-      await activateSubscription(profile.id, plan.id, plan.tier, 1);
-      await recordSubscriptionPayment({
-        user_id: profile.id,
-        plan_id: plan.id,
-        portone_payment_id: paymentId,
-        amount: plan.monthly_price,
-        status: 'paid',
-      });
-
-      setSuccess(`${plan.name} 구독 결제가 완료되었습니다!`);
+      setSuccess(`${plan.name} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`);
       onActivated();
     } catch (e: any) {
       setError(e.message || '구독 결제 중 오류가 발생했습니다.');
@@ -158,7 +105,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
             <div>
               <p className="font-medium">결제가 완료되어야 쇼핑몰에 입장할 수 있습니다.</p>
               <p className="mt-1 text-xs text-slate-500">
-                구독료는 매월 자동 결제되며, 언제든 해지할 수 있습니다.
+                결제할 때마다 1개월 이용 기간이 시작되며, 만료 후 다시 결제할 수 있습니다.
               </p>
             </div>
           </div>
@@ -204,7 +151,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
                     <Check className="h-4 w-4 text-cyan" /> 회원제 쇼핑몰 이용
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <Check className="h-4 w-4 text-gold" /> 매월 자동 결제 (카드)
+                    <Check className="h-4 w-4 text-gold" /> 카드 수동 결제 후 1개월 이용
                   </div>
                   {plan.discount_rate >= 60 && (
                     <div className="flex items-center gap-2 text-sm text-slate-700">
@@ -237,7 +184,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
           <div className="mt-6 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-500">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
             <span>
-              NHN KCP 결제 연동이 적용되었습니다. 카드 결제 후 매월 자동 결제됩니다.
+              NHN KCP 카드 결제가 적용되었습니다. 매월 직접 결제하면 결제일로부터 1개월 동안 이용할 수 있습니다.
             </span>
           </div>
 

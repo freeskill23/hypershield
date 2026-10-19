@@ -7,5 +7,8 @@ verify_jwt = true
 [functions.charge-subscription]
 verify_jwt = true
 
+[functions.confirm-subscription-payment]
+verify_jwt = true
+
 [functions.portone-webhook]
 verify_jwt = false

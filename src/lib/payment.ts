@@ -1,5 +1,5 @@
 import * as PortOne from '@portone/browser-sdk/v2';
-import type { PaymentResponse, IssueBillingKeyResponse } from '@portone/browser-sdk/v2';
+import type { PaymentResponse } from '@portone/browser-sdk/v2';
 
 // PortOne client-side keys are public-safe (protected by PortOne's own auth).
 // We embed fallback values so the build works even when .env is not present
@@ -36,34 +36,6 @@ export async function requestProductPayment(input: ProductPaymentInput): Promise
     totalAmount: input.totalAmount,
     currency: PortOne.PaymentCurrency.KRW,
     payMethod: PortOne.PaymentPayMethod.CARD,
-    customer: {
-      fullName: input.customer.fullName,
-      phoneNumber: input.customer.phoneNumber,
-      email: input.customer.email,
-    },
-    redirectUrl: input.redirectUrl,
-  });
-}
-
-export interface BillingKeyInput {
-  issueId: string;
-  issueName: string;
-  customer: {
-    fullName?: string;
-    phoneNumber?: string;
-    email?: string;
-  };
-  redirectUrl?: string;
-}
-
-export async function requestBillingKey(input: BillingKeyInput): Promise<IssueBillingKeyResponse | undefined> {
-  if (!STORE_ID || !CHANNEL_KEY) throw new Error('결제 설정이 누락되었습니다.');
-  return PortOne.requestIssueBillingKey({
-    storeId: STORE_ID,
-    channelKey: CHANNEL_KEY,
-    issueId: input.issueId,
-    issueName: input.issueName,
-    billingKeyMethod: PortOne.PaymentPayMethod.CARD,
     customer: {
       fullName: input.customer.fullName,
       phoneNumber: input.customer.phoneNumber,
