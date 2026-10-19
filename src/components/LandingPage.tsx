@@ -47,8 +47,9 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
           </div>
 
           {/* Main title */}
-          <h1 className="text-center font-gothic text-3xl font-bold leading-tight text-slate-800 md:text-5xl">
-            제품에 광고비와 마진을 뺐습니다. <span className="whitespace-nowrap text-cyan">멤버쉽 회원은 기본 50% 할인 혜택</span>
+          <h1 className="text-center font-gothic text-2xl font-bold leading-tight text-slate-800 md:text-5xl">
+            <span className="block whitespace-nowrap md:inline">제품에 광고비와 마진을 뺐습니다.</span>{' '}
+            <span className="block whitespace-nowrap text-cyan md:inline">멤버쉽 회원은 기본 50% 할인 혜택</span>
           </h1>
 
           {/* Description */}
