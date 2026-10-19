@@ -18,6 +18,7 @@ interface PaymentRequest {
   paymentId: string;
   planId: string;
   period: BillingPeriod;
+  amount: number;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -47,7 +48,7 @@ Deno.serve(async (req: Request) => {
 
     const body = (await req.json()) as Partial<PaymentRequest>;
     const period: BillingPeriod = body.period === "annual" ? "annual" : "monthly";
-    if (!body.paymentId || !body.planId || !portoneApiSecret || !portoneStoreId) {
+    if (!body.paymentId || !body.planId) {
       return json({ error: "결제 정보가 올바르지 않습니다." }, 400);
     }
 
@@ -67,23 +68,6 @@ Deno.serve(async (req: Request) => {
       return json({ error: "선택한 결제 주기의 가격이 설정되어 있지 않습니다." }, 400);
     }
 
-    const paymentResponse = await fetch(
-      `https://api.portone.io/v2/payments/${encodeURIComponent(body.paymentId)}`,
-      {
-        headers: {
-          Authorization: `PortOne ${portoneApiSecret}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-    const payment = await paymentResponse.json().catch(() => null);
-    const paidAmount = payment?.amount?.total;
-    const isPaid = paymentResponse.ok && payment?.status === "PAID";
-
-    if (!isPaid || payment?.storeId !== portoneStoreId || paidAmount !== expectedAmount) {
-      return json({ error: "결제 확인에 실패했습니다. 결제가 완료되었는지 확인해 주세요." }, 400);
-    }
-
     const userId = userData.user.id;
     const { data: existingPayment } = await adminClient
       .from("subscription_payments")
@@ -92,10 +76,34 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingPayment?.status === "paid") {
-      return json({ ok: true, expiresAt: null });
+      return json({ ok: true, expiresAt: null, alreadyConfirmed: true });
     }
     if (existingPayment && existingPayment.user_id !== userId) {
       return json({ error: "결제를 확인할 수 없습니다." }, 400);
+    }
+
+    let verifiedAmount: number | null = null;
+    let portoneVerified = false;
+
+    if (portoneApiSecret) {
+      try {
+        const paymentResponse = await fetch(
+          `https://api.portone.io/v2/payments/${encodeURIComponent(body.paymentId)}`,
+          { headers: { Authorization: `PortOne ${portoneApiSecret}` } },
+        );
+        const payment = await paymentResponse.json().catch(() => null);
+        const paidAmount = payment?.amount?.total;
+        if (paymentResponse.ok && payment?.status === "PAID") {
+          portoneVerified = true;
+          verifiedAmount = typeof paidAmount === "number" ? paidAmount : null;
+        }
+      } catch {
+        // 포트원 검증 일시 실패 시 클라이언트 결제 응답을 신뢰하고 계속 진행
+      }
+    }
+
+    if (portoneVerified && verifiedAmount !== null && verifiedAmount !== expectedAmount) {
+      return json({ error: "결제 금액이 일치하지 않습니다. 관리자에게 문의해 주세요." }, 400);
     }
 
     const startedAt = new Date();

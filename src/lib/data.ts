@@ -571,6 +571,7 @@ export async function confirmManualSubscriptionPayment(input: {
   paymentId: string;
   planId: string;
   period: BillingPeriod;
+  amount: number;
 }): Promise<{ ok: boolean; error?: string; expiresAt?: string | null }> {
   if (!isSupabaseConfigured || !supabase) return { ok: false, error: '결제 서비스를 사용할 수 없습니다.' };
 

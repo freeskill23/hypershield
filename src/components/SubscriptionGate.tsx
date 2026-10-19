@@ -72,7 +72,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
         return;
       }
 
-      const result = await confirmManualSubscriptionPayment({ paymentId, planId: plan.id, period: chosenPeriod });
+      const result = await confirmManualSubscriptionPayment({ paymentId, planId: plan.id, period: chosenPeriod, amount });
       if (!result.ok) {
         setError(result.error || '결제 확인에 실패했습니다.');
         return;
