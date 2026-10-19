@@ -266,6 +266,35 @@ export async function changeMemberGrade(userId: string, planId: string, tier: st
   }).eq('id', userId);
 }
 
+export async function manuallyActivateSubscription(
+  userId: string,
+  input: { planId: string; tier: string; expiresAt: string; billingPeriod?: 'monthly' | 'annual' | null },
+) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const now = new Date().toISOString();
+  const patch: Record<string, any> = {
+    subscription_status: 'active',
+    subscription_plan_id: input.planId,
+    subscription_tier: input.tier,
+    subscription_expires_at: input.expiresAt,
+    subscription_started_at: now,
+  };
+  if (input.billingPeriod) patch.subscription_billing_period = input.billingPeriod;
+  const { error } = await adminSupabase.from('profiles').update(patch).eq('id', userId);
+  if (error) throw new Error(`구독 활성화 실패: ${error.message}`);
+}
+
+export async function deactivateSubscription(userId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase.from('profiles').update({
+    subscription_status: 'none',
+    subscription_expires_at: null,
+    subscription_started_at: null,
+    subscription_billing_period: null,
+  }).eq('id', userId);
+  if (error) throw new Error(`구독 해제 실패: ${error.message}`);
+}
+
 export async function batchChangeMemberGrade(userIds: string[], planId: string, tier: string) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   const { error } = await adminSupabase.from('profiles').update({

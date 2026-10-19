@@ -5,6 +5,7 @@ import {
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
   MessageSquare, Star, Upload, X, Gift, Search,
+  Power, ShieldCheck,
 } from 'lucide-react';
 import {
   Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus, CafeMembership, SpecialMemberStatus,
@@ -16,7 +17,7 @@ import {
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
   updateOrderStatus, batchUpdateOrderStatus, deleteOrder, batchDeleteOrders, setProfileRole, deleteProfile, setSpecialMemberStatus,
-  changeMemberGrade, batchChangeMemberGrade,
+  changeMemberGrade, batchChangeMemberGrade, manuallyActivateSubscription, deactivateSubscription,
   updateSetting, getSettingValue,
   resetMemberPassword,
   answerInquiry, updateInquiryAnswer, deleteInquiry,
@@ -173,6 +174,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewF, setReviewF] = useState<ReviewForm>(emptyReviewForm);
   const [reviewBusy, setReviewBusy] = useState(false);
+
+  const [actModalId, setActModalId] = useState<string | null>(null);
+  const [actPlanId, setActPlanId] = useState('');
+  const [actDate, setActDate] = useState('');
+  const [actPeriod, setActPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [actBusy, setActBusy] = useState(false);
+  const [actErr, setActErr] = useState<string | null>(null);
 
   useEffect(() => {
     const overdueOrders = orders.filter(o => o.status === 'shipped' && o.shipped_at && Date.now() - new Date(o.shipped_at).getTime() >= 2 * 86400000);
@@ -472,6 +480,35 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   async function handleChangeGrade(p: Profile, planId: string) {
     const plan = plans.find(pl => pl.id === planId); if (!plan) return;
     await changeMemberGrade(p.id, plan.id, plan.tier); refresh();
+  }
+  function openActivateModal(p: Profile) {
+    setActModalId(p.id);
+    setActPlanId(p.subscription_plan_id ?? plans.find(pl => pl.is_active)?.id ?? '');
+    const def = new Date(); def.setDate(def.getDate() + 30);
+    setActDate(p.subscription_expires_at ? p.subscription_expires_at.slice(0, 10) : def.toISOString().slice(0, 10));
+    setActPeriod(p.subscription_billing_period ?? 'monthly');
+    setActErr(null);
+  }
+  async function handleActivateSubmit() {
+    if (!actModalId) return;
+    if (!actPlanId) { setActErr('회원 등급을 선택해주세요.'); return; }
+    if (!actDate) { setActErr('만료일을 선택해주세요.'); return; }
+    const plan = plans.find(pl => pl.id === actPlanId);
+    if (!plan) { setActErr('등급을 찾을 수 없습니다.'); return; }
+    setActBusy(true); setActErr(null);
+    try {
+      const expiresAt = new Date(actDate + 'T23:59:59').toISOString();
+      await manuallyActivateSubscription(actModalId, {
+        planId: plan.id, tier: plan.tier, expiresAt, billingPeriod: actPeriod,
+      });
+      setActModalId(null); refresh();
+    } catch (e: any) { setActErr(e.message || '구독 활성화에 실패했습니다.'); }
+    finally { setActBusy(false); }
+  }
+  async function handleDeactivate(p: Profile) {
+    if (!confirm(`${p.full_name} 회원의 구독을 해제하시겠습니까?`)) return;
+    try { await deactivateSubscription(p.id); refresh(); }
+    catch (e: any) { alert(e.message || '구독 해제에 실패했습니다.'); }
   }
 
   function toggleSelect(id: string) {
@@ -1179,6 +1216,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                               {plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
                             </select>
                             {p.id !== profile.id && <IconBtn onClick={() => handleDeleteProfileAction(p)} title="회원 삭제" icon={Trash2} hover="hover:border-red-500 hover:text-red-400" />}
+                            {p.subscription_status !== 'active' ? (
+                              <button onClick={() => openActivateModal(p)} title="구독 수동 활성화" className="inline-flex items-center gap-1 rounded-md border border-cyan/50 px-2 py-1 text-xs font-medium text-cyan hover:bg-cyan/10">
+                                <Power className="h-3.5 w-3.5" /> 활성화
+                              </button>
+                            ) : (
+                              <button onClick={() => handleDeactivate(p)} title="구독 해제" className="inline-flex items-center gap-1 rounded-md border border-slate-400 px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100">
+                                <Power className="h-3.5 w-3.5" /> 해제
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1222,7 +1268,45 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         </div>
       )}
 
-      {/* ── Posts ── */}
+      {/* Subscription activation modal */}
+      {actModalId && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setActModalId(null)}>
+          <div className="card-surface w-full max-w-sm space-y-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-gothic text-base font-semibold text-slate-800">구독 수동 활성화</h3>
+              <button onClick={() => setActModalId(null)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500">{profiles.find(p => p.id === actModalId)?.full_name} 회원의 구독을 선택한 날짜까지 활성화합니다.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">회원 등급</label>
+                <select value={actPlanId} onChange={e => setActPlanId(e.target.value)} className="input-field text-sm">
+                  <option value="" disabled>등급 선택</option>
+                  {plans.filter(pl => pl.is_active).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">결제 주기</label>
+                <select value={actPeriod} onChange={e => setActPeriod(e.target.value as 'monthly' | 'annual')} className="input-field text-sm">
+                  <option value="monthly">월 결제</option>
+                  <option value="annual">연 결제</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">만료일</label>
+                <input type="date" value={actDate} onChange={e => setActDate(e.target.value)} className="input-field text-sm" />
+              </div>
+              {actErr && <p className="text-xs text-red-400">{actErr}</p>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={handleActivateSubmit} disabled={actBusy} className="btn-primary px-5 py-2.5 text-sm">
+                {actBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> 활성화 중...</> : '활성화'}
+              </button>
+              <button onClick={() => setActModalId(null)} className="btn-ghost px-5 py-2.5 text-sm">취소</button>
+            </div>
+          </div>
+        </div>
+      )}
       {tab === 'posts' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
