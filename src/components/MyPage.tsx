@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   User as UserIcon, Mail, Calendar, Package, MapPin, Plus, Trash2,
   CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
@@ -27,6 +27,16 @@ interface Props {
 type Tab = 'overview' | 'orders' | 'addresses' | 'inquiries' | 'trials';
 type OrderFilter = 'all' | 'shipped' | 'delivered' | 'cancelled';
 
+const MYPAGE_TAB_KEY = 'mypage:active-tab';
+
+function loadInitialTab(): Tab {
+  try {
+    const t = sessionStorage.getItem(MYPAGE_TAB_KEY);
+    if (t === 'overview' || t === 'orders' || t === 'addresses' || t === 'inquiries' || t === 'trials') return t;
+  } catch {}
+  return 'overview';
+}
+
 const orderStatusConfig: Record<string, { label: string; className: string; icon: any }> = {
   pending: { label: '결제 대기', className: 'border-gold/40 text-gold-light', icon: Clock },
   paid: { label: '결제 완료', className: 'border-cyan/40 text-cyan', icon: CheckCircle2 },
@@ -37,7 +47,11 @@ const orderStatusConfig: Record<string, { label: string; className: string; icon
 };
 
 export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, reviews, products, onRefresh }: Props) {
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(loadInitialTab);
+
+  useEffect(() => {
+    try { sessionStorage.setItem(MYPAGE_TAB_KEY, tab); } catch {}
+  }, [tab]);
   const trialHook = useTrialApplications(profile.id);
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');

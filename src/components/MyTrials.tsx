@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Gift, ArrowLeft, Clock, CheckCircle2, XCircle, Truck, Package,
+  Gift, Plus, ArrowLeft, Clock, CheckCircle2, XCircle, Truck, Package,
   X, AlertCircle, ExternalLink, MapPin, Phone, User, Home, ShieldCheck,
 } from 'lucide-react';
 import { TrialApplication, Product, TrialEligibility } from '../lib/types';
@@ -386,13 +386,24 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
   }
 
   // ── List view ──
+  const canApply = !!eligibility?.eligible;
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
-        <p className="mt-0.5 text-xs text-slate-400">
-          완료된 체험단 {completedCount}회 · 12개월 연 결제 회원만 매월 1회, 최대 12회 무료 신청 가능
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
+          <p className="mt-0.5 text-xs text-slate-400">
+            완료된 체험단 {completedCount}회 · 12개월 연 결제 회원만 매월 1회, 최대 12회 무료 신청 가능
+          </p>
+        </div>
+        {canApply && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary px-4 py-2 text-sm"
+          >
+            <Plus className="h-4 w-4" /> 체험단 신청
+          </button>
+        )}
       </div>
 
       {eligibility && !eligibility.eligible && (
