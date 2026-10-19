@@ -367,6 +367,7 @@ function ShellContent({
             categories={categories}
             userTier={profile.subscription_tier}
             hasActiveSubscription={profile.subscription_status === 'active'}
+            billingPeriod={profile.subscription_billing_period}
             onSelectProduct={(id) => navigate({ name: 'product', productId: id })}
             onSelectCategory={(id) => { setSelectedCategoryId(id); navigate({ name: 'shop', categoryId: id }); }}
             selectedCategoryId={selectedCategoryId}

@@ -45,6 +45,8 @@ export async function requestProductPayment(input: ProductPaymentInput): Promise
   });
 }
 
-export function generatePaymentId(prefix: string = 'payment'): string {
+export function generatePaymentId(prefix: string = 'pay'): string {
+  // KCP V2 requires paymentId <= 40 chars. UUID is 36, so prefix must be <= 3 chars.
+  if (prefix.length > 3) prefix = prefix.slice(0, 3);
   return `${prefix}-${crypto.randomUUID()}`;
 }
