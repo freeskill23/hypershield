@@ -233,6 +233,18 @@ export async function batchUpdateOrderStatus(orderIds: string[], status: Order['
   if (error) throw new Error(`일괄 주문 상태 변경 실패: ${error.message}`);
 }
 
+export async function deleteOrder(orderId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase.from('orders').delete().eq('id', orderId);
+  if (error) throw new Error(`주문 삭제 실패: ${error.message}`);
+}
+
+export async function batchDeleteOrders(orderIds: string[]) {
+  if (!isAdminSupabaseConfigured || !adminSupabase || orderIds.length === 0) return;
+  const { error } = await adminSupabase.from('orders').delete().in('id', orderIds);
+  if (error) throw new Error(`일괄 주문 삭제 실패: ${error.message}`);
+}
+
 export async function setProfileRole(user_id: string, role: 'member' | 'admin') {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   await adminSupabase.from('profiles').update({ role }).eq('id', user_id);

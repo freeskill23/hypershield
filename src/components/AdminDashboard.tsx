@@ -15,7 +15,7 @@ import {
   createCategory, updateCategory, deleteCategory,
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
-  updateOrderStatus, batchUpdateOrderStatus, setProfileRole, deleteProfile, setSpecialMemberStatus,
+  updateOrderStatus, batchUpdateOrderStatus, deleteOrder, batchDeleteOrders, setProfileRole, deleteProfile, setSpecialMemberStatus,
   changeMemberGrade, batchChangeMemberGrade,
   updateSetting, getSettingValue,
   resetMemberPassword,
@@ -27,7 +27,7 @@ import ImageUpload from './ImageUpload';
 import RichTextEditor from './RichTextEditor';
 
 type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews' | 'trials';
-type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'cancel_request';
+type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'past_delivered' | 'cancelled' | 'cancel_request';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
   ['all', '전체', ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled']],
@@ -35,9 +35,17 @@ const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
   ['paid', '결제완료', ['paid', 'preparing']],
   ['shipped', '배송중', ['shipped']],
   ['delivered', '배송완료', ['delivered']],
+  ['past_delivered', '지난주문', ['delivered']],
   ['cancel_request', '취소요청', ['pending', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled']],
   ['cancelled', '취소', ['cancelled']],
 ];
+
+function isSameMonth(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
 
 interface Props {
   profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
@@ -184,6 +192,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const filteredOrders = useMemo(() => {
     if (orderSubTab === 'cancel_request') {
       return orders.filter(o => o.cancel_requested_at && o.status !== 'cancelled');
+    }
+    if (orderSubTab === 'delivered') {
+      return orders.filter(o => o.status === 'delivered' && isSameMonth(o.delivered_at));
+    }
+    if (orderSubTab === 'past_delivered') {
+      return orders.filter(o => o.status === 'delivered' && !isSameMonth(o.delivered_at));
     }
     return orders.filter(o => orderSubTabConfig[2].includes(o.status));
   }, [orders, orderSubTabConfig, orderSubTab]);
@@ -364,6 +378,19 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       setOrderSelectedIds(new Set());
       setOrderSubTab(status === 'paid' ? 'paid' : status === 'shipped' ? 'shipped' : status === 'delivered' ? 'delivered' : orderSubTab);
       refresh();
+    } finally { setBusy(false); }
+  }
+  async function handleBatchDeleteOrders() {
+    const eligibleIds = orders.filter(o => orderSelectedIds.has(o.id) && o.status === 'cancelled').map(o => o.id);
+    if (eligibleIds.length === 0) return;
+    if (!confirm(`선택한 주문 ${eligibleIds.length}건을 삭제하시겠습니까? 삭제된 주문은 복구할 수 없습니다.`)) return;
+    setBusy(true);
+    try {
+      await batchDeleteOrders(eligibleIds);
+      setOrderSelectedIds(new Set());
+      refresh();
+    } catch (e: any) {
+      alert(e.message || '주문 삭제에 실패했습니다.');
     } finally { setBusy(false); }
   }
   async function handleBatchShipOrders() {
@@ -938,6 +965,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 {orderSubTab === 'paid' && (
                   <button onClick={handleBatchShipOrders} disabled={busy} className="btn-primary px-3 py-2 text-xs"><Truck className="mr-1 inline h-3.5 w-3.5" /> 배송진행하기</button>
                 )}
+                {orderSubTab === 'cancelled' && (
+                  <button onClick={handleBatchDeleteOrders} disabled={busy} className="btn-ghost px-3 py-2 text-xs hover:text-red-400 hover:border-red-500"><Trash2 className="mr-1 inline h-3.5 w-3.5" /> 선택 삭제</button>
+                )}
                 <button onClick={downloadOrdersAsExcel} className="btn-ghost px-3 py-2 text-xs">엑셀 다운로드</button>
                 <button onClick={() => setOrderSelectedIds(new Set())} className="btn-ghost px-3 py-2 text-xs">선택 해제</button>
               </div>
@@ -947,7 +977,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             {orderSubTabs.map(([key, label, statuses]) => {
               const count = key === 'cancel_request'
                   ? orders.filter(o => o.cancel_requested_at && o.status !== 'cancelled').length
-                  : orders.filter(o => statuses.includes(o.status)).length;
+                  : key === 'delivered'
+                    ? orders.filter(o => o.status === 'delivered' && isSameMonth(o.delivered_at)).length
+                    : key === 'past_delivered'
+                      ? orders.filter(o => o.status === 'delivered' && !isSameMonth(o.delivered_at)).length
+                      : orders.filter(o => statuses.includes(o.status)).length;
               const active = orderSubTab === key;
               return (
                 <button key={key} onClick={() => { setOrderSubTab(key); setOrderSelectedIds(new Set()); }}
