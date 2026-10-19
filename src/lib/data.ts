@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 import {
   Profile, SubscriptionPlan, Category, Product, CartItemWithProduct,
-  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review, TrialApplication, TrialEligibility,
+  Order, OrderItem, Address, Post, Setting, SelectedOption, Inquiry, Review, TrialApplication, TrialEligibility, BillingPeriod,
 } from './types';
 
 // ============================================================
@@ -549,6 +549,7 @@ export async function createPlan(input: Omit<SubscriptionPlan, 'id' | 'created_a
     name: input.name,
     description: input.description,
     monthly_price: input.monthly_price,
+    annual_price: input.annual_price,
     tier: input.tier,
     discount_rate: input.discount_rate,
     is_active: input.is_active,
@@ -569,6 +570,7 @@ export async function deletePlan(id: string) {
 export async function confirmManualSubscriptionPayment(input: {
   paymentId: string;
   planId: string;
+  period: BillingPeriod;
 }): Promise<{ ok: boolean; error?: string; expiresAt?: string | null }> {
   if (!isSupabaseConfigured || !supabase) return { ok: false, error: '결제 서비스를 사용할 수 없습니다.' };
 

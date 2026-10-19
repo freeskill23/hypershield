@@ -12,9 +12,12 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const portoneApiSecret = Deno.env.get("PORTONE_API_SECRET") ?? "";
 const portoneStoreId = Deno.env.get("VITE_PORTONE_STORE_ID") ?? Deno.env.get("PORTONE_STORE_ID") ?? "";
 
+type BillingPeriod = "monthly" | "annual";
+
 interface PaymentRequest {
   paymentId: string;
   planId: string;
+  period: BillingPeriod;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -43,6 +46,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = (await req.json()) as Partial<PaymentRequest>;
+    const period: BillingPeriod = body.period === "annual" ? "annual" : "monthly";
     if (!body.paymentId || !body.planId || !portoneApiSecret || !portoneStoreId) {
       return json({ error: "결제 정보가 올바르지 않습니다." }, 400);
     }
@@ -50,12 +54,17 @@ Deno.serve(async (req: Request) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: plan, error: planError } = await adminClient
       .from("subscription_plans")
-      .select("id, name, monthly_price, tier, is_active")
+      .select("id, name, monthly_price, annual_price, tier, is_active")
       .eq("id", body.planId)
       .maybeSingle();
 
     if (planError || !plan || !plan.is_active) {
       return json({ error: "구독 상품을 확인할 수 없습니다." }, 400);
+    }
+
+    const expectedAmount = period === "annual" ? plan.annual_price : plan.monthly_price;
+    if (!expectedAmount || expectedAmount <= 0) {
+      return json({ error: "선택한 결제 주기의 가격이 설정되어 있지 않습니다." }, 400);
     }
 
     const paymentResponse = await fetch(
@@ -71,7 +80,7 @@ Deno.serve(async (req: Request) => {
     const paidAmount = payment?.amount?.total;
     const isPaid = paymentResponse.ok && payment?.status === "PAID";
 
-    if (!isPaid || payment?.storeId !== portoneStoreId || paidAmount !== plan.monthly_price) {
+    if (!isPaid || payment?.storeId !== portoneStoreId || paidAmount !== expectedAmount) {
       return json({ error: "결제 확인에 실패했습니다. 결제가 완료되었는지 확인해 주세요." }, 400);
     }
 
@@ -91,7 +100,11 @@ Deno.serve(async (req: Request) => {
 
     const startedAt = new Date();
     const expiresAt = new Date(startedAt);
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
+    if (period === "annual") {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    } else {
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+    }
 
     const { error: profileError } = await adminClient
       .from("profiles")
@@ -101,6 +114,7 @@ Deno.serve(async (req: Request) => {
         subscription_status: "active",
         subscription_started_at: startedAt.toISOString(),
         subscription_expires_at: expiresAt.toISOString(),
+        subscription_billing_period: period,
       })
       .eq("id", userId);
 
@@ -112,8 +126,9 @@ Deno.serve(async (req: Request) => {
       user_id: userId,
       plan_id: plan.id,
       portone_payment_id: body.paymentId,
-      amount: plan.monthly_price,
+      amount: expectedAmount,
       status: "paid",
+      billing_period: period,
       error_message: null,
     };
 
@@ -125,7 +140,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "결제 기록을 저장하지 못했습니다." }, 500);
     }
 
-    return json({ ok: true, expiresAt: expiresAt.toISOString() });
+    return json({ ok: true, expiresAt: expiresAt.toISOString(), period });
   } catch (error) {
     console.error("confirm subscription payment error", error);
     return json({ error: "결제 확인 중 문제가 발생했습니다." }, 500);

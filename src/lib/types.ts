@@ -6,6 +6,8 @@ export type SpecialMemberStatus = 'requested' | 'approved';
 
 export type SubscriptionStatus = 'none' | 'active' | 'past_due' | 'cancelled' | 'expired';
 
+export type BillingPeriod = 'monthly' | 'annual';
+
 export interface Profile {
   id: string;
   email: string;
@@ -20,6 +22,7 @@ export interface Profile {
   subscription_status: SubscriptionStatus;
   subscription_expires_at: string | null;
   subscription_started_at: string | null;
+  subscription_billing_period: BillingPeriod | null;
   my_referral_code: string | null;
   referred_by_code: string | null;
   points: number;
@@ -31,6 +34,7 @@ export interface SubscriptionPlan {
   name: string;
   description: string | null;
   monthly_price: number;
+  annual_price: number | null;
   tier: string;
   discount_rate: number;
   is_active: boolean;

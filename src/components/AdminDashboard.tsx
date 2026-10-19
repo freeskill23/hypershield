@@ -51,8 +51,8 @@ const emptyProductForm: ProductForm = { name: '', category_ids: [], original_pri
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
 
-interface PlanForm { name: string; tier: string; monthly_price: string; discount_rate: string; description: string; is_active: boolean; sort_order: string; }
-const emptyPlanForm: PlanForm = { name: '', tier: '', monthly_price: '', discount_rate: '', description: '', is_active: true, sort_order: '0' };
+interface PlanForm { name: string; tier: string; monthly_price: string; annual_price: string; discount_rate: string; description: string; is_active: boolean; sort_order: string; }
+const emptyPlanForm: PlanForm = { name: '', tier: '', monthly_price: '', annual_price: '', discount_rate: '', description: '', is_active: true, sort_order: '0' };
 
 interface ReviewForm { product_id: string; author_email: string; rating: number; content: string; images: string[]; }
 const emptyReviewForm: ReviewForm = { product_id: '', author_email: '', rating: 5, content: '', images: [] };
@@ -472,11 +472,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
   // ── Plan ──
   function openCreatePlan() { setEditPlan(null); setPlanF(emptyPlanForm); setShowPlanForm(true); }
-  function openEditPlan(p: SubscriptionPlan) { setEditPlan(p); setPlanF({ name: p.name, tier: p.tier, monthly_price: String(p.monthly_price), discount_rate: String(p.discount_rate), description: p.description ?? '', is_active: p.is_active, sort_order: String(p.sort_order) }); setShowPlanForm(true); }
+  function openEditPlan(p: SubscriptionPlan) { setEditPlan(p); setPlanF({ name: p.name, tier: p.tier, monthly_price: String(p.monthly_price), annual_price: p.annual_price ? String(p.annual_price) : '', discount_rate: String(p.discount_rate), description: p.description ?? '', is_active: p.is_active, sort_order: String(p.sort_order) }); setShowPlanForm(true); }
   async function handlePlanSubmit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
-      const input = { name: planF.name.trim(), description: planF.description.trim() || null, monthly_price: Number(planF.monthly_price) || 0, tier: planF.tier.trim(), discount_rate: Number(planF.discount_rate) || 0, is_active: planF.is_active, sort_order: Number(planF.sort_order) || 0 };
+      const input = { name: planF.name.trim(), description: planF.description.trim() || null, monthly_price: Number(planF.monthly_price) || 0, annual_price: planF.annual_price.trim() ? Number(planF.annual_price) || null : null, tier: planF.tier.trim(), discount_rate: Number(planF.discount_rate) || 0, is_active: planF.is_active, sort_order: Number(planF.sort_order) || 0 };
       if (editPlan) await updatePlan(editPlan.id, input); else await createPlan(input);
       setShowPlanForm(false); refresh();
     } finally { setBusy(false); }
@@ -1457,6 +1457,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <Field label="등급 이름"><input required value={planF.name} onChange={e => setPlanF({ ...planF, name: e.target.value })} placeholder="예: 일반회원, 특별회원, VIP회원" className="input-field" /></Field>
                 <Field label="티어 (영문 키)"><input required value={planF.tier} onChange={e => setPlanF({ ...planF, tier: e.target.value })} placeholder="basic, premium, vip" className="input-field" /></Field>
                 <Field label="월 구독료 (원)"><input required type="number" value={planF.monthly_price} onChange={e => setPlanF({ ...planF, monthly_price: e.target.value })} placeholder="9900" className="input-field" /></Field>
+                <Field label="연 구독료 (원)" hint="빈 칸이면 연 결제 미지원. 12개월 무료 체험 혜택 포함"><input type="number" value={planF.annual_price} onChange={e => setPlanF({ ...planF, annual_price: e.target.value })} placeholder="110000" className="input-field" /></Field>
                 <Field label="할인율 (%)"><input required type="number" value={planF.discount_rate} onChange={e => setPlanF({ ...planF, discount_rate: e.target.value })} placeholder="15" className="input-field" /></Field>
                 <div className="md:col-span-2"><Field label="설명"><textarea value={planF.description} onChange={e => setPlanF({ ...planF, description: e.target.value })} rows={2} className="input-field resize-none" /></Field></div>
                 <Field label="정렬 순서"><input type="number" value={planF.sort_order} onChange={e => setPlanF({ ...planF, sort_order: e.target.value })} className="input-field" /></Field>
@@ -1479,7 +1480,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     <div className={`grid h-12 w-12 place-items-center rounded-lg ${p.is_active ? 'bg-gold-sheen' : 'bg-navy-800'}`}><Crown className={`h-5 w-5 ${p.is_active ? 'text-white' : 'text-slate-600'}`} /></div>
                     <div>
                       <div className="flex items-center gap-2"><h3 className="font-gothic text-base font-semibold text-slate-800">{p.name}</h3>{!p.is_active && <span className="chip border-slate-600 text-slate-500">비활성</span>}</div>
-                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500"><span className="text-gold-light">{formatKRW(p.monthly_price)}/월</span><span>할인 {p.discount_rate}%</span></div>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500"><span className="text-gold-light">{formatKRW(p.monthly_price)}/월</span>{p.annual_price ? <span className="text-cyan">{formatKRW(p.annual_price)}/12개월</span> : null}<span>할인 {p.discount_rate}%</span></div>
                       {p.description && <p className="mt-1.5 text-sm text-slate-400">{p.description}</p>}
                     </div>
                   </div>
@@ -1638,9 +1639,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
-    <div><label className="mb-1.5 block text-xs font-medium text-slate-400">{label}</label>{children}</div>
+    <div><label className="mb-1.5 block text-xs font-medium text-slate-400">{label}</label>{children}{hint && <p className="mt-1 text-[10px] text-slate-500">{hint}</p>}</div>
   );
 }
 
