@@ -9,8 +9,12 @@ import { Star } from 'lucide-react';
 
 function maskEmail(email: string): string {
   const atIdx = email.indexOf('@');
-  if (atIdx <= 4) return email;
-  return email.slice(0, 4) + '*'.repeat(Math.min(atIdx - 4, 4)) + email.slice(atIdx);
+  if (atIdx <= 2) return '*'.repeat(email.length);
+  const local = email.slice(0, atIdx);
+  const domain = email.slice(atIdx + 1);
+  const maskedLocal = local.slice(0, 2) + '*'.repeat(Math.max(local.length - 2, 2));
+  const maskedDomain = '*'.repeat(Math.max(domain.length, 3));
+  return `${maskedLocal}@${maskedDomain}`;
 }
 
 function ReviewStars({ rating, size = 16 }: { rating: number; size?: number }) {

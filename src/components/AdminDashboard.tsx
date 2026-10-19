@@ -62,8 +62,8 @@ const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category:
 interface PlanForm { name: string; tier: string; monthly_price: string; annual_price: string; discount_rate: string; description: string; is_active: boolean; sort_order: string; }
 const emptyPlanForm: PlanForm = { name: '', tier: '', monthly_price: '', annual_price: '', discount_rate: '', description: '', is_active: true, sort_order: '0' };
 
-interface ReviewForm { product_id: string; author_email: string; rating: number; content: string; images: string[]; }
-const emptyReviewForm: ReviewForm = { product_id: '', author_email: '', rating: 5, content: '', images: [] };
+interface ReviewForm { product_id: string; author_email: string; rating: number; content: string; images: string[]; created_at: string; }
+const emptyReviewForm: ReviewForm = { product_id: '', author_email: '', rating: 5, content: '', images: [], created_at: '' };
 
 const orderStatusConfig: Record<OrderStatus, { label: string; cls: string }> = {
   pending: { label: '결제 대기', cls: 'border-gold/40 text-gold-light bg-gold/5' },
@@ -525,6 +525,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         rating: reviewF.rating,
         content: reviewF.content.trim(),
         images: reviewF.images,
+        created_at: reviewF.created_at ? new Date(reviewF.created_at).toISOString() : undefined,
       });
       if (ok) { setShowReviewForm(false); setReviewF(emptyReviewForm); refresh(); }
       else { alert('후기 작성 중 오류가 발생했습니다.'); }
@@ -1297,6 +1298,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 </Field>
                 <Field label="작성자 이메일">
                   <input value={reviewF.author_email} onChange={e => setReviewF({ ...reviewF, author_email: e.target.value })} placeholder="example@email.com" className="input-field text-sm" />
+                </Field>
+                <Field label="작성일 (선택)" hint="비워두면 현재 날짜로 저장됩니다">
+                  <input type="date" value={reviewF.created_at} onChange={e => setReviewF({ ...reviewF, created_at: e.target.value })} className="input-field text-sm" />
                 </Field>
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-slate-400">만족도</label>

@@ -342,6 +342,7 @@ export async function createAdminReview(input: {
   rating: number;
   content: string;
   images?: string[];
+  created_at?: string;
 }): Promise<boolean> {
   if (!isAdminSupabaseConfigured || !adminSupabase) return false;
   const { error } = await adminSupabase.rpc('admin_create_product_review', {
@@ -350,6 +351,7 @@ export async function createAdminReview(input: {
     p_rating: input.rating,
     p_content: input.content,
     p_images: input.images && input.images.length > 0 ? input.images : [],
+    p_created_at: input.created_at ?? null,
   });
   if (error) { console.error('create admin review error', error); return false; }
   return true;
