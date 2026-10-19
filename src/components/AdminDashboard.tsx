@@ -393,6 +393,23 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       alert(e.message || '주문 삭제에 실패했습니다.');
     } finally { setBusy(false); }
   }
+  async function handleBatchDeleteOrdersAll() {
+    const eligibleIds = orders.filter(o => orderSelectedIds.has(o.id)).map(o => o.id);
+    if (eligibleIds.length === 0) return;
+    const hasActive = orders.some(o => orderSelectedIds.has(o.id) && ['pending', 'paid', 'preparing', 'shipped'].includes(o.status));
+    const msg = hasActive
+      ? `선택한 주문 ${eligibleIds.length}건을 삭제하시겠습니까?\n\n주의: 진행 중인 주문(결제 대기/완료/배송 중)이 포함되어 있습니다. 삭제 후 복구할 수 없으며, 회원에게 별도로 안내해야 합니다.`
+      : `선택한 주문 ${eligibleIds.length}건을 삭제하시겠습니까? 삭제된 주문은 복구할 수 없습니다.`;
+    if (!confirm(msg)) return;
+    setBusy(true);
+    try {
+      await batchDeleteOrders(eligibleIds);
+      setOrderSelectedIds(new Set());
+      refresh();
+    } catch (e: any) {
+      alert(e.message || '주문 삭제에 실패했습니다.');
+    } finally { setBusy(false); }
+  }
   async function handleBatchShipOrders() {
     const eligibleOrders = orders.filter(o => orderSelectedIds.has(o.id) && (o.status === 'paid' || o.status === 'preparing'));
     if (eligibleOrders.length === 0) return;
@@ -965,6 +982,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 )}
                 {orderSubTab === 'paid' && (
                   <button onClick={handleBatchShipOrders} disabled={busy} className="btn-primary px-3 py-2 text-xs"><Truck className="mr-1 inline h-3.5 w-3.5" /> 배송진행하기</button>
+                )}
+                {orderSubTab === 'all' && (
+                  <button onClick={handleBatchDeleteOrdersAll} disabled={busy} className="btn-ghost px-3 py-2 text-xs hover:text-red-400 hover:border-red-500"><Trash2 className="mr-1 inline h-3.5 w-3.5" /> 선택 삭제</button>
                 )}
                 {orderSubTab === 'cancelled' && (
                   <button onClick={handleBatchDeleteOrders} disabled={busy} className="btn-ghost px-3 py-2 text-xs hover:text-red-400 hover:border-red-500"><Trash2 className="mr-1 inline h-3.5 w-3.5" /> 선택 삭제</button>
