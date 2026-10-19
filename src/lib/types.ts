@@ -237,4 +237,5 @@ export interface TrialEligibility {
   year_count: number;
   max_per_month: number;
   max_per_year: number;
+  next_eligible_date: string | null;
 }

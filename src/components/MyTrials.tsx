@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Gift, Plus, ArrowLeft, Clock, CheckCircle2, XCircle, Truck, Package,
+  Gift, ArrowLeft, Clock, CheckCircle2, XCircle, Truck, Package,
   X, AlertCircle, ExternalLink, MapPin, Phone, User, Home, ShieldCheck,
 } from 'lucide-react';
 import { TrialApplication, Product, TrialEligibility } from '../lib/types';
@@ -54,7 +54,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
 
   const selected = trials.find((t) => t.id === selectedId);
   const productMap = new Map(products.map((p) => [p.id, p]));
-  const usedProductIds = new Set(trials.map((t) => t.product_id));
+  const usedProductIds = new Set(trials.filter((t) => t.status !== 'rejected').map((t) => t.product_id));
   const availableProducts = products.filter((p) => p.is_active && p.is_trial_available && !usedProductIds.has(p.id));
   const completedCount = trials.filter((t) => t.status === 'completed').length;
 
@@ -366,8 +366,8 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-navy-700"
             />
             <span className="leading-relaxed">
-              체험단 상품을 무료로 발송해드리며, 발송일로부터 1개월 이내에 체험 후기를 작성해야 합니다.
-              기한 내 후기를 작성하지 않는 경우 추가 체험단 진행이 불가하며, 해당 제품의 가격을 결제하셔야 합니다.
+              체험단 상품은 무료 발송됩니다. 발송일로부터 1개월 이내 체험 후기 작성을 부탁드립니다.
+              기한 내 후기를 작성하지 않는 경우 추가 체험단 진행이 되지 않습니다.
               위 내용에 동의합니다.
             </span>
           </label>
@@ -386,29 +386,13 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
   }
 
   // ── List view ──
-  const canApply = !!eligibility?.eligible;
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
-          <p className="mt-0.5 text-xs text-slate-400">
-            완료된 체험단 {completedCount}회 · 12개월 연 결제 회원만 매월 1회, 최대 12회 무료 신청 가능
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            if (!canApply && eligibility) {
-              alert(eligibility.reason);
-              return;
-            }
-            setShowForm(true);
-          }}
-          disabled={!eligibility}
-          className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" /> 체험단 신청
-        </button>
+      <div>
+        <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
+        <p className="mt-0.5 text-xs text-slate-400">
+          완료된 체험단 {completedCount}회 · 12개월 연 결제 회원만 매월 1회, 최대 12회 무료 신청 가능
+        </p>
       </div>
 
       {eligibility && !eligibility.eligible && (
@@ -416,7 +400,11 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <p className="font-medium">지금은 체험단 신청이 불가능합니다.</p>
-            <p className="mt-1 text-xs text-slate-600">{eligibility.reason}</p>
+            <p className="mt-1 text-xs text-slate-600">
+              {eligibility.next_eligible_date
+                ? `이번 달 체험단 무료 신청(1회)을 이미 사용했습니다. ${formatDate(eligibility.next_eligible_date)} 이후 다시 신청할 수 있습니다.`
+                : eligibility.reason}
+            </p>
           </div>
         </div>
       )}
