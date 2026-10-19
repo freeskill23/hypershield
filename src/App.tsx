@@ -64,7 +64,7 @@ function hashToRoute(hash: string): Route {
 }
 
 function Shell() {
-  const { profile, loading, signOut } = useAuth();
+  const { profile, loading, signOut, refresh: refreshAuth } = useAuth();
   const [route, setRoute] = useState<Route>(() => hashToRoute(window.location.hash));
   const [showAuth, setShowAuth] = useState(false);
   const [buyNowItem, setBuyNowItem] = useState<{ product: Product; quantity: number; selected_options?: SelectedOption[] } | null>(null);
@@ -86,6 +86,7 @@ function Shell() {
   const trialsHook = useTrialApplications(profile?.id, authReady);
 
   const refreshAll = useCallback(() => {
+    refreshAuth();
     productsHook.refresh();
     categoriesHook.refresh();
     ordersHook.refresh();
@@ -99,7 +100,7 @@ function Shell() {
     inquiriesHook.refresh();
     reviewsHook.refresh();
     trialsHook.refresh();
-  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook, inquiriesHook, reviewsHook, trialsHook]);
+  }, [productsHook, categoriesHook, ordersHook, orderItemsHook, profilesHook, postsHook, plansHook, settingsHook, cartHook, addressesHook, inquiriesHook, reviewsHook, trialsHook, refreshAuth]);
 
   const navigate = useCallback((r: Route) => {
     setRoute(r);

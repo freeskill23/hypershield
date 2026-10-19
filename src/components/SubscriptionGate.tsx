@@ -145,7 +145,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
               <Crown className="h-3.5 w-3.5" /> {headline}
             </div>
             <h1 className="font-gothic text-2xl font-bold text-slate-800">
-              {profile.full_name}님, 회원 등급을 선택해 주세요
+              {profile.full_name}님, 구독기간을 선택해주세요.
             </h1>
             <p className="mt-3 text-sm text-slate-500">
               {subline}

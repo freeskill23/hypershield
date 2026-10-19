@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Package, Megaphone, ArrowRight, Gift } from 'lucide-react';
+import { Search, Package, Megaphone, ArrowRight, Gift, RefreshCw } from 'lucide-react';
 import { Product, Category } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
 
@@ -82,16 +82,16 @@ export default function ShopMain({
 
         {hasActiveSubscription ? (
           <button
-            onClick={onGoTrials}
+            onClick={onSubscribe}
             className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-navy-700 bg-gradient-to-r from-navy-900 via-navy-850 to-navy-900 p-5 text-left transition hover:border-gold/40 md:p-6"
           >
             <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gold/10 blur-3xl" />
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gold/10 text-gold-light transition group-hover:bg-gold/20">
-              <Gift className="h-6 w-6" />
+              <RefreshCw className="h-6 w-6" />
             </div>
             <div className="relative flex-1">
-              <h2 className="font-gothic text-lg font-bold text-slate-800">체험단 신청하기</h2>
-              <p className="mt-0.5 text-sm text-slate-400">연구독시 년 12회 무료 체험 혜택</p>
+              <h2 className="font-gothic text-lg font-bold text-slate-800">연결제로 변경하기</h2>
+              <p className="mt-0.5 text-sm text-slate-400">12개월 연 결제 시 매월 무료 체험 혜택</p>
             </div>
             <ArrowRight className="relative h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-1 group-hover:text-gold-light" />
           </button>

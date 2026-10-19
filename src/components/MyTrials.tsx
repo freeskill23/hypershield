@@ -393,7 +393,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
         <div>
           <h2 className="font-gothic text-lg font-semibold text-slate-800">체험단 신청</h2>
           <p className="mt-0.5 text-xs text-slate-400">
-            완료된 체험단 {completedCount}회 · 월 결제 시 구독 기간당 1회 / 연 결제 시 매월 1회, 최대 12회 무료 신청
+            완료된 체험단 {completedCount}회 · 12개월 연 결제 회원만 매월 1회, 최대 12회 무료 신청 가능
           </p>
         </div>
         <button
@@ -439,7 +439,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
         <div className="card-surface grid place-items-center py-16 text-center">
           <Gift className="mb-3 h-10 w-10 text-slate-300" />
           <p className="text-sm text-slate-500">신청 내역이 없습니다.</p>
-          <p className="mt-1 text-xs text-slate-400">체험단 신청을 통해 무료로 상품을 체험해보세요.</p>
+          <p className="mt-1 text-xs text-slate-400">체험단 신청은 12개월 연 결제 회원만 이용할 수 있습니다.</p>
         </div>
       ) : (
         <div className="space-y-3">
