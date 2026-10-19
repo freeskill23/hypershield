@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Crown, Check, AlertCircle, ArrowRight, Loader2, CreditCard, Sparkles } from 'lucide-react';
+import { Crown, Check, AlertCircle, ArrowRight, Loader2, CreditCard, Sparkles, ShieldCheck } from 'lucide-react';
 import { Profile, SubscriptionPlan, BillingPeriod } from '../lib/types';
 import { formatKRW } from '../lib/format';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
@@ -12,11 +12,21 @@ interface Props {
   onActivated: () => void;
 }
 
+interface BannerOption {
+  period: BillingPeriod;
+  amount: number;
+  label: string;
+  periodLabel: string;
+  benefit: string;
+  duration: string;
+  savings?: number;
+  featured?: boolean;
+}
+
 export default function SubscriptionGate({ profile, plans, onSignOut, onActivated }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [period, setPeriod] = useState<BillingPeriod>('monthly');
 
   const activePlans = plans
     .filter((p) => p.is_active)
@@ -33,29 +43,54 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
     ? '특별회원으로 승인되었습니다. 특별회원 전용 구독 상품만 노출됩니다.'
     : '하이퍼쉴드 멤버쉽은 회원제 쇼핑몰입니다. 등록된 일반회원 구독 상품을 결제하면 모든 제품을 할인가로 구매할 수 있습니다.';
 
-  const supportsAnnual = visiblePlans.some((p) => p.annual_price && p.annual_price > 0);
+  function buildBanners(plan: SubscriptionPlan): BannerOption[] {
+    const banners: BannerOption[] = [];
+    if (plan.monthly_price && plan.monthly_price > 0) {
+      banners.push({
+        period: 'monthly',
+        amount: plan.monthly_price,
+        label: '월 결제',
+        periodLabel: '/ 월',
+        benefit: '1개월 이용',
+        duration: '1개월',
+      });
+    }
+    if (plan.annual_price && plan.annual_price > 0) {
+      const savings = plan.monthly_price > 0
+        ? plan.monthly_price * 12 - (plan.annual_price as number)
+        : undefined;
+      banners.push({
+        period: 'annual',
+        amount: plan.annual_price as number,
+        label: '12개월 연 결제',
+        periodLabel: '/ 12개월',
+        benefit: '12개월 이용 + 매월 무료 체험',
+        duration: '12개월',
+        savings,
+        featured: true,
+      });
+    }
+    return banners;
+  }
 
-  async function handleSubscribe(plan: SubscriptionPlan) {
+  async function handleSubscribe(plan: SubscriptionPlan, banner: BannerOption) {
     setError(null);
     setSuccess(null);
     if (!isPaymentConfigured()) {
       setError('결제 설정이 누락되었습니다. 관리자에게 문의해 주세요.');
       return;
     }
-    const useAnnual = period === 'annual' && plan.annual_price && plan.annual_price > 0;
-    const amount = useAnnual ? (plan.annual_price as number) : plan.monthly_price;
-    if (!amount || amount <= 0) {
+    if (!banner.amount || banner.amount <= 0) {
       setError('선택한 결제 주기의 가격이 설정되어 있지 않습니다.');
       return;
     }
-    const chosenPeriod: BillingPeriod = useAnnual ? 'annual' : 'monthly';
-    setBusy(plan.id);
+    setBusy(`${plan.id}-${banner.period}`);
     try {
       const paymentId = generatePaymentId('sub');
       const response = await requestProductPayment({
         paymentId,
-        orderName: `${plan.name} ${chosenPeriod === 'annual' ? '연 구독료' : '월 구독료'}`,
-        totalAmount: amount,
+        orderName: `${plan.name} ${banner.period === 'annual' ? '연 구독료' : '월 구독료'}`,
+        totalAmount: banner.amount,
         customer: {
           fullName: profile.full_name,
           email: profile.email,
@@ -72,14 +107,19 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
         return;
       }
 
-      const result = await confirmManualSubscriptionPayment({ paymentId, planId: plan.id, period: chosenPeriod, amount });
+      const result = await confirmManualSubscriptionPayment({
+        paymentId,
+        planId: plan.id,
+        period: banner.period,
+        amount: banner.amount,
+      });
       if (!result.ok) {
         setError(result.error || '결제 확인에 실패했습니다.');
         return;
       }
 
       setSuccess(
-        chosenPeriod === 'annual'
+        banner.period === 'annual'
           ? `${plan.name} 연 구독 결제가 완료되었습니다. 12개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
           : `${plan.name} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`,
       );
@@ -112,38 +152,12 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
             </p>
           </div>
 
-          {supportsAnnual && (
-            <div className="mb-6 flex items-center justify-center gap-1 rounded-lg bg-slate-100 p-1">
-              <button
-                type="button"
-                onClick={() => setPeriod('monthly')}
-                className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
-                  period === 'monthly' ? 'bg-cyan text-white shadow-glow' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                월 결제
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriod('annual')}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition ${
-                  period === 'annual' ? 'bg-gold text-white shadow-gold' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                12개월 연 결제
-                <span className="rounded-full bg-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-gold-deep">혜택</span>
-              </button>
-            </div>
-          )}
-
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-gold-deep">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div>
               <p className="font-medium">결제가 완료되어야 쇼핑몰에 입장할 수 있습니다.</p>
               <p className="mt-1 text-xs text-slate-500">
-                {period === 'annual' && supportsAnnual
-                  ? '12개월 연 결제 시 결제일로부터 12개월 동안 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다(최대 12회).'
-                  : '월 결제 시 결제일로부터 1개월 동안 이용할 수 있으며, 현재 구독 기간에 무료 체험 상품을 1회 신청할 수 있습니다.'}
+                원하는 결제 주기 배너를 선택해 바로 결제하세요. 월 결제는 1개월, 연 결제는 12개월 이용 기간이 제공됩니다.
               </p>
             </div>
           </div>
@@ -162,78 +176,104 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {visiblePlans.map((plan) => {
-              const useAnnual = period === 'annual' && plan.annual_price && plan.annual_price > 0;
-              const displayAmount = useAnnual ? (plan.annual_price as number) : plan.monthly_price;
-              const periodLabel = useAnnual ? '/ 12개월' : '/ 월';
-              return (
-                <div
-                  key={plan.id}
-                  className="card-surface relative overflow-hidden p-6 transition hover:border-gold/40"
-                >
+          {visiblePlans.map((plan) => {
+            const banners = buildBanners(plan);
+            return (
+              <div key={plan.id} className="mb-6">
+                <div className="mb-3 flex items-center gap-2">
                   {plan.tier === 'premium' && (
-                    <div className="absolute right-4 top-4 rounded-full bg-gold/20 px-2.5 py-1 text-xs font-medium text-gold-deep">
+                    <span className="rounded-full bg-gold/20 px-2.5 py-1 text-xs font-medium text-gold-deep">
                       특별회원
-                    </div>
+                    </span>
                   )}
                   <h3 className="font-gothic text-lg font-bold text-slate-800">{plan.name}</h3>
                   {plan.description && (
-                    <p className="mt-1 text-xs text-slate-500">{plan.description}</p>
+                    <span className="text-xs text-slate-500">{plan.description}</span>
                   )}
-                  <div className="mt-4">
-                    <span className="font-gothic text-3xl font-bold text-cyan">{formatKRW(displayAmount)}</span>
-                    <span className="text-sm text-slate-400"> {periodLabel}</span>
-                  </div>
-                  {useAnnual && plan.monthly_price > 0 && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      월 결제 대비 {formatKRW(plan.monthly_price * 12 - (plan.annual_price as number))} 절약
-                    </p>
-                  )}
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
-                      <Check className="h-4 w-4 text-cyan" /> 모든 제품 {plan.discount_rate}% 할인
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
-                      <Check className="h-4 w-4 text-cyan" /> 회원제 쇼핑몰 이용
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
-                      <Check className="h-4 w-4 text-gold" /> 카드 수동 결제 후 {useAnnual ? '12개월' : '1개월'} 이용
-                    </div>
-                    {useAnnual && (
-                      <div className="flex items-start gap-2 rounded-md bg-gold/5 px-2.5 py-2 text-sm text-gold-deep">
-                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                        <span className="font-medium">연 결제 혜택: 매월 1회 무료 체험 상품 신청, 12개월간 최대 12회</span>
-                      </div>
-                    )}
-                    {plan.discount_rate >= 60 && (
-                      <div className="flex items-center gap-2 text-sm text-slate-700">
-                        <Check className="h-4 w-4 text-gold" /> 우선 배송
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleSubscribe(plan)}
-                    disabled={busy !== null}
-                    className="btn-primary mt-5 w-full"
-                  >
-                    {busy === plan.id ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> 결제 중...</>
-                    ) : (
-                      <><CreditCard className="h-4 w-4" /> {useAnnual ? '연 결제하기' : '결제하기'} <ArrowRight className="h-4 w-4" /></>
-                    )}
-                  </button>
                 </div>
-              );
-            })}
-            {visiblePlans.length === 0 && (
-              <div className="card-surface col-span-full p-8 text-center text-sm text-slate-500">
-                {isApprovedSpecial
-                  ? '현재 특별회원 전용 구독 상품이 없습니다. 관리자에게 문의해 주세요.'
-                  : '현재 선택 가능한 회원 등급이 없습니다. 관리자에게 문의해 주세요.'}
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {banners.map((banner) => {
+                    const busyKey = `${plan.id}-${banner.period}`;
+                    return (
+                      <div
+                        key={banner.period}
+                        className={`card-surface relative overflow-hidden p-6 transition hover:border-cyan/40 ${
+                          banner.featured ? 'ring-1 ring-gold/40' : ''
+                        }`}
+                      >
+                        {banner.featured && (
+                          <div className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-gold/20 px-2.5 py-1 text-[10px] font-bold text-gold-deep">
+                            <Sparkles className="h-3 w-3" /> 혜택
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${
+                            banner.featured ? 'bg-gold/10 text-gold-deep' : 'bg-cyan/10 text-cyan'
+                          }`}>
+                            {banner.featured ? <Sparkles className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                            {banner.label}
+                          </span>
+                        </div>
+                        <div className="mt-4">
+                          <span className={`font-gothic text-3xl font-bold ${banner.featured ? 'text-gold-deep' : 'text-cyan'}`}>
+                            {formatKRW(banner.amount)}
+                          </span>
+                          <span className="text-sm text-slate-400"> {banner.periodLabel}</span>
+                        </div>
+                        {banner.savings !== undefined && banner.savings > 0 && (
+                          <p className="mt-1 text-xs text-gold-deep">
+                            월 결제 대비 {formatKRW(banner.savings)} 절약
+                          </p>
+                        )}
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-slate-700">
+                            <Check className="h-4 w-4 text-cyan" /> 모든 제품 {plan.discount_rate}% 할인
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-slate-700">
+                            <Check className="h-4 w-4 text-cyan" /> 회원제 쇼핑몰 이용
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-slate-700">
+                            <Check className={`h-4 w-4 ${banner.featured ? 'text-gold' : 'text-cyan'}`} /> 카드 결제 후 {banner.duration} 이용
+                          </div>
+                          {banner.featured && (
+                            <div className="flex items-start gap-2 rounded-md bg-gold/5 px-2.5 py-2 text-sm text-gold-deep">
+                              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                              <span className="font-medium">연 결제 혜택: 매월 1회 무료 체험 상품 신청, 12개월간 최대 12회</span>
+                            </div>
+                          )}
+                          {plan.discount_rate >= 60 && (
+                            <div className="flex items-center gap-2 text-sm text-slate-700">
+                              <Check className="h-4 w-4 text-gold" /> 우선 배송
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleSubscribe(plan, banner)}
+                          disabled={busy !== null}
+                          className={`mt-5 w-full ${banner.featured ? 'btn-gold' : 'btn-primary'}`}
+                        >
+                          {busy === busyKey ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> 결제 중...</>
+                          ) : (
+                            <><CreditCard className="h-4 w-4" /> {banner.featured ? '연 결제하기' : '월 결제하기'} <ArrowRight className="h-4 w-4" /></>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })}
+
+          {visiblePlans.length === 0 && (
+            <div className="card-surface p-8 text-center text-sm text-slate-500">
+              {isApprovedSpecial
+                ? '현재 특별회원 전용 구독 상품이 없습니다. 관리자에게 문의해 주세요.'
+                : '현재 선택 가능한 회원 등급이 없습니다. 관리자에게 문의해 주세요.'}
+            </div>
+          )}
 
           <div className="mt-6 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-500">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
