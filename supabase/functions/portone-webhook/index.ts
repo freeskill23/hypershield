@@ -77,16 +77,33 @@ Deno.serve(async (req: Request) => {
   try {
     const webhook = (await req.json()) as {
       type?: string;
-      data?: { paymentId?: string; billingKey?: string; status?: string };
+      data?: {
+        paymentId?: string;
+        id?: string;
+        status?: string;
+        paymentStatus?: string;
+        payment?: { id?: string; paymentId?: string; status?: string };
+      };
+      body?: {
+        paymentId?: string;
+        id?: string;
+        status?: string;
+        paymentStatus?: string;
+        payment?: { id?: string; paymentId?: string; status?: string };
+      };
     };
 
-    if (!webhook.data?.paymentId) {
+    const eventData = webhook.data ?? webhook.body;
+    const paymentId = eventData?.paymentId
+      ?? eventData?.payment?.paymentId
+      ?? eventData?.payment?.id
+      ?? eventData?.id;
+
+    if (!paymentId) {
       return new Response(JSON.stringify({ received: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const paymentId = webhook.data.paymentId;
 
     let paymentStatus: string | null = null;
     if (PORTONE_API_SECRET) {

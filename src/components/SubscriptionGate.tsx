@@ -47,7 +47,6 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
     if (!stored) return;
     let ctx: { paymentId: string; planId: string; period: BillingPeriod; amount: number; planName: string };
     try { ctx = JSON.parse(stored); } catch { sessionStorage.removeItem('pending_subscription_payment'); return; }
-    sessionStorage.removeItem('pending_subscription_payment');
     (async () => {
       setBusy('redirect-confirm');
       setError(null);
@@ -62,6 +61,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
           setError(result.error || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
           return;
         }
+        sessionStorage.removeItem('pending_subscription_payment');
         setSuccess(
           ctx.period === 'annual'
             ? `${ctx.planName} 연 구독 결제가 완료되었습니다. 11개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
@@ -180,9 +180,9 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
         return;
       }
 
-      sessionStorage.removeItem('pending_subscription_payment');
+      const confirmedPaymentId = response.paymentId || paymentId;
       const result = await confirmManualSubscriptionPayment({
-        paymentId,
+        paymentId: confirmedPaymentId,
         planId: plan.id,
         period: banner.period,
         amount: banner.amount,
@@ -191,6 +191,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
         setError(result.error || '결제 확인에 실패했습니다.');
         return;
       }
+      sessionStorage.removeItem('pending_subscription_payment');
 
       setSuccess(
         banner.period === 'annual'
