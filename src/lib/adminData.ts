@@ -254,6 +254,15 @@ export async function setSpecialMemberStatus(user_id: string, status: 'requested
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   await adminSupabase.from('profiles').update({ special_member_status: status }).eq('id', user_id);
 }
+
+export async function batchSetSpecialMemberStatus(userIds: string[], status: 'requested' | 'approved' | null) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('profiles')
+    .update({ special_member_status: status })
+    .in('id', userIds);
+  if (error) console.error('batch set special member status error', error);
+}
 export async function deleteProfile(user_id: string, admin_id: string): Promise<{ ok: boolean; error?: string }> {
   if (!isAdminSupabaseConfigured || !adminSupabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
   if (user_id === admin_id) return { ok: false, error: '자기 자신은 삭제할 수 없습니다.' };

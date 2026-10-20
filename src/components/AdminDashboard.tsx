@@ -16,7 +16,7 @@ import {
   createCategory, updateCategory, deleteCategory,
   createPost, updatePost, deletePost,
   createPlan, updatePlan, deletePlan,
-  updateOrderStatus, batchUpdateOrderStatus, deleteOrder, batchDeleteOrders, setProfileRole, deleteProfile, setSpecialMemberStatus,
+  updateOrderStatus, batchUpdateOrderStatus, deleteOrder, batchDeleteOrders, setProfileRole, deleteProfile, setSpecialMemberStatus, batchSetSpecialMemberStatus,
   changeMemberGrade, batchChangeMemberGrade, manuallyActivateSubscription, deactivateSubscription,
   updateSetting, getSettingValue,
   resetMemberPassword,
@@ -537,6 +537,17 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     try {
       await batchChangeMemberGrade([...selectedIds], plan.id, plan.tier);
       setSelectedIds(new Set()); setBatchPlanId(''); refresh();
+    } finally { setBusy(false); }
+  }
+  async function handleBatchApproveSpecial() {
+    if (selectedIds.size === 0) return;
+    const targets = profiles.filter(p => selectedIds.has(p.id) && p.special_member_status === 'requested');
+    if (targets.length === 0) { alert('선택한 회원 중 특별회원 승인 대상(미승인 상태)이 없습니다.'); return; }
+    if (!confirm(`선택한 회원 ${targets.length}명을 특별회원으로 승인하시겠습니까?`)) return;
+    setBusy(true);
+    try {
+      await batchSetSpecialMemberStatus(targets.map(p => p.id), 'approved');
+      setSelectedIds(new Set()); refresh();
     } finally { setBusy(false); }
   }
   async function handleResetPassword() {
@@ -1164,6 +1175,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <button onClick={handleBatchChangeGrade} disabled={!batchPlanId || busy} className="btn-primary px-4 py-2 text-sm">
                   {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> 변경 중...</> : <><Crown className="h-4 w-4" /> 일괄 등급 변경</>}
                 </button>
+                <button onClick={handleBatchApproveSpecial} disabled={busy} className="btn-gold px-4 py-2 text-sm">
+                  {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> 승인 중...</> : <><CheckCircle2 className="h-4 w-4" /> 특별회원 일괄 승인</>}
+                </button>
                 <button onClick={() => { setSelectedIds(new Set()); setBatchPlanId(''); }} className="btn-ghost px-3 py-2 text-sm">선택 해제</button>
               </div>
             )}
@@ -1177,6 +1191,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                   <tr>
                     <th className="px-4 py-3"><input type="checkbox" checked={selectedIds.size === filteredProfiles.length && filteredProfiles.length > 0} onChange={toggleSelectAll} className="h-4 w-4 rounded border-navy-700" /></th>
                     <th className="px-4 py-3 font-medium">회원</th>
+                    <th className="px-4 py-3 font-medium">카페 닉네임</th>
                     <th className="px-4 py-3 font-medium">카페 회원 여부</th>
                     <th className="px-4 py-3 font-medium">특별회원</th>
                     <th className="px-4 py-3 font-medium">연락처</th>
@@ -1205,6 +1220,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                             <div><div className="font-medium text-slate-800">{p.full_name}</div><div className="text-xs text-slate-400">{p.email}</div></div>
                           </div>
                         </td>
+                        <td className="px-4 py-3 text-slate-700">{p.cafe_nickname ?? '—'}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cm === 'special' ? 'border-gold/40 text-gold-deep bg-gold/5' : cm === 'none' ? 'border-slate-300 text-slate-500' : 'border-cyan/40 text-cyan bg-cyan/5'}`}>{cafeMembershipLabel[cm]}</span>
                         </td>
