@@ -64,7 +64,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
         }
         setSuccess(
           ctx.period === 'annual'
-            ? `${ctx.planName} 연 구독 결제가 완료되었습니다. 12개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
+            ? `${ctx.planName} 연 구독 결제가 완료되었습니다. 11개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
             : `${ctx.planName} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`,
         );
         onActivated();
@@ -109,15 +109,15 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
     }
     if (plan.annual_price && plan.annual_price > 0) {
       const savings = plan.monthly_price > 0
-        ? plan.monthly_price * 12 - (plan.annual_price as number)
+        ? plan.monthly_price * 11 - (plan.annual_price as number)
         : undefined;
       banners.push({
         period: 'annual',
         amount: plan.annual_price as number,
-        label: '12개월 연 결제',
-        periodLabel: '/ 12개월',
-        benefit: '12개월 이용 + 매월 무료 체험',
-        duration: '12개월',
+        label: '11개월 연 결제',
+        periodLabel: '/ 11개월',
+        benefit: '11개월 이용 + 매월 무료 체험',
+        duration: '11개월',
         savings,
         featured: true,
       });
@@ -194,7 +194,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
 
       setSuccess(
         banner.period === 'annual'
-          ? `${plan.name} 연 구독 결제가 완료되었습니다. 12개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
+          ? `${plan.name} 연 구독 결제가 완료되었습니다. 11개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
           : `${plan.name} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`,
       );
       onActivated();
@@ -376,7 +376,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
                           {banner.featured && (
                             <div className="flex items-start gap-2 rounded-md bg-gold/5 px-2.5 py-2 text-sm text-gold-deep">
                               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                              <span className="font-medium">연 결제 혜택: 매월 1회 무료 체험 상품 신청, 12개월간 최대 12회</span>
+                              <span className="font-medium">연 결제 혜택: 매월 1회 무료 체험 상품 신청, 11개월간 최대 11회</span>
                             </div>
                           )}
                           {plan.discount_rate >= 60 && (
