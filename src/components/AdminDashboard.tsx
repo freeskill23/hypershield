@@ -1443,9 +1443,17 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               />
             </div>
             <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-              {([['all', '전체'], ['special_requested', '특별회원미승인'], ['special_approved', '특별회원승인']] as [typeof memberFilter, string][]).map(([k, label]) => (
-                <button key={k} onClick={() => setMemberFilter(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${memberFilter === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
-              ))}
+              {([['all', '전체'], ['special_requested', '특별회원미승인'], ['special_approved', '특별회원승인']] as [typeof memberFilter, string][]).map(([k, label]) => {
+                const pendingSpecialCount = k === 'special_requested' ? profiles.filter(p => p.special_member_status === 'requested').length : 0;
+                return (
+                <button key={k} onClick={() => setMemberFilter(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${memberFilter === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-500 hover:text-slate-700'}`}>
+                  {label}
+                  {pendingSpecialCount > 0 && (
+                    <span className={`ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${memberFilter === k ? 'bg-white text-cyan' : 'bg-red-500 text-white animate-pulse'}`}>{pendingSpecialCount}</span>
+                  )}
+                </button>
+                );
+              })}
             </div>
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-2">
