@@ -478,7 +478,18 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     if (memberFilter === 'special_approved') return profiles.filter(p => p.special_member_status === 'approved');
     return profiles;
   }, [profiles, memberFilter]);
-  async function handleDeleteProfileAction(p: Profile) { if (confirm(`${p.full_name} 회원을 삭제하시겠습니까?`)) { await deleteProfile(p.id); refresh(); } }
+  async function handleDeleteProfileAction(p: Profile) {
+    if (p.role === 'admin') { alert('관리자 계정은 삭제할 수 없습니다.'); return; }
+    if (!confirm(`${p.full_name} 회원을 정말 삭제하시겠습니까?\n\n로그인 계정이 완전히 삭제되며, 주문·문의·체험단 신청 등 연관 데이터도 함께 사라집니다. 이 작업은 되돌릴 수 없습니다.`)) return;
+    setBusy(true);
+    try {
+      const result = await deleteProfile(p.id, profile.id);
+      if (!result.ok) { alert(result.error || '회원 삭제에 실패했습니다.'); return; }
+      refresh();
+    } catch (e: any) {
+      alert(e.message || '회원 삭제에 실패했습니다.');
+    } finally { setBusy(false); }
+  }
   async function handleChangeGrade(p: Profile, planId: string) {
     const plan = plans.find(pl => pl.id === planId); if (!plan) return;
     await changeMemberGrade(p.id, plan.id, plan.tier); refresh();

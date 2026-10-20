@@ -593,11 +593,6 @@ export async function setProfileRole(user_id: string, role: 'member' | 'admin') 
   await supabase.from('profiles').update({ role }).eq('id', user_id);
 }
 
-export async function deleteProfile(user_id: string) {
-  if (!isSupabaseConfigured || !supabase) return;
-  await supabase.from('profiles').delete().eq('id', user_id);
-}
-
 // ============================================================
 // Inquiry (1:1 문의) operations
 // ============================================================

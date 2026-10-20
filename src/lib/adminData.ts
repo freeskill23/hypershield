@@ -254,9 +254,26 @@ export async function setSpecialMemberStatus(user_id: string, status: 'requested
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   await adminSupabase.from('profiles').update({ special_member_status: status }).eq('id', user_id);
 }
-export async function deleteProfile(user_id: string) {
-  if (!isAdminSupabaseConfigured || !adminSupabase) return;
-  await adminSupabase.from('profiles').delete().eq('id', user_id);
+export async function deleteProfile(user_id: string, admin_id: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
+  if (user_id === admin_id) return { ok: false, error: '자기 자신은 삭제할 수 없습니다.' };
+  const apiUrl = `${(adminSupabase as any).supabaseUrl}/functions/v1/admin-delete-user`;
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${(adminSupabase as any).supabaseKey}`,
+      apikey: (adminSupabase as any).supabaseKey,
+    },
+    body: JSON.stringify({ user_id, admin_id }),
+  });
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    return { ok: false, error: errBody.error || `회원 삭제에 실패했습니다. (${response.status})` };
+  }
+  const data = await response.json();
+  if (data.error) return { ok: false, error: data.error };
+  return { ok: true };
 }
 
 export async function changeMemberGrade(userId: string, planId: string, tier: string) {
