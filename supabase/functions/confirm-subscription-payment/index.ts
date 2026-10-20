@@ -112,6 +112,16 @@ Deno.serve(async (req: Request) => {
       return json({ error: "결제 금액이 일치하지 않습니다. 관리자에게 문의해 주세요." }, 400);
     }
 
+    if (!portoneVerified) {
+      if (existingPayment?.payment_method === "bank_transfer") {
+        return json({ error: "무통장 입금은 관리자가 입금 확인 후 활성화됩니다." }, 400);
+      }
+      const reason = portoneApiSecret
+        ? "결제가 완료되지 않았거나 결제 검증에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        : "결제 검증 설정이 누락되어 있습니다. 관리자에게 문의해 주세요.";
+      return json({ error: reason }, 400);
+    }
+
     const startedAt = new Date();
     const expiresAt = new Date(startedAt);
     if (period === "annual") {
