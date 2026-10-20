@@ -321,6 +321,66 @@ export async function deactivateSubscription(userId: string) {
   if (error) throw new Error(`구독 해제 실패: ${error.message}`);
 }
 
+export async function fetchPendingBankTransfers() {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return [];
+  const { data, error } = await adminSupabase
+    .from('subscription_payments')
+    .select('id, user_id, plan_id, amount, status, depositor_name, billing_period, payment_method, created_at')
+    .eq('payment_method', 'bank_transfer')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  if (error) { console.error('fetch pending bank transfers error', error); return []; }
+  return data ?? [];
+}
+
+export async function confirmBankTransferPayment(
+  paymentId: string,
+  userId: string,
+  planId: string,
+  tier: string,
+  billingPeriod: 'monthly' | 'annual',
+  adminId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return { ok: false, error: 'Supabase가 설정되지 않았습니다.' };
+  const now = new Date();
+  const expiresAt = new Date(now);
+  if (billingPeriod === 'annual') expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+  else expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+  const { error: profileError } = await adminSupabase
+    .from('profiles')
+    .update({
+      subscription_status: 'active',
+      subscription_plan_id: planId,
+      subscription_tier: tier,
+      subscription_started_at: now.toISOString(),
+      subscription_expires_at: expiresAt.toISOString(),
+      subscription_billing_period: billingPeriod,
+    })
+    .eq('id', userId);
+  if (profileError) return { ok: false, error: `구독 활성화 실패: ${profileError.message}` };
+
+  const { error: payError } = await adminSupabase
+    .from('subscription_payments')
+    .update({
+      status: 'paid',
+      confirmed_at: now.toISOString(),
+      confirmed_by: adminId,
+    })
+    .eq('id', paymentId);
+  if (payError) return { ok: false, error: `결제 기록 업데이트 실패: ${payError.message}` };
+  return { ok: true };
+}
+
+export async function rejectBankTransferPayment(paymentId: string) {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return;
+  const { error } = await adminSupabase
+    .from('subscription_payments')
+    .update({ status: 'rejected' })
+    .eq('id', paymentId);
+  if (error) throw new Error(`입금 확인 거절 실패: ${error.message}`);
+}
+
 export async function batchChangeMemberGrade(userIds: string[], planId: string, tier: string) {
   if (!isAdminSupabaseConfigured || !adminSupabase) return;
   const { error } = await adminSupabase.from('profiles').update({

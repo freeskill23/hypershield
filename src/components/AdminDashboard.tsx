@@ -5,7 +5,7 @@ import {
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
   MessageSquare, Star, Upload, X, Gift, Search,
-  Power, ShieldCheck,
+  Power, ShieldCheck, Building2,
 } from 'lucide-react';
 import {
   Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus, CafeMembership, SpecialMemberStatus,
@@ -23,11 +23,12 @@ import {
   answerInquiry, updateInquiryAnswer, deleteInquiry,
   createAdminReview, deleteAdminReview,
   approveTrialApplication, rejectTrialApplication, shipTrialApplication, completeTrialApplication, deleteTrialApplication,
+  fetchPendingBankTransfers, confirmBankTransferPayment, rejectBankTransferPayment,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
 import RichTextEditor from './RichTextEditor';
 
-type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews' | 'trials';
+type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews' | 'trials' | 'bank_transfers';
 type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'past_delivered' | 'cancelled' | 'cancel_request';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
@@ -161,6 +162,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [orderSelectedIds, setOrderSelectedIds] = useState<Set<string>>(new Set());
   const [batchPlanId, setBatchPlanId] = useState('');
   const [memberFilter, setMemberFilter] = useState<'all' | 'special_requested' | 'special_approved'>('all');
+  const [memberSearch, setMemberSearch] = useState('');
   const [pwModalId, setPwModalId] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState('');
   const [pwBusy, setPwBusy] = useState(false);
@@ -182,6 +184,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [actBusy, setActBusy] = useState(false);
   const [actErr, setActErr] = useState<string | null>(null);
 
+  const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [bankNameVal, setBankNameVal] = useState('');
+  const [bankAccountVal, setBankAccountVal] = useState('');
+  const [bankHolderVal, setBankHolderVal] = useState('');
+
   useEffect(() => {
     const overdueOrders = orders.filter(o => o.status === 'shipped' && o.shipped_at && Date.now() - new Date(o.shipped_at).getTime() >= 2 * 86400000);
     if (overdueOrders.length > 0) {
@@ -189,12 +197,61 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     }
   }, [orders, refresh]);
 
+  useEffect(() => {
+    setBankNameVal(getSettingValue(settings, 'bank_transfer_bank') ?? '');
+    setBankAccountVal(getSettingValue(settings, 'bank_transfer_account') ?? '');
+    setBankHolderVal(getSettingValue(settings, 'bank_transfer_holder') ?? '');
+  }, [settings]);
+
+  useEffect(() => {
+    if (tab === 'bank_transfers') loadPendingTransfers();
+  }, [tab]);
+
   const stats = useMemo(() => ({
     totalMembers: profiles.length,
     activeSubs: profiles.filter(p => p.subscription_status === 'active').length,
     totalOrders: orders.length,
     confirmedRevenue: orders.filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status)).reduce((s, o) => s + o.total_amount, 0),
   }), [profiles, orders]);
+
+  const todayStats = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isToday = (iso: string | null) => !!iso && iso.slice(0, 10) === todayStr;
+
+    const activeSubs = profiles.filter(p => p.subscription_status === 'active');
+    const generalMembers = activeSubs.filter(p => p.special_member_status !== 'approved');
+    const specialMembers = activeSubs.filter(p => p.special_member_status === 'approved');
+    const generalMonthly = generalMembers.filter(p => p.subscription_billing_period === 'monthly').length;
+    const generalAnnual = generalMembers.filter(p => p.subscription_billing_period === 'annual').length;
+    const specialMonthly = specialMembers.filter(p => p.subscription_billing_period === 'monthly').length;
+    const specialAnnual = specialMembers.filter(p => p.subscription_billing_period === 'annual').length;
+
+    const subscriptionRevenue = activeSubs.reduce((sum, p) => {
+      const plan = plans.find(pl => pl.id === p.subscription_plan_id);
+      if (!plan) return sum;
+      if (p.subscription_billing_period === 'annual' && plan.annual_price != null) return sum + plan.annual_price;
+      return sum + plan.monthly_price;
+    }, 0);
+
+    const todayOrders = orders.filter(o => isToday(o.created_at));
+    const todayRevenue = todayOrders
+      .filter(o => ['paid', 'preparing', 'shipped', 'delivered'].includes(o.status))
+      .reduce((s, o) => s + o.total_amount, 0);
+
+    const todayNewMembers = profiles.filter(p => isToday(p.created_at)).length;
+    const todayNewSubs = profiles.filter(p => isToday(p.subscription_started_at)).length;
+
+    return {
+      generalMonthly, generalAnnual, specialMonthly, specialAnnual,
+      totalActiveSubs: activeSubs.length,
+      subscriptionRevenue,
+      todayOrderCount: todayOrders.length,
+      todayRevenue,
+      todayNewMembers,
+      todayNewSubs,
+    };
+  }, [profiles, orders, plans]);
 
   const orderSubTabConfig = orderSubTabs.find(t => t[0] === orderSubTab) ?? orderSubTabs[0];
   const filteredOrders = useMemo(() => {
@@ -474,10 +531,21 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     none: '회원 아님', sprout: '카페회원 (새싹)', general: '카페회원 (일반)', faithful: '카페회원 (성실)', special: '특별회원',
   };
   const filteredProfiles = useMemo(() => {
-    if (memberFilter === 'special_requested') return profiles.filter(p => p.special_member_status === 'requested');
-    if (memberFilter === 'special_approved') return profiles.filter(p => p.special_member_status === 'approved');
-    return profiles;
-  }, [profiles, memberFilter]);
+    let list = profiles;
+    if (memberFilter === 'special_requested') list = list.filter(p => p.special_member_status === 'requested');
+    if (memberFilter === 'special_approved') list = list.filter(p => p.special_member_status === 'approved');
+    const q = memberSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter(p =>
+        p.full_name.toLowerCase().includes(q) ||
+        p.email.toLowerCase().includes(q) ||
+        (p.phone ?? '').includes(q) ||
+        (p.cafe_nickname ?? '').toLowerCase().includes(q) ||
+        (p.my_referral_code ?? '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [profiles, memberFilter, memberSearch]);
   async function handleDeleteProfileAction(p: Profile) {
     if (p.role === 'admin') { alert('관리자 계정은 삭제할 수 없습니다.'); return; }
     if (!confirm(`${p.full_name} 회원을 정말 삭제하시겠습니까?\n\n로그인 계정이 완전히 삭제되며, 주문·문의·체험단 신청 등 연관 데이터도 함께 사라집니다. 이 작업은 되돌릴 수 없습니다.`)) return;
@@ -522,6 +590,41 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     if (!confirm(`${p.full_name} 회원의 구독을 해제하시겠습니까?`)) return;
     try { await deactivateSubscription(p.id); refresh(); }
     catch (e: any) { alert(e.message || '구독 해제에 실패했습니다.'); }
+  }
+
+  async function loadPendingTransfers() {
+    setTransferLoading(true);
+    try {
+      const data = await fetchPendingBankTransfers();
+      setPendingTransfers(data as any[]);
+    } finally { setTransferLoading(false); }
+  }
+  async function handleConfirmTransfer(t: any) {
+    const plan = plans.find(pl => pl.id === t.plan_id);
+    if (!plan) { alert('결제된 등급을 찾을 수 없습니다.'); return; }
+    if (!confirm(`${t.depositor_name} 님의 무통장 입금(${formatKRW(t.amount)})을 확인하고 구독을 활성화하시겠습니까?`)) return;
+    setBusy(true);
+    try {
+      const period = (t.billing_period === 'annual' ? 'annual' : 'monthly') as 'monthly' | 'annual';
+      const result = await confirmBankTransferPayment(t.id, t.user_id, plan.id, plan.tier, period, profile.id);
+      if (!result.ok) { alert(result.error || '입금 확인에 실패했습니다.'); return; }
+      loadPendingTransfers();
+      refresh();
+    } finally { setBusy(false); }
+  }
+  async function handleRejectTransfer(t: any) {
+    if (!confirm(`${t.depositor_name} 님의 무통장 입금 신청을 거절하시겠습니까?`)) return;
+    setBusy(true);
+    try {
+      await rejectBankTransferPayment(t.id);
+      loadPendingTransfers();
+    } finally { setBusy(false); }
+  }
+  async function handleSaveBankAccount() {
+    await updateSetting('bank_transfer_bank', bankNameVal);
+    await updateSetting('bank_transfer_account', bankAccountVal);
+    await updateSetting('bank_transfer_holder', bankHolderVal);
+    refresh();
   }
 
   function toggleSelect(id: string) {
@@ -648,6 +751,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setOrderSelectedIds(new Set());
     setOrderSubTab('all');
     setMemberFilter('all');
+    setMemberSearch('');
     setTracking({});
     setPwModalId(null);
     setInquiryReplyId(null);
@@ -656,7 +760,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setReviewF(emptyReviewForm);
   }
 
-  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리'], ['trials', '체험단']];
+  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['bank_transfers', '입금확인'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리'], ['trials', '체험단']];
 
   return (
     <div className="space-y-6">
@@ -678,6 +782,76 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       {/* ── Overview ── */}
       {tab === 'overview' && (
         <div className="space-y-4">
+          {/* Today statistics */}
+          <div className="card-surface p-5">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+              <TrendingUp className="h-4 w-4 text-cyan" /> 오늘 통계
+              <span className="text-xs font-normal text-slate-500">{formatDate(new Date().toISOString())}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-4">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500"><Users className="h-3.5 w-3.5 text-cyan" /> 오늘 신규 회원</div>
+                <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{todayStats.todayNewMembers}<span className="ml-1 text-sm font-normal text-slate-500">명</span></div>
+              </div>
+              <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500"><Crown className="h-3.5 w-3.5 text-gold" /> 오늘 신규 구독</div>
+                <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{todayStats.todayNewSubs}<span className="ml-1 text-sm font-normal text-slate-500">명</span></div>
+              </div>
+              <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-4">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500"><ShoppingBag className="h-3.5 w-3.5 text-cyan" /> 오늘 주문</div>
+                <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{todayStats.todayOrderCount}<span className="ml-1 text-sm font-normal text-slate-500">건</span></div>
+              </div>
+              <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500"><Banknote className="h-3.5 w-3.5 text-gold" /> 오늘 매출</div>
+                <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{formatKRW(todayStats.todayRevenue)}</div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border border-navy-700 bg-slate-50 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"><UserIcon className="h-4 w-4 text-cyan" /> 일반 구독 회원 <span className="ml-auto text-xs font-normal text-slate-500">총 {todayStats.generalMonthly + todayStats.generalAnnual}명</span></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-cyan/30 bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">월 회원</div>
+                    <div className="font-gothic text-xl font-bold text-cyan">{todayStats.generalMonthly}명</div>
+                  </div>
+                  <div className="rounded-lg border border-cyan/30 bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">연 회원</div>
+                    <div className="font-gothic text-xl font-bold text-cyan">{todayStats.generalAnnual}명</div>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-navy-700 bg-slate-50 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"><Star className="h-4 w-4 text-gold" /> 특별회원 <span className="ml-auto text-xs font-normal text-slate-500">총 {todayStats.specialMonthly + todayStats.specialAnnual}명</span></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-gold/30 bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">월 회원</div>
+                    <div className="font-gothic text-xl font-bold text-gold-deep">{todayStats.specialMonthly}명</div>
+                  </div>
+                  <div className="rounded-lg border border-gold/30 bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">연 회원</div>
+                    <div className="font-gothic text-xl font-bold text-gold-deep">{todayStats.specialAnnual}명</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-navy-700 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Crown className="h-4 w-4 text-gold" />
+                <span className="text-sm text-slate-600">활성 구독자</span>
+                <span className="font-gothic text-lg font-bold text-slate-800">{todayStats.totalActiveSubs}명</span>
+              </div>
+              <div className="h-4 w-px bg-navy-700" />
+              <div className="flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-cyan" />
+                <span className="text-sm text-slate-600">예상 구독료</span>
+                <span className="font-gothic text-lg font-bold text-cyan">{formatKRW(todayStats.subscriptionRevenue)}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Recruitment status */}
           <div className="card-surface p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -742,6 +916,36 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               </div>
             </div>
             <p className="mt-3 text-xs text-slate-500">상품별로 기본 배송료 설정을 따를지 개별 설정할 수 있습니다. 무료배송 기준금액은 상품 합계금액 기준입니다.</p>
+          </div>
+
+          {/* Bank transfer settings */}
+          <div className="card-surface p-5">
+            <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800"><Building2 className="h-4 w-4 text-cyan" /> 무통장 입금 계좌 설정</div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">은행명</label>
+                <input value={bankNameVal} onChange={e => setBankNameVal(e.target.value)} placeholder="예: 농협은행" className="input-field h-9 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">계좌번호</label>
+                <input value={bankAccountVal} onChange={e => setBankAccountVal(e.target.value)} placeholder="예: 123-4567-8901" className="input-field h-9 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">예금주</label>
+                <input value={bankHolderVal} onChange={e => setBankHolderVal(e.target.value)} placeholder="예: 홍길동" className="input-field h-9 text-sm" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <button onClick={handleSaveBankAccount} disabled={!bankNameVal.trim() || !bankAccountVal.trim() || !bankHolderVal.trim()} className="btn-primary px-4 py-2 text-sm">
+                <Building2 className="h-4 w-4" /> 계좌 저장
+              </button>
+              {bankNameVal && bankAccountVal && bankHolderVal ? (
+                <span className="text-xs text-green-400">설정됨: {bankNameVal} {bankAccountVal} ({bankHolderVal})</span>
+              ) : (
+                <span className="text-xs text-amber-600">무통장 입금을 사용하려면 계좌 정보를 입력하고 저장해주세요.</span>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">계좌 정보를 설정하면 회원이 구독 신청 시 무통장 입금 옵션이 표시됩니다. 무통장 입금으로 신청한 회원은 입금확인 탭에서 승인해주세요.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -1160,6 +1364,16 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           <p className="text-xs text-slate-500">회원의 구독 활성/비활성 및 기간은 PG 결제 연동 후 결제일에 따라 자동으로 처리됩니다. 관리자는 회원의 등급만 변경할 수 있습니다.</p>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-gothic text-lg font-semibold text-slate-800">회원 관리</h2>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={memberSearch}
+                onChange={e => setMemberSearch(e.target.value)}
+                placeholder="이름, 이메일, 연락처, 닉네임, 추천코드 검색"
+                className="input-field h-9 w-72 pl-9 text-sm"
+              />
+            </div>
             <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
               {([['all', '전체'], ['special_requested', '특별회원미승인'], ['special_approved', '특별회원승인']] as [typeof memberFilter, string][]).map(([k, label]) => (
                 <button key={k} onClick={() => setMemberFilter(k)} className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${memberFilter === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
@@ -1349,6 +1563,75 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               <button onClick={() => setActModalId(null)} className="btn-ghost px-5 py-2.5 text-sm">취소</button>
             </div>
           </div>
+        </div>
+      )}
+      {/* ── Bank Transfer Confirmation ── */}
+      {tab === 'bank_transfers' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">무통장 입금 확인</h2>
+            <button onClick={loadPendingTransfers} className="btn-ghost px-4 py-2 text-sm">
+              <Loader2 className={`h-4 w-4 ${transferLoading ? 'animate-spin' : ''}`} /> 새로고침
+            </button>
+          </div>
+          {!bankNameVal || !bankAccountVal || !bankHolderVal ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <Building2 className="mb-3 h-10 w-10 text-slate-700" />
+              <p className="text-sm text-slate-500">무통장 입금 계좌가 설정되지 않았습니다.</p>
+              <p className="mt-1 text-xs text-slate-500">대시보드 탭에서 계좌 정보를 먼저 설정해주세요.</p>
+            </div>
+          ) : transferLoading ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-slate-400" />
+              <p className="text-sm text-slate-500">불러오는 중...</p>
+            </div>
+          ) : pendingTransfers.length === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <CheckCircle2 className="mb-3 h-10 w-10 text-slate-700" />
+              <p className="text-sm text-slate-500">입금 대기 중인 신청이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendingTransfers.map(t => {
+                const mp = profiles.find(p => p.id === t.user_id);
+                const plan = plans.find(pl => pl.id === t.plan_id);
+                return (
+                  <div key={t.id} className="card-surface p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-10 w-10 place-items-center rounded-lg bg-cyan/10">
+                          <Building2 className="h-5 w-5 text-cyan" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-800">{t.depositor_name ?? mp?.full_name ?? '알 수 없음'}</span>
+                            <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/5 px-2.5 py-0.5 text-xs font-medium text-amber-600">
+                              <Clock className="h-3 w-3" /> 입금 대기
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                            <span>회원: {mp?.full_name ?? '—'} ({mp?.email ?? '—'})</span>
+                            <span>등급: {plan?.name ?? '—'}</span>
+                            <span>결제 주기: {t.billing_period === 'annual' ? '연 결제' : '월 결제'}</span>
+                            <span>신청일: {formatDate(t.created_at)}</span>
+                          </div>
+                          <div className="mt-2 text-lg font-bold text-cyan">{formatKRW(t.amount)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleConfirmTransfer(t)} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-green-500/50 px-3 py-2 text-xs font-medium text-green-500 hover:bg-green-500/10">
+                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} 입금 확인
+                        </button>
+                        <button onClick={() => handleRejectTransfer(t)} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-red-500/50 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10">
+                          <XCircle className="h-3.5 w-3.5" /> 거절
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
       {tab === 'posts' && (

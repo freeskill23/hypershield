@@ -10,7 +10,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const portoneApiSecret = Deno.env.get("PORTONE_API_SECRET") ?? "";
-const portoneStoreId = Deno.env.get("VITE_PORTONE_STORE_ID") ?? Deno.env.get("PORTONE_STORE_ID") ?? "";
 
 type BillingPeriod = "monthly" | "annual";
 
@@ -47,16 +46,37 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = (await req.json()) as Partial<PaymentRequest>;
-    const period: BillingPeriod = body.period === "annual" ? "annual" : "monthly";
-    if (!body.paymentId || !body.planId) {
+    if (!body.paymentId) {
       return json({ error: "결제 정보가 올바르지 않습니다." }, 400);
     }
 
+    const userId = userData.user.id;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: existingPayment } = await adminClient
+      .from("subscription_payments")
+      .select("id, user_id, status, plan_id, billing_period, amount, payment_method")
+      .eq("portone_payment_id", body.paymentId)
+      .maybeSingle();
+
+    if (existingPayment?.status === "paid") {
+      return json({ ok: true, expiresAt: null, alreadyConfirmed: true });
+    }
+    if (existingPayment && existingPayment.user_id !== userId) {
+      return json({ error: "결제를 확인할 수 없습니다." }, 400);
+    }
+
+    const planId = existingPayment?.plan_id ?? body.planId;
+    const period: BillingPeriod = (existingPayment?.billing_period as BillingPeriod) ?? (body.period === "annual" ? "annual" : "monthly");
+
+    if (!planId) {
+      return json({ error: "구독 상품 정보를 찾을 수 없습니다." }, 400);
+    }
+
     const { data: plan, error: planError } = await adminClient
       .from("subscription_plans")
       .select("id, name, monthly_price, annual_price, tier, is_active")
-      .eq("id", body.planId)
+      .eq("id", planId)
       .maybeSingle();
 
     if (planError || !plan || !plan.is_active) {
@@ -68,22 +88,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: "선택한 결제 주기의 가격이 설정되어 있지 않습니다." }, 400);
     }
 
-    const userId = userData.user.id;
-    const { data: existingPayment } = await adminClient
-      .from("subscription_payments")
-      .select("id, user_id, status")
-      .eq("portone_payment_id", body.paymentId)
-      .maybeSingle();
-
-    if (existingPayment?.status === "paid") {
-      return json({ ok: true, expiresAt: null, alreadyConfirmed: true });
-    }
-    if (existingPayment && existingPayment.user_id !== userId) {
-      return json({ error: "결제를 확인할 수 없습니다." }, 400);
-    }
-
-    let verifiedAmount: number | null = null;
     let portoneVerified = false;
+    let verifiedAmount: number | null = null;
 
     if (portoneApiSecret) {
       try {
@@ -137,11 +143,12 @@ Deno.serve(async (req: Request) => {
       amount: expectedAmount,
       status: "paid",
       billing_period: period,
+      payment_method: "card",
       error_message: null,
     };
 
     const { error: paymentRecordError } = existingPayment
-      ? await adminClient.from("subscription_payments").update(paymentRecord).eq("id", existingPayment.id)
+      ? await adminClient.from("subscription_payments").update({ ...paymentRecord, confirmed_at: startedAt.toISOString() }).eq("id", existingPayment.id)
       : await adminClient.from("subscription_payments").insert(paymentRecord);
 
     if (paymentRecordError) {

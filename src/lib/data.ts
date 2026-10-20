@@ -584,6 +584,55 @@ export async function confirmManualSubscriptionPayment(input: {
   return { ok: true, expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null };
 }
 
+export async function createPendingCardPayment(input: {
+  paymentId: string;
+  planId: string;
+  period: BillingPeriod;
+  amount: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: '서비스를 사용할 수 없습니다.' };
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { ok: false, error: '로그인이 필요합니다.' };
+
+  const { error } = await supabase.from('subscription_payments').insert({
+    user_id: userData.user.id,
+    plan_id: input.planId,
+    portone_payment_id: input.paymentId,
+    amount: input.amount,
+    status: 'pending',
+    payment_method: 'card',
+    billing_period: input.period,
+  });
+  if (error) {
+    if (error.code === '23505') return { ok: true };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+export async function requestBankTransferSubscription(input: {
+  planId: string;
+  period: BillingPeriod;
+  amount: number;
+  depositorName: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, error: '서비스를 사용할 수 없습니다.' };
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { ok: false, error: '로그인이 필요합니다.' };
+
+  const { error } = await supabase.from('subscription_payments').insert({
+    user_id: userData.user.id,
+    plan_id: input.planId,
+    amount: input.amount,
+    status: 'pending',
+    payment_method: 'bank_transfer',
+    depositor_name: input.depositorName,
+    billing_period: input.period,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 // ============================================================
 // Profile operations (admin)
 // ============================================================

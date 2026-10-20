@@ -1,13 +1,14 @@
-import { useState } from 'react';
-import { Crown, Check, AlertCircle, ArrowRight, Loader2, CreditCard, Sparkles, ShieldCheck } from 'lucide-react';
-import { Profile, SubscriptionPlan, BillingPeriod } from '../lib/types';
+import { useState, useEffect } from 'react';
+import { Crown, Check, AlertCircle, ArrowRight, Loader2, CreditCard, Sparkles, ShieldCheck, Building2, Copy } from 'lucide-react';
+import { Profile, SubscriptionPlan, BillingPeriod, Setting } from '../lib/types';
 import { formatKRW } from '../lib/format';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
-import { confirmManualSubscriptionPayment } from '../lib/data';
+import { confirmManualSubscriptionPayment, requestBankTransferSubscription, createPendingCardPayment, getSettingValue } from '../lib/data';
 
 interface Props {
   profile: Profile;
   plans: SubscriptionPlan[];
+  settings: Setting[];
   onSignOut: () => Promise<void>;
   onActivated: () => void;
 }
@@ -23,15 +24,57 @@ interface BannerOption {
   featured?: boolean;
 }
 
-export default function SubscriptionGate({ profile, plans, onSignOut, onActivated }: Props) {
+export default function SubscriptionGate({ profile, plans, settings, onSignOut, onActivated }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showGeneralPlans, setShowGeneralPlans] = useState(false);
+  const [bankTransferPlan, setBankTransferPlan] = useState<{ plan: SubscriptionPlan; banner: BannerOption } | null>(null);
+  const [depositorName, setDepositorName] = useState('');
+  const [bankTransferError, setBankTransferError] = useState<string | null>(null);
+
+  const bankName = getSettingValue(settings, 'bank_transfer_bank') ?? '';
+  const bankAccount = getSettingValue(settings, 'bank_transfer_account') ?? '';
+  const bankHolder = getSettingValue(settings, 'bank_transfer_holder') ?? '';
+  const bankTransferEnabled = !!(bankName && bankAccount && bankHolder);
 
   const activePlans = plans
     .filter((p) => p.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('pending_subscription_payment');
+    if (!stored) return;
+    let ctx: { paymentId: string; planId: string; period: BillingPeriod; amount: number; planName: string };
+    try { ctx = JSON.parse(stored); } catch { sessionStorage.removeItem('pending_subscription_payment'); return; }
+    sessionStorage.removeItem('pending_subscription_payment');
+    (async () => {
+      setBusy('redirect-confirm');
+      setError(null);
+      try {
+        const result = await confirmManualSubscriptionPayment({
+          paymentId: ctx.paymentId,
+          planId: ctx.planId,
+          period: ctx.period,
+          amount: ctx.amount,
+        });
+        if (!result.ok) {
+          setError(result.error || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
+          return;
+        }
+        setSuccess(
+          ctx.period === 'annual'
+            ? `${ctx.planName} 연 구독 결제가 완료되었습니다. 12개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
+            : `${ctx.planName} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`,
+        );
+        onActivated();
+      } catch (e: any) {
+        setError(e.message || '결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
+      } finally {
+        setBusy(null);
+      }
+    })();
+  }, []);
 
   const isApprovedSpecial = profile.special_member_status === 'approved';
   const isPendingSpecial = profile.special_member_status === 'requested';
@@ -96,6 +139,25 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
     setBusy(`${plan.id}-${banner.period}`);
     try {
       const paymentId = generatePaymentId('sub');
+
+      const pending = await createPendingCardPayment({
+        paymentId,
+        planId: plan.id,
+        period: banner.period,
+        amount: banner.amount,
+      });
+      if (!pending.ok) {
+        setError(pending.error || '결제 준비에 실패했습니다.');
+        return;
+      }
+
+      sessionStorage.setItem('pending_subscription_payment', JSON.stringify({
+        paymentId,
+        planId: plan.id,
+        period: banner.period,
+        amount: banner.amount,
+        planName: plan.name,
+      }));
       const response = await requestProductPayment({
         paymentId,
         orderName: `${plan.name} ${banner.period === 'annual' ? '연 구독료' : '월 구독료'}`,
@@ -108,14 +170,17 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
       });
 
       if (!response) {
+        sessionStorage.removeItem('pending_subscription_payment');
         setError('결제가 완료되지 않았습니다.');
         return;
       }
       if (response.code) {
+        sessionStorage.removeItem('pending_subscription_payment');
         setError(response.message || '결제에 실패했습니다.');
         return;
       }
 
+      sessionStorage.removeItem('pending_subscription_payment');
       const result = await confirmManualSubscriptionPayment({
         paymentId,
         planId: plan.id,
@@ -138,6 +203,47 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
     } finally {
       setBusy(null);
     }
+  }
+
+  function openBankTransfer(plan: SubscriptionPlan, banner: BannerOption) {
+    setError(null);
+    setSuccess(null);
+    setBankTransferPlan({ plan, banner });
+    setDepositorName(profile.full_name);
+    setBankTransferError(null);
+  }
+
+  async function handleBankTransferSubmit() {
+    if (!bankTransferPlan) return;
+    if (!depositorName.trim()) { setBankTransferError('입금자명을 입력해주세요.'); return; }
+    if (!bankTransferEnabled) { setBankTransferError('무통장 입금 계좌가 설정되지 않았습니다. 관리자에게 문의해주세요.'); return; }
+    setBusy('bank-transfer');
+    setBankTransferError(null);
+    try {
+      const result = await requestBankTransferSubscription({
+        planId: bankTransferPlan.plan.id,
+        period: bankTransferPlan.banner.period,
+        amount: bankTransferPlan.banner.amount,
+        depositorName: depositorName.trim(),
+      });
+      if (!result.ok) {
+        setBankTransferError(result.error || '무통장 입금 신청에 실패했습니다.');
+        return;
+      }
+      setBankTransferPlan(null);
+      setSuccess(
+        `무통장 입금 신청이 완료되었습니다. 아래 계좌로 ${formatKRW(bankTransferPlan.banner.amount)}을 입금해주세요. 관리자가 입금 확인 후 구독이 활성화됩니다.\n\n${bankName} ${bankAccount} (${bankHolder})\n입금자명: ${depositorName.trim()}`,
+      );
+    } catch (e: any) {
+      setBankTransferError(e.message || '무통장 입금 신청 중 오류가 발생했습니다.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function copyAccount() {
+    const text = `${bankName} ${bankAccount} (${bankHolder})`;
+    navigator.clipboard?.writeText(text);
   }
 
   return (
@@ -180,9 +286,16 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
               <div>
                 <p className="font-medium">결제가 완료되어야 쇼핑몰에 입장할 수 있습니다.</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  원하는 결제 주기 배너를 선택해 바로 결제하세요. 월 결제는 1개월, 연 결제는 12개월 이용 기간이 제공됩니다.
+                  카드 결제 또는 무통장 입금으로 구독할 수 있습니다. 무통장 입금은 관리자가 입금 확인 후 구독이 활성화됩니다.
                 </p>
               </div>
+            </div>
+          )}
+
+          {busy === 'redirect-confirm' && (
+            <div className="mb-6 flex items-start gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-3 text-sm text-cyan">
+              <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin" />
+              <span>결제 확인 중입니다. 잠시만 기다려주세요...</span>
             </div>
           )}
 
@@ -196,7 +309,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
           {success && (
             <div className="mb-6 flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
               <Check className="mt-0.5 h-5 w-5 shrink-0" />
-              <span>{success}</span>
+              <span className="whitespace-pre-line">{success}</span>
             </div>
           )}
 
@@ -283,6 +396,15 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
                             <><CreditCard className="h-4 w-4" /> {banner.featured ? '연 결제하기' : '월 결제하기'} <ArrowRight className="h-4 w-4" /></>
                           )}
                         </button>
+                        {bankTransferEnabled && (
+                          <button
+                            onClick={() => openBankTransfer(plan, banner)}
+                            disabled={busy !== null}
+                            className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-cyan hover:text-cyan"
+                          >
+                            <Building2 className="mr-1.5 inline h-4 w-4" /> 무통장 입금으로 신청
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -302,7 +424,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
           <div className="mt-6 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-500">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
             <span>
-              NHN KCP 카드 결제가 적용되었습니다. 월 결제는 1개월, 연 결제는 12개월 이용 기간이 제공됩니다.
+              카드 결제는 NHN KCP를 통해 즉시 활성화됩니다. 무통장 입금은 관리자가 입금 확인 후 구독을 활성화합니다.
             </span>
           </div>
 
@@ -313,6 +435,56 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
           </div>
         </div>
       </div>
+
+      {bankTransferPlan && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4" onClick={() => setBankTransferPlan(null)}>
+          <div className="card-surface w-full max-w-md space-y-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-gothic text-base font-semibold text-slate-800">무통장 입금 신청</h3>
+              <button onClick={() => setBankTransferPlan(null)} className="text-slate-400 hover:text-slate-600">
+                <AlertCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">입금 계좌</span>
+                <button onClick={copyAccount} className="inline-flex items-center gap-1 text-xs text-cyan hover:underline">
+                  <Copy className="h-3 w-3" /> 복사
+                </button>
+              </div>
+              <p className="font-gothic text-sm font-bold text-slate-800">{bankName}</p>
+              <p className="text-lg font-bold text-slate-800">{bankAccount}</p>
+              <p className="text-sm text-slate-500">예금주: {bankHolder}</p>
+            </div>
+            <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3 text-sm text-slate-700">
+              <p className="font-medium">{bankTransferPlan.plan.name} {bankTransferPlan.banner.label}</p>
+              <p className="mt-1 text-cyan">입금 금액: {formatKRW(bankTransferPlan.banner.amount)}</p>
+              <p className="mt-0.5 text-xs text-slate-500">이용 기간: {bankTransferPlan.banner.duration}</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">입금자명</label>
+              <input
+                type="text"
+                value={depositorName}
+                onChange={e => { setDepositorName(e.target.value); setBankTransferError(null); }}
+                placeholder="입금하시는 분의 이름"
+                className="input-field"
+                autoFocus
+              />
+              {bankTransferError && <p className="mt-2 text-xs text-red-400">{bankTransferError}</p>}
+            </div>
+            <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+              위 계좌로 입금 후 관리자가 입금을 확인하면 구독이 자동으로 활성화됩니다. 입금자명은 실제 입금하시는 분의 이름과 동일하게 입력해주세요.
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={handleBankTransferSubmit} disabled={busy !== null} className="btn-primary px-5 py-2.5 text-sm">
+                {busy === 'bank-transfer' ? <><Loader2 className="h-4 w-4 animate-spin" /> 신청 중...</> : '무통장 입금 신청'}
+              </button>
+              <button onClick={() => setBankTransferPlan(null)} className="btn-ghost px-5 py-2.5 text-sm">취소</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

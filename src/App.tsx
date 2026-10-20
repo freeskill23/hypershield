@@ -346,6 +346,7 @@ function ShellContent({
           <SubscriptionGate
             profile={profile}
             plans={plans}
+            settings={settings}
             onSignOut={signOut}
             onActivated={refreshAll}
           />
