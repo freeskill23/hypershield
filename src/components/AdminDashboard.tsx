@@ -49,7 +49,7 @@ function isSameMonth(iso: string | null): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
-const NEW_TABS: Tab[] = ['orders', 'inquiries', 'reviews', 'bank_transfers'];
+const NEW_TABS: Tab[] = ['orders', 'inquiries', 'reviews', 'bank_transfers', 'trials', 'members'];
 
 function getLastSeen(tab: Tab): number {
   try { return parseInt(localStorage.getItem(`admin_lastseen_${tab}`) ?? '0', 10) || 0; } catch { return 0; }
@@ -153,6 +153,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [pf, setPf] = useState<ProductForm>(emptyProductForm);
   const [productSearch, setProductSearch] = useState('');
+  const [productSelectedIds, setProductSelectedIds] = useState<Set<string>>(new Set());
 
 
   const [newCat, setNewCat] = useState('');
@@ -292,8 +293,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     c.inquiries = inquiries.filter(i => isNewer(i.created_at, lastSeen.inquiries ?? 0)).length;
     c.reviews = reviews.filter(r => isNewer(r.created_at, lastSeen.reviews ?? 0)).length;
     c.bank_transfers = pendingTransfers.filter(t => isNewer(t.created_at, lastSeen.bank_transfers ?? 0)).length;
+    c.trials = trials.filter(t => isNewer(t.created_at, lastSeen.trials ?? 0)).length;
+    c.members = profiles.filter(p => isNewer(p.created_at, lastSeen.members ?? 0)).length;
     return c;
-  }, [orders, inquiries, reviews, pendingTransfers, lastSeen]);
+  }, [orders, inquiries, reviews, pendingTransfers, trials, profiles, lastSeen]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -405,6 +408,17 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     refresh();
   }
   async function handleToggleActive(p: Product) { await updateProduct(p.id, { is_active: !p.is_active }); refresh(); }
+  async function handleBatchTrialToggle(enable: boolean) {
+    const ids = [...productSelectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`선택한 상품 ${ids.length}개의 체험단 신청을 ${enable ? '가능' : '불가능'}으로 변경하시겠습니까?`)) return;
+    setBusy(true);
+    try {
+      await Promise.all(ids.map(id => updateProduct(id, { is_trial_available: enable })));
+      setProductSelectedIds(new Set());
+      refresh();
+    } finally { setBusy(false); }
+  }
   async function handleMoveProduct(fromIndex: number, toIndex: number) {
     if (toIndex < 0 || toIndex >= products.length) return;
     const reordered = [...products];
@@ -782,6 +796,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setNewCat(''); setNewCatGrades(new Set());
     setSelectedIds(new Set()); setBatchPlanId('');
     setOrderSelectedIds(new Set());
+    setProductSelectedIds(new Set());
     setOrderSubTab('all');
     setMemberFilter('all');
     setMemberSearch('');
@@ -1088,9 +1103,17 @@ export default function AdminDashboard({ profile, products, categories, orders, 
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-gothic text-lg font-semibold text-slate-800">상품 관리</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {productSelectedIds.size > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-3 py-1.5">
+                  <span className="text-sm font-medium text-cyan">{productSelectedIds.size}개 선택</span>
+                  <button onClick={() => handleBatchTrialToggle(true)} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-green-500/50 px-2.5 py-1.5 text-xs font-medium text-green-600 hover:bg-green-500/10"><Gift className="h-3.5 w-3.5" /> 체험단 신청 받기</button>
+                  <button onClick={() => handleBatchTrialToggle(false)} disabled={busy} className="inline-flex items-center gap-1 rounded-md border border-slate-400 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"><XCircle className="h-3.5 w-3.5" /> 체험단 신청 끄기</button>
+                  <button onClick={() => setProductSelectedIds(new Set())} className="text-xs text-slate-500 hover:text-slate-700">해제</button>
+                </div>
+              )}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -1236,16 +1259,21 @@ export default function AdminDashboard({ profile, products, categories, orders, 
           )}
 
           {/* Product list */}
+          {filteredProducts.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-slate-500"><input type="checkbox" checked={productSelectedIds.size === filteredProducts.length} onChange={() => setProductSelectedIds(productSelectedIds.size === filteredProducts.length ? new Set() : new Set(filteredProducts.map(p => p.id)))} className="h-4 w-4 rounded" /> 전체 선택</label>
+          )}
           <div className="space-y-3">
             {filteredProducts.map((p) => {
               const idx = products.indexOf(p);
               const discount = calcDiscountRate(p.original_price, p.club_price);
               const productCatIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
               const productCatNames = productCatIds.map(id => categories.find(c => c.id === id)?.name).filter(Boolean);
+              const pSelected = productSelectedIds.has(p.id);
               return (
-                <div key={p.id} className="card-surface p-4" draggable onDragStart={e => { e.dataTransfer.setData('text/plain', String(idx)); }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const from = parseInt(e.dataTransfer.getData('text/plain'), 10); if (!isNaN(from)) handleMoveProduct(from, idx); }}>
+                <div key={p.id} className={`card-surface p-4 transition ${pSelected ? 'ring-1 ring-cyan/40 bg-cyan/[0.03]' : ''}`} draggable onDragStart={e => { e.dataTransfer.setData('text/plain', String(idx)); }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const from = parseInt(e.dataTransfer.getData('text/plain'), 10); if (!isNaN(from)) handleMoveProduct(from, idx); }}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
+                      <input type="checkbox" checked={pSelected} onChange={() => setProductSelectedIds(prev => { const n = new Set(prev); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} className="mt-1 h-4 w-4 rounded" />
                       <div className="flex flex-col items-center gap-0.5 pt-1">
                         <GripVertical className="h-4 w-4 cursor-grab text-slate-400 hover:text-slate-600" />
                         <button onClick={() => handleMoveProduct(idx, idx - 1)} disabled={idx === 0} className="text-slate-400 hover:text-cyan disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
@@ -1262,6 +1290,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           {p.options && p.options.length > 0 && <span className="text-slate-600">옵션 {p.options.length}개</span>}
                           {p.detail_link && <a href={p.detail_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-cyan hover:underline"><ExternalLink className="h-3 w-3" /> 원본 보기</a>}
                           {!p.is_active && <span className="text-red-400">판매 중단</span>}
+                          {p.is_trial_available && <span className="inline-flex items-center gap-0.5 rounded-full border border-gold/40 bg-gold/5 px-2 py-0.5 font-medium text-gold-light"><Gift className="h-3 w-3" /> 체험단</span>}
                         </div>
                       </div>
                     </div>
