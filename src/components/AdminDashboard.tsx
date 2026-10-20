@@ -1251,7 +1251,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                               <button onClick={() => handleApproveSpecial(p)} title="특별회원 승인" className="inline-flex items-center gap-1 rounded-md border border-green-500/50 px-2 py-1 text-xs font-medium text-green-500 hover:bg-green-500/10"><CheckCircle2 className="h-3.5 w-3.5" /> 승인</button>
                             ) : sms === 'approved' ? (
                               <button onClick={() => handleUnapproveSpecial(p)} title="특별회원 승인 취소" className="inline-flex items-center gap-1 rounded-md border border-amber-500/50 px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-500/10"><XCircle className="h-3.5 w-3.5" /> 승인취소</button>
-                            ) : null}
+                            ) : (
+                              <button onClick={() => handleApproveSpecial(p)} title="특별회원 지정" className="inline-flex items-center gap-1 rounded-md border border-gold/50 px-2 py-1 text-xs font-medium text-gold-deep hover:bg-gold/10"><Star className="h-3.5 w-3.5" /> 특별회원 지정</button>
+                            )}
                             {sms && <IconBtn onClick={() => handleClearSpecial(p)} title="특별회원 표시 해제" icon={XCircle} hover="hover:border-slate-500 hover:text-slate-500" />}
                             <select value={p.subscription_plan_id ?? ''} onChange={e => handleChangeGrade(p, e.target.value)} className="input-field h-7 w-24 px-1 py-0.5 text-xs" disabled={!plans.filter(pl => pl.is_active).length}>
                               <option value="" disabled>등급 선택</option>
