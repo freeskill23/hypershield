@@ -49,6 +49,19 @@ function isSameMonth(iso: string | null): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
+const NEW_TABS: Tab[] = ['orders', 'inquiries', 'reviews', 'bank_transfers'];
+
+function getLastSeen(tab: Tab): number {
+  try { return parseInt(localStorage.getItem(`admin_lastseen_${tab}`) ?? '0', 10) || 0; } catch { return 0; }
+}
+function saveLastSeen(tab: Tab) {
+  try { localStorage.setItem(`admin_lastseen_${tab}`, String(Date.now())); } catch {}
+}
+function isNewer(iso: string | null, ts: number): boolean {
+  if (!iso) return false;
+  return new Date(iso).getTime() > ts;
+}
+
 interface Props {
   profile: Profile; products: Product[]; categories: Category[]; orders: Order[]; orderItems: OrderItem[];
   profiles: Profile[]; posts: Post[]; plans: SubscriptionPlan[]; settings: Setting[]; inquiries: Inquiry[]; reviews: Review[]; trials: TrialApplication[]; refresh: () => void;
@@ -189,6 +202,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [bankNameVal, setBankNameVal] = useState('');
   const [bankAccountVal, setBankAccountVal] = useState('');
   const [bankHolderVal, setBankHolderVal] = useState('');
+  const [lastSeen, setLastSeenState] = useState<Record<string, number>>(() => {
+    const m: Record<string, number> = {};
+    NEW_TABS.forEach(t => { m[t] = getLastSeen(t); });
+    return m;
+  });
 
   useEffect(() => {
     const overdueOrders = orders.filter(o => o.status === 'shipped' && o.shipped_at && Date.now() - new Date(o.shipped_at).getTime() >= 2 * 86400000);
@@ -206,6 +224,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   useEffect(() => {
     if (tab === 'bank_transfers') loadPendingTransfers();
   }, [tab]);
+  useEffect(() => { loadPendingTransfers(); }, []);
 
   const stats = useMemo(() => ({
     totalMembers: profiles.length,
@@ -266,6 +285,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     }
     return orders.filter(o => orderSubTabConfig[2].includes(o.status));
   }, [orders, orderSubTabConfig, orderSubTab]);
+
+  const newCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    c.orders = orders.filter(o => isNewer(o.created_at, lastSeen.orders ?? 0)).length;
+    c.inquiries = inquiries.filter(i => isNewer(i.created_at, lastSeen.inquiries ?? 0)).length;
+    c.reviews = reviews.filter(r => isNewer(r.created_at, lastSeen.reviews ?? 0)).length;
+    c.bank_transfers = pendingTransfers.filter(t => isNewer(t.created_at, lastSeen.bank_transfers ?? 0)).length;
+    return c;
+  }, [orders, inquiries, reviews, pendingTransfers, lastSeen]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -741,6 +769,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
   function setTabAndReset(t: Tab) {
     if (t !== tab) window.history.pushState({}, '', `#admin/${t}`);
+    if (NEW_TABS.includes(t)) {
+      const now = Date.now();
+      setLastSeenState(prev => ({ ...prev, [t]: now }));
+      saveLastSeen(t);
+    }
     setTab(t);
     setShowProductForm(false); setEditProduct(null); setPf(emptyProductForm);
     setShowPostForm(false); setEditPost(null); setPostF(emptyPostForm);
@@ -774,9 +807,15 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
-        {tabs.map(([k, label]) => (
-          <button key={k} onClick={() => setTabAndReset(k)} className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-400 hover:text-slate-700'}`}>{label}</button>
-        ))}
+        {tabs.map(([k, label]) => {
+          const isNew = NEW_TABS.includes(k) && tab !== k && (newCounts[k] ?? 0) > 0;
+          return (
+            <button key={k} onClick={() => setTabAndReset(k)} className={`relative rounded-md px-4 py-2 text-sm font-medium transition ${tab === k ? 'bg-cyan text-white shadow-glow' : 'text-slate-400 hover:text-slate-700'}`}>
+              {label}
+              {isNew && <span className="ml-1.5 inline-flex items-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white animate-pulse">NEW</span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Overview ── */}
