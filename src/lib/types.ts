@@ -71,6 +71,7 @@ export interface Product {
   description: string | null;
   image_url: string | null;
   sub_images: string[] | null;
+  detail_images: string[] | null;
   sku: string | null;
   stock: number;
   is_active: boolean;

@@ -27,21 +27,30 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showGeneralPlans, setShowGeneralPlans] = useState(false);
 
   const activePlans = plans
     .filter((p) => p.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
 
   const isApprovedSpecial = profile.special_member_status === 'approved';
+  const isPendingSpecial = profile.special_member_status === 'requested';
+  const isShowingGeneralPlans = !isApprovedSpecial && (!isPendingSpecial || showGeneralPlans);
 
   const visiblePlans = activePlans.filter((p) =>
-    isApprovedSpecial ? p.tier === 'premium' : p.tier !== 'premium'
+    isApprovedSpecial ? p.tier === 'premium' : isShowingGeneralPlans && p.tier !== 'premium'
   );
 
-  const headline = isApprovedSpecial ? '특별회원 구독' : '일반회원 구독';
+  const headline = isApprovedSpecial
+    ? '특별회원 구독'
+    : isPendingSpecial && !showGeneralPlans
+      ? '특별회원 승인 대기'
+      : '일반회원 구독';
   const subline = isApprovedSpecial
     ? '특별회원으로 승인되었습니다. 특별회원 전용 구독 상품만 노출됩니다.'
-    : '하이퍼쉴드 멤버쉽은 회원제 쇼핑몰입니다. 등록된 일반회원 구독 상품을 결제하면 모든 제품을 할인가로 구매할 수 있습니다.';
+    : isPendingSpecial && !showGeneralPlans
+      ? '특별회원 승인이 완료되면 특별회원 구독을 신청할 수 있습니다.'
+      : '하이퍼쉴드 멤버쉽은 회원제 쇼핑몰입니다. 등록된 일반회원 구독 상품을 결제하면 모든 제품을 할인가로 구매할 수 있습니다.';
 
   function buildBanners(plan: SubscriptionPlan): BannerOption[] {
     const banners: BannerOption[] = [];
@@ -152,15 +161,30 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
             </p>
           </div>
 
-          <div className="mb-6 flex items-start gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-gold-deep">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-medium">결제가 완료되어야 쇼핑몰에 입장할 수 있습니다.</p>
-              <p className="mt-1 text-xs text-slate-500">
-                원하는 결제 주기 배너를 선택해 바로 결제하세요. 월 결제는 1개월, 연 결제는 12개월 이용 기간이 제공됩니다.
-              </p>
+          {isPendingSpecial && !showGeneralPlans ? (
+            <div className="mb-6 rounded-xl border border-gold/40 bg-gold/5 p-6 text-center">
+              <AlertCircle className="mx-auto mb-3 h-7 w-7 text-gold-deep" />
+              <p className="font-medium text-slate-800">특별회원은 관리자 승인이 필요합니다.</p>
+              <p className="mt-1 text-sm text-slate-600">관리자 승인 후 구독신청해주시기 바랍니다.</p>
+              <button
+                type="button"
+                onClick={() => setShowGeneralPlans(true)}
+                className="btn-primary mt-5 px-5 py-3"
+              >
+                일반회원으로 구독신청할래요 <ArrowRight className="h-4 w-4" />
+              </button>
             </div>
-          </div>
+          ) : (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3 text-sm text-gold-deep">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-medium">결제가 완료되어야 쇼핑몰에 입장할 수 있습니다.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  원하는 결제 주기 배너를 선택해 바로 결제하세요. 월 결제는 1개월, 연 결제는 12개월 이용 기간이 제공됩니다.
+                </p>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -267,7 +291,7 @@ export default function SubscriptionGate({ profile, plans, onSignOut, onActivate
             );
           })}
 
-          {visiblePlans.length === 0 && (
+          {visiblePlans.length === 0 && !(isPendingSpecial && !showGeneralPlans) && (
             <div className="card-surface p-8 text-center text-sm text-slate-500">
               {isApprovedSpecial
                 ? '현재 특별회원 전용 구독 상품이 없습니다. 관리자에게 문의해 주세요.'

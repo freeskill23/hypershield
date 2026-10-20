@@ -359,6 +359,23 @@ export default function ProductDetail({ product, settings, reviews = [], hasActi
         </div>
       </div>
 
+      {/* Product detail images */}
+      {product.detail_images && product.detail_images.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-gothic text-base font-semibold text-slate-800">상품 상세정보</h2>
+          <div className="mx-auto w-full max-w-[800px] overflow-hidden rounded-xl bg-white shadow-sm">
+            {product.detail_images.map((image, i) => (
+              <img
+                key={`${image}-${i}`}
+                src={image}
+                alt={`${product.name} 상세정보 ${i + 1}`}
+                className="block h-auto w-full"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* YouTube videos */}
       {product.youtube_urls && product.youtube_urls.length > 0 && (
         <div className="space-y-3">

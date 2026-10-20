@@ -54,8 +54,8 @@ interface Props {
 }
 
 interface OptionFormRow { name: string; values: { label: string; price_addition: string }[]; }
-interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; is_trial_available: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; use_default_shipping: boolean; shipping_fee: string; shipping_type: string; }
-const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_link: '', sku: '', stock: '100', is_active: true, is_trial_available: false, sort_order: '0', options: [], youtube_urls: [], use_default_shipping: true, shipping_fee: '', shipping_type: 'default' };
+interface ProductForm { name: string; category_ids: string[]; original_price: string; club_price: string; description: string; image_url: string; sub_images: string[]; detail_images: string[]; detail_link: string; sku: string; stock: string; is_active: boolean; is_trial_available: boolean; sort_order: string; options: OptionFormRow[]; youtube_urls: string[]; use_default_shipping: boolean; shipping_fee: string; shipping_type: string; }
+const emptyProductForm: ProductForm = { name: '', category_ids: [], original_price: '', club_price: '', description: '', image_url: '', sub_images: [], detail_images: [], detail_link: '', sku: '', stock: '100', is_active: true, is_trial_available: false, sort_order: '0', options: [], youtube_urls: [], use_default_shipping: true, shipping_fee: '', shipping_type: 'default' }; 
 
 interface PostForm { title: string; content: string; excerpt: string; category: string; visibility: 'public' | 'members'; is_pinned: boolean; }
 const emptyPostForm: PostForm = { title: '', content: '', excerpt: '', category: '', visibility: 'public', is_pinned: false };
@@ -229,7 +229,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setEditProduct(p);
     const catIds = p.category_ids && p.category_ids.length > 0 ? p.category_ids : (p.category_id ? [p.category_id] : []);
     const opts: OptionFormRow[] = (p.options ?? []).map(o => ({ name: o.name, values: o.values.map(v => ({ label: v.label, price_addition: String(v.price_addition) })) }));
-    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, is_trial_available: p.is_trial_available ?? false, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [], use_default_shipping: p.use_default_shipping ?? true, shipping_fee: p.shipping_fee != null ? String(p.shipping_fee) : '', shipping_type: p.shipping_type ?? 'default' });
+    setPf({ name: p.name, category_ids: catIds, original_price: String(p.original_price), club_price: String(p.club_price), description: p.description ?? '', image_url: p.image_url ?? '', sub_images: p.sub_images ?? [], detail_images: p.detail_images ?? [], detail_link: p.detail_link ?? '', sku: p.sku ?? '', stock: String(p.stock), is_active: p.is_active, is_trial_available: p.is_trial_available ?? false, sort_order: String(p.sort_order), options: opts, youtube_urls: p.youtube_urls ?? [], use_default_shipping: p.use_default_shipping ?? true, shipping_fee: p.shipping_fee != null ? String(p.shipping_fee) : '', shipping_type: p.shipping_type ?? 'default' });
     setShowProductForm(true);
   }
   function toggleProductCategory(catId: string) {
@@ -263,6 +263,8 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       const primaryCat = selectedCats[0];
       const sub = pf.sub_images.filter(s => s.trim());
       const subVal = sub.length > 0 ? sub : null;
+      const detail = pf.detail_images.filter(s => s.trim());
+      const detailVal = detail.length > 0 ? detail : null;
       const catIdsVal = pf.category_ids.length > 0 ? pf.category_ids : null;
       const cleanOptions: ProductOption[] | null = (() => {
         const opts = pf.options
@@ -281,7 +283,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
         name: pf.name.trim(), category: primaryCat?.name ?? '', category_id: primaryCat?.id ?? null,
         category_ids: catIdsVal,
         original_price: Number(pf.original_price) || 0, club_price: Number(pf.club_price) || 0,
-        image_url: pf.image_url.trim() || null, sub_images: subVal, sku: pf.sku.trim() || null,
+        image_url: pf.image_url.trim() || null, sub_images: subVal, detail_images: detailVal, sku: pf.sku.trim() || null,
         stock: Number(pf.stock) || 0, sort_order: Number(pf.sort_order) || 0,
         detail_link: pf.detail_link.trim() || null,
         options: cleanOptions,
@@ -305,7 +307,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       category_ids: catIds.length > 0 ? catIds : null,
       original_price: p.original_price, club_price: p.club_price,
       description: p.description ?? undefined,
-      image_url: p.image_url, sub_images: p.sub_images ?? undefined,
+      image_url: p.image_url, sub_images: p.sub_images ?? undefined, detail_images: p.detail_images ?? undefined,
       sku: p.sku ?? undefined, stock: p.stock, sort_order: products.length,
       detail_link: p.detail_link ?? undefined,
       options: p.options ?? null,
@@ -877,7 +879,20 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                     )}
                   </div>
                 </div>
-                <div className="md:col-span-2"><Field label="상품 정보 자세히 보기 링크 (스마트스토어 등)"><input value={pf.detail_link} onChange={e => setPf({ ...pf, detail_link: e.target.value })} placeholder="https://smartstore.naver.com/..." className="input-field" /></Field></div>
+                <div className="md:col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-400">상품 상세페이지 이미지 (가로 800px 권장, 세로 제한 없음)</label>
+                  <p className="mb-2 text-xs text-slate-500">상품 상세 화면에 위에서부터 순서대로 이어서 표시됩니다.</p>
+                  <div className="space-y-3">
+                    {pf.detail_images.map((img, i) => (
+                      <div key={i} className="relative overflow-hidden rounded-lg border border-navy-700 bg-white">
+                        <img src={img} alt={`상세 이미지 ${i + 1}`} className="max-h-48 w-full object-contain" />
+                        <button type="button" onClick={() => setPf(prev => ({ ...prev, detail_images: prev.detail_images.filter((_, idx) => idx !== i) }))} className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white hover:bg-red-500"><XCircle className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ))}
+                    <ImageUpload label="상세 이미지 추가" value="" onChange={(url) => { if (url) setPf(prev => ({ ...prev, detail_images: [...prev.detail_images, url] })); }} className="rounded-lg border border-dashed border-navy-700 p-3" />
+                  </div>
+                </div>
+                <div className="md:col-span-2"><Field label="상품 정보 자세히 보기 링크 (스마트스토어 등, 선택)"><input value={pf.detail_link} onChange={e => setPf({ ...pf, detail_link: e.target.value })} placeholder="https://smartstore.naver.com/..." className="input-field" /></Field></div>
                 <Field label="재고"><input type="number" value={pf.stock} onChange={e => setPf({ ...pf, stock: e.target.value })} className="input-field" /></Field>
                 <div className="md:col-span-2"><span className="text-xs text-slate-500">정렬 순서는 상품 목록에서 드래그하여 변경할 수 있습니다.</span></div>
 
