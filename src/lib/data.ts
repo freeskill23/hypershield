@@ -282,14 +282,16 @@ export async function createOrder(
   },
   pointsUsed: number = 0,
   skipClearCart: boolean = false,
+  shippingFee: number = 0,
 ): Promise<Order | null> {
   if (!isSupabaseConfigured || !supabase) return null;
 
-  const totalAmount = items.reduce((sum, item) => {
+  const itemsTotal = items.reduce((sum, item) => {
     const base = item.product?.club_price ?? 0;
     const optionAdd = (item.selected_options ?? []).reduce((s, o) => s + (o.price_addition ?? 0), 0);
     return sum + (base + optionAdd) * item.quantity;
-  }, 0) - pointsUsed;
+  }, 0);
+  const totalAmount = itemsTotal + shippingFee - pointsUsed;
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
@@ -303,8 +305,9 @@ export async function createOrder(
       address_detail: shipping.address_detail,
       shipping_message: shipping.shipping_message ?? null,
       payment_method: shipping.payment_method ?? 'manual',
+      shipping_fee: shippingFee,
       points_used: pointsUsed,
-      points_earned: Math.floor(totalAmount / 100),
+      points_earned: Math.floor(itemsTotal / 100),
     })
     .select()
     .single();

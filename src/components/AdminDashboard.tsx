@@ -198,6 +198,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [actBusy, setActBusy] = useState(false);
   const [actErr, setActErr] = useState<string | null>(null);
 
+  const [showTodaySubsModal, setShowTodaySubsModal] = useState(false);
   const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
   const [transferLoading, setTransferLoading] = useState(false);
   const [bankNameVal, setBankNameVal] = useState('');
@@ -260,7 +261,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       .reduce((s, o) => s + o.total_amount, 0);
 
     const todayNewMembers = profiles.filter(p => isToday(p.created_at)).length;
-    const todayNewSubs = profiles.filter(p => isToday(p.subscription_started_at)).length;
+    const todayNewSubsList = profiles
+      .filter(p => isToday(p.subscription_started_at))
+      .sort((a, b) => (b.subscription_started_at ?? '').localeCompare(a.subscription_started_at ?? ''));
+    const todayNewSubs = todayNewSubsList.length;
 
     return {
       generalMonthly, generalAnnual, specialMonthly, specialAnnual,
@@ -270,6 +274,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       todayRevenue,
       todayNewMembers,
       todayNewSubs,
+      todayNewSubsList,
     };
   }, [profiles, orders, plans]);
 
@@ -848,10 +853,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 <div className="flex items-center gap-1.5 text-xs text-slate-500"><Users className="h-3.5 w-3.5 text-cyan" /> 오늘 신규 회원</div>
                 <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{todayStats.todayNewMembers}<span className="ml-1 text-sm font-normal text-slate-500">명</span></div>
               </div>
-              <div className="rounded-lg border border-gold/30 bg-gold/5 p-4">
+              <button onClick={() => setShowTodaySubsModal(true)} className="rounded-lg border border-gold/30 bg-gold/5 p-4 text-left transition hover:border-gold/60 hover:bg-gold/10 cursor-pointer">
                 <div className="flex items-center gap-1.5 text-xs text-slate-500"><Crown className="h-3.5 w-3.5 text-gold" /> 오늘 신규 구독</div>
                 <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{todayStats.todayNewSubs}<span className="ml-1 text-sm font-normal text-slate-500">명</span></div>
-              </div>
+              </button>
               <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-4">
                 <div className="flex items-center gap-1.5 text-xs text-slate-500"><ShoppingBag className="h-3.5 w-3.5 text-cyan" /> 오늘 주문</div>
                 <div className="mt-1 font-gothic text-2xl font-bold text-slate-800">{todayStats.todayOrderCount}<span className="ml-1 text-sm font-normal text-slate-500">건</span></div>
@@ -1036,6 +1041,43 @@ export default function AdminDashboard({ profile, products, categories, orders, 
               {profiles.length === 0 && <div className="py-8 text-center text-sm text-slate-500">회원이 없습니다.</div>}
             </div>
           </div>
+          </div>
+        </div>
+      )}
+
+      {/* Today's new subscribers modal */}
+      {showTodaySubsModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setShowTodaySubsModal(false)}>
+          <div className="card-surface w-full max-w-lg max-h-[80vh] overflow-y-auto space-y-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-gothic text-base font-semibold text-slate-800 flex items-center gap-2"><Crown className="h-4 w-4 text-gold" /> 오늘 신규 구독 회원</h3>
+              <button onClick={() => setShowTodaySubsModal(false)} className="text-slate-500 hover:text-slate-600"><XCircle className="h-5 w-5" /></button>
+            </div>
+            <p className="text-xs text-slate-500">{formatDate(new Date().toISOString())} 기준 · {todayStats.todayNewSubs}명</p>
+            {todayStats.todayNewSubsList.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-500">오늘 신규 구독한 회원이 없습니다.</div>
+            ) : (
+              <div className="space-y-2">
+                {todayStats.todayNewSubsList.map(p => {
+                  const plan = plans.find(pl => pl.id === p.subscription_plan_id);
+                  return (
+                    <div key={p.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-slate-50 px-3 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-9 w-9 place-items-center rounded-full bg-gold/10 text-sm font-bold text-gold-deep">{p.full_name.slice(0, 1)}</div>
+                        <div>
+                          <div className="text-sm font-medium text-slate-800">{p.full_name}</div>
+                          <div className="text-xs text-slate-500">{p.cafe_nickname ?? '—'} · {p.email}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-medium text-slate-700">{plan?.name ?? '—'}</div>
+                        <div className="text-xs text-slate-500">{p.subscription_billing_period === 'annual' ? '연 회원' : '월 회원'}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1378,6 +1420,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateTime(o.created_at)}</span>
                           <span className="flex items-center gap-1 text-cyan"><Banknote className="h-3 w-3" /> {formatKRW(o.total_amount)}</span>
+                          {o.shipping_fee > 0 && <span className="text-slate-500">(배송비 {formatKRW(o.shipping_fee)} 포함)</span>}
                           {o.points_used > 0 && <span>포인트 사용 {formatKRW(o.points_used)}</span>}
                         </div>
                         {o.address && <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-400"><MapPin className="mt-0.5 h-3 w-3 shrink-0" /><span>{o.address} {o.address_detail} · {o.recipient_phone}</span></div>}

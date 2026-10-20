@@ -155,7 +155,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           return;
         }
 
-        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: 'card' }, 0, isBuyNow);
+        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: 'card' }, 0, isBuyNow, shippingFee);
         if (order) {
           await updateOrderStatus(order.id, 'paid', { portone_payment_id: paymentId });
           onComplete();
@@ -163,7 +163,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           setError('주문 생성에 실패했습니다.');
         }
       } else {
-        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow);
+        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow, shippingFee);
         if (order) {
           if (paymentMethod === 'card') await updateOrderStatus(order.id, 'paid');
           onComplete();

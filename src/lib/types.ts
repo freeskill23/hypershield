@@ -122,6 +122,7 @@ export interface Order {
   delivered_at: string | null;
   payment_method: 'card' | 'manual' | string;
   shipping_message: string | null;
+  shipping_fee: number;
   points_used: number;
   points_earned: number;
   created_at: string;
