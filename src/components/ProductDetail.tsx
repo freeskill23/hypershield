@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube, Zap,
+  ArrowLeft, Package, ShoppingCart, TrendingDown, Check, Minus, Plus, Truck, ExternalLink, Youtube, Zap, AlertCircle,
 } from 'lucide-react';
 import { Product, ProductOption, Setting, SelectedOption, Review } from '../lib/types';
 import { formatKRW, calcDiscountRate } from '../lib/format';
@@ -56,6 +56,7 @@ interface Props {
 export default function ProductDetail({ product, settings, reviews = [], hasActiveSubscription = true, onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
@@ -104,6 +105,7 @@ export default function ProductDetail({ product, settings, reviews = [], hasActi
     if (!product) return;
     if (!allOptionsSelected) return;
     setBusy(true);
+    setCartError(null);
     try {
       const opts: SelectedOption[] = options.map((opt, oi) => {
         const vi = selectedOptions[oi]!;
@@ -113,6 +115,8 @@ export default function ProductDetail({ product, settings, reviews = [], hasActi
       setAdded(true);
       onAddedToCart?.();
       setTimeout(() => setAdded(false), 2000);
+    } catch (e) {
+      setCartError(e instanceof Error ? e.message : '장바구니에 담지 못했습니다.');
     } finally {
       setBusy(false);
     }
@@ -325,6 +329,13 @@ export default function ProductDetail({ product, settings, reviews = [], hasActi
                     {isFreeShipping ? '무료' : formatKRW(productShippingFee)}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {cartError && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{cartError}</span>
               </div>
             )}
 

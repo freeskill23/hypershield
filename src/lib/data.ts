@@ -222,13 +222,17 @@ function optionsMatch(a: SelectedOption[] | null, b: SelectedOption[] | null): b
 }
 
 export async function addToCart(productId: string, quantity: number = 1, selectedOptions?: SelectedOption[]) {
-  if (!isSupabaseConfigured || !supabase) return;
-  const optionsJson = selectedOptions && selectedOptions.length > 0 ? selectedOptions : null;
+  if (!isSupabaseConfigured || !supabase) throw new Error('장바구니 서비스를 사용할 수 없습니다.');
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) throw new Error('로그인이 필요합니다.');
 
-  const { data: existingItems } = await supabase
+  const optionsJson = selectedOptions && selectedOptions.length > 0 ? selectedOptions : null;
+  const { data: existingItems, error: existingError } = await supabase
     .from('cart_items')
     .select('id, quantity, selected_options')
+    .eq('user_id', userData.user.id)
     .eq('product_id', productId);
+  if (existingError) throw existingError;
 
   const match = (existingItems as any[])?.find((item) => {
     const itemOpts = item.selected_options as SelectedOption[] | null;
@@ -236,14 +240,22 @@ export async function addToCart(productId: string, quantity: number = 1, selecte
   });
 
   if (match) {
-    await supabase
+    const { error } = await supabase
       .from('cart_items')
       .update({ quantity: match.quantity + quantity })
-      .eq('id', match.id);
+      .eq('id', match.id)
+      .eq('user_id', userData.user.id);
+    if (error) throw error;
     return;
   }
 
-  await supabase.from('cart_items').insert({ product_id: productId, quantity, selected_options: optionsJson });
+  const { error } = await supabase.from('cart_items').insert({
+    user_id: userData.user.id,
+    product_id: productId,
+    quantity,
+    selected_options: optionsJson,
+  });
+  if (error) throw error;
 }
 
 export async function updateCartQuantity(cartItemId: string, quantity: number) {
@@ -279,6 +291,7 @@ export async function createOrder(
     address_detail: string;
     shipping_message?: string;
     payment_method?: string;
+    portone_payment_id?: string;
   },
   pointsUsed: number = 0,
   skipClearCart: boolean = false,
@@ -305,6 +318,7 @@ export async function createOrder(
       address_detail: shipping.address_detail,
       shipping_message: shipping.shipping_message ?? null,
       payment_method: shipping.payment_method ?? 'manual',
+      portone_payment_id: shipping.portone_payment_id ?? null,
       shipping_fee: shippingFee,
       points_used: pointsUsed,
       points_earned: Math.floor(itemsTotal / 100),
@@ -596,6 +610,13 @@ export async function createPendingCardPayment(input: {
   if (!isSupabaseConfigured || !supabase) return { ok: false, error: '서비스를 사용할 수 없습니다.' };
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return { ok: false, error: '로그인이 필요합니다.' };
+
+  await supabase
+    .from('subscription_payments')
+    .delete()
+    .eq('user_id', userData.user.id)
+    .eq('status', 'pending')
+    .eq('payment_method', 'card');
 
   const { error } = await supabase.from('subscription_payments').insert({
     user_id: userData.user.id,

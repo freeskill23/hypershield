@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product, SelectedOption } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
-import { createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
+import { clearCart, createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
 import { supabase } from '../lib/supabase';
 import AddressSearchButton from './AddressSearchButton';
@@ -133,6 +133,19 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         }
         const paymentId = generatePaymentId('order');
         const { data: userData } = await supabase.auth.getUser();
+        const order = await createOrder(
+          userId,
+          checkoutItems,
+          { ...shippingData, payment_method: 'card', portone_payment_id: paymentId },
+          0,
+          true,
+          shippingFee,
+        );
+        if (!order) {
+          setError('주문 준비에 실패했습니다. 결제를 진행하지 않았습니다.');
+          return;
+        }
+
         const response = await requestProductPayment({
           paymentId,
           orderName,
@@ -155,13 +168,9 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           return;
         }
 
-        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: 'card' }, 0, isBuyNow, shippingFee);
-        if (order) {
-          await updateOrderStatus(order.id, 'paid', { portone_payment_id: paymentId });
-          onComplete();
-        } else {
-          setError('주문 생성에 실패했습니다.');
-        }
+        await updateOrderStatus(order.id, 'paid');
+        await clearCart(userId);
+        onComplete();
       } else {
         const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow, shippingFee);
         if (order) {

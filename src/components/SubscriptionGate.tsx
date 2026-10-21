@@ -42,11 +42,14 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
     .filter((p) => p.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
 
+  const [redirectConfirming, setRedirectConfirming] = useState(false);
+
   useEffect(() => {
     const stored = sessionStorage.getItem('pending_subscription_payment');
-    if (!stored) return;
+    if (!stored || redirectConfirming) return;
     let ctx: { paymentId: string; planId: string; period: BillingPeriod; amount: number; planName: string };
     try { ctx = JSON.parse(stored); } catch { sessionStorage.removeItem('pending_subscription_payment'); return; }
+    setRedirectConfirming(true);
     (async () => {
       setBusy('redirect-confirm');
       setError(null);
@@ -74,7 +77,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
         setBusy(null);
       }
     })();
-  }, []);
+  }, [redirectConfirming, onActivated]);
 
   const isApprovedSpecial = profile.special_member_status === 'approved';
   const isPendingSpecial = profile.special_member_status === 'requested';
@@ -128,6 +131,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
   async function handleSubscribe(plan: SubscriptionPlan, banner: BannerOption) {
     setError(null);
     setSuccess(null);
+    if (busy !== null) return;
     if (!isPaymentConfigured()) {
       setError('결제 설정이 누락되었습니다. 관리자에게 문의해 주세요.');
       return;
