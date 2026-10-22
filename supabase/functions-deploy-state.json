@@ -1,0 +1,29 @@
+{
+  "projectId": "69090561",
+  "functions": {
+    "admin-delete-user": {
+      "hasChanged": false,
+      "hash": "4ae049dcb95c516b87fb723580fa36fc86b5124eb3e4eac4f46830a249b60a7b"
+    },
+    "admin-reset-password": {
+      "hasChanged": false,
+      "hash": "a59019be6f69c22ea301409f029567df426516d2748f23955d049d1c163a14d0"
+    },
+    "charge-subscription": {
+      "hasChanged": false,
+      "hash": "13ff60586f45f646bc1679b1073f0b221fa78be836d2e492b075aab7a4870b73"
+    },
+    "confirm-subscription-payment": {
+      "hasChanged": false,
+      "hash": "5305b91b6cdc2fb2287111719a039cf338465e9eb64ea673c6eff76b20cc2328"
+    },
+    "fetch-product-info": {
+      "hasChanged": false,
+      "hash": "653014d71fc437cc4a3d054902e30ea4d2abe171a2305c1bdb5afeda8395f6f4"
+    },
+    "portone-webhook": {
+      "hasChanged": false,
+      "hash": "c43e25a735d48732694456aeead8fe3bb89c01694670d16f67f35508e3204b56"
+    }
+  }
+}

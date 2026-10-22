@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+// v2: retry PortOne verification to handle timing issues
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,19 +93,22 @@ Deno.serve(async (req: Request) => {
     let verifiedAmount: number | null = null;
 
     if (portoneApiSecret) {
-      try {
-        const paymentResponse = await fetch(
-          `https://api.portone.io/v2/payments/${encodeURIComponent(body.paymentId)}`,
-          { headers: { Authorization: `PortOne ${portoneApiSecret}` } },
-        );
-        const payment = await paymentResponse.json().catch(() => null);
-        const paidAmount = payment?.amount?.total;
-        if (paymentResponse.ok && payment?.status === "PAID") {
-          portoneVerified = true;
-          verifiedAmount = typeof paidAmount === "number" ? paidAmount : null;
+      for (let attempt = 0; attempt < 3 && !portoneVerified; attempt++) {
+        try {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
+          const paymentResponse = await fetch(
+            `https://api.portone.io/v2/payments/${encodeURIComponent(body.paymentId)}`,
+            { headers: { Authorization: `PortOne ${portoneApiSecret}` } },
+          );
+          const payment = await paymentResponse.json().catch(() => null);
+          const paidAmount = payment?.amount?.total;
+          if (paymentResponse.ok && payment?.status === "PAID") {
+            portoneVerified = true;
+            verifiedAmount = typeof paidAmount === "number" ? paidAmount : null;
+          }
+        } catch {
+          // 재시도 루프에서 계속
         }
-      } catch {
-        // 포트원 검증 일시 실패 시 클라이언트 결제 응답을 신뢰하고 계속 진행
       }
     }
 

@@ -131,7 +131,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     return (valid as string[]).includes(h) ? (h as Tab) : 'overview';
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [orderSubTab, setOrderSubTab] = useState<OrderSubTab>('all');
+  const [orderSubTab, setOrderSubTab] = useState<OrderSubTab>('paid');
 
   useEffect(() => {
     const onPopState = () => {

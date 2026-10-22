@@ -19,11 +19,15 @@ export default function Gatekeeper() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [fullName, setFullName] = useState('');
   const [cafeNickname, setCafeNickname] = useState('');
   const [cafeMembership, setCafeMembership] = useState<CafeMembership>('none');
   const [saveEmail, setSaveEmail] = useState(false);
   const [savePassword, setSavePassword] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotBusy, setForgotBusy] = useState(false);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('hypershield_saved_email');
@@ -87,6 +91,11 @@ export default function Gatekeeper() {
     setLocalError(null);
     if (!fullName.trim()) {
       setLocalError('이름을 입력해주세요.');
+      setBusy(false);
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setLocalError('비밀번호가 일치하지 않습니다.');
       setBusy(false);
       return;
     }
@@ -213,6 +222,13 @@ export default function Gatekeeper() {
                   <button type="submit" disabled={busy} className="btn-primary w-full">
                     {busy ? '로그인 중...' : <>입장하기 <ArrowRight className="h-4 w-4" /></>}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotPassword(true); setLocalError(null); }}
+                    className="w-full text-center text-xs text-slate-400 underline hover:text-slate-600"
+                  >
+                    비밀번호를 잊으셨나요?
+                  </button>
                 </form>
               ) : (
                 <form onSubmit={handleSignup} className="space-y-4">
@@ -276,12 +292,75 @@ export default function Gatekeeper() {
                         placeholder="6자 이상" className="input-field pl-10" />
                     </div>
                   </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-500">비밀번호 확인</label>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input type="password" required minLength={6} value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)}
+                        placeholder="비밀번호 재입력" className="input-field pl-10" />
+                    </div>
+                    {passwordConfirm.length > 0 && password !== passwordConfirm && (
+                      <p className="mt-1 text-xs text-red-500">비밀번호가 일치하지 않습니다.</p>
+                    )}
+                    {passwordConfirm.length > 0 && password === passwordConfirm && (
+                      <p className="mt-1 text-xs text-green-500">비밀번호가 일치합니다.</p>
+                    )}
+                  </div>
                   <button type="submit" disabled={busy} className="btn-gold w-full">
                     {busy ? '가입 중...' : <>가입하고 시작하기 <ArrowRight className="h-4 w-4" /></>}
                   </button>
                 </form>
               )}
             </div>
+
+            {forgotPassword && (
+              <div className="card-surface mt-4 p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-gothic text-base font-semibold text-slate-800">비밀번호 찾기</h3>
+                  <button onClick={() => { setForgotPassword(false); setForgotSent(false); }} className="text-slate-400 hover:text-slate-600 text-sm">
+                    닫기
+                  </button>
+                </div>
+                {forgotSent ? (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일함(스팸함 포함)을 확인해 주세요.
+                  </div>
+                ) : (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!email.trim()) return;
+                    setForgotBusy(true);
+                    setLocalError(null);
+                    try {
+                      const { supabase } = await import('../lib/supabase');
+                      if (!supabase) throw new Error('서비스를 사용할 수 없습니다.');
+                      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                        redirectTo: window.location.origin + window.location.pathname,
+                      });
+                      if (error) throw error;
+                      setForgotSent(true);
+                    } catch (err: any) {
+                      setLocalError(translateAuthError(err.message) || '이메일 발송에 실패했습니다.');
+                    } finally {
+                      setForgotBusy(false);
+                    }
+                  }} className="space-y-4">
+                    <p className="text-sm text-slate-500">가입하신 이메일을 입력하면 비밀번호 재설정 링크를 보내드립니다.</p>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-500">이메일</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@example.com" className="input-field pl-10" />
+                      </div>
+                    </div>
+                    <button type="submit" disabled={forgotBusy} className="btn-primary w-full">
+                      {forgotBusy ? '발송 중...' : <>재설정 링크 발송 <ArrowRight className="h-4 w-4" /></>}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
 
             <p className="mt-5 text-center text-xs text-slate-400">
               가입 후 구독 결제 시 쇼핑몰 이용 가능

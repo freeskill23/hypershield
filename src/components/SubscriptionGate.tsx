@@ -53,29 +53,34 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
     (async () => {
       setBusy('redirect-confirm');
       setError(null);
-      try {
-        const result = await confirmManualSubscriptionPayment({
-          paymentId: ctx.paymentId,
-          planId: ctx.planId,
-          period: ctx.period,
-          amount: ctx.amount,
-        });
-        if (!result.ok) {
-          setError(result.error || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
-          return;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, 2000 * attempt));
+          const result = await confirmManualSubscriptionPayment({
+            paymentId: ctx.paymentId,
+            planId: ctx.planId,
+            period: ctx.period,
+            amount: ctx.amount,
+          });
+          if (result.ok) {
+            sessionStorage.removeItem('pending_subscription_payment');
+            setSuccess(
+              ctx.period === 'annual'
+                ? `${ctx.planName} 연 구독 결제가 완료되었습니다. 11개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
+                : `${ctx.planName} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`,
+            );
+            onActivated();
+            setBusy(null);
+            return;
+          }
+          if (attempt < 2) continue;
+          setError(result.error || '결제 확인에 실패했습니다. 잠시 후 다시 시도해 주세요. 문제가 지속되면 관리자에게 문의해 주세요.');
+        } catch (e: any) {
+          if (attempt < 2) continue;
+          setError(e.message || '결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
         }
-        sessionStorage.removeItem('pending_subscription_payment');
-        setSuccess(
-          ctx.period === 'annual'
-            ? `${ctx.planName} 연 구독 결제가 완료되었습니다. 11개월 동안 회원제 쇼핑몰을 이용할 수 있고, 매월 1회 무료 체험 상품을 신청할 수 있습니다.`
-            : `${ctx.planName} 월 구독 결제가 완료되었습니다. 1개월 동안 회원제 쇼핑몰을 이용할 수 있습니다.`,
-        );
-        onActivated();
-      } catch (e: any) {
-        setError(e.message || '결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
-      } finally {
-        setBusy(null);
       }
+      setBusy(null);
     })();
   }, [redirectConfirming, onActivated]);
 
@@ -304,7 +309,25 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
             </div>
           )}
 
-          {error && (
+          {error && redirectConfirming && (
+            <div className="mb-6 space-y-3">
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setRedirectConfirming(false);
+                  setError(null);
+                }}
+                className="btn-primary px-5 py-2.5 text-sm"
+              >
+                결제 확인 다시 시도
+              </button>
+            </div>
+          )}
+
+          {error && !redirectConfirming && (
             <div className="mb-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
               <span>{error}</span>

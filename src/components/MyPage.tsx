@@ -11,6 +11,7 @@ import AddressSearchButton from './AddressSearchButton';
 import MyInquiry from './MyInquiry';
 import MyTrials from './MyTrials';
 import { supabase } from '../lib/supabase';
+import { KeyRound, Check } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -24,7 +25,7 @@ interface Props {
   onRefresh: () => void;
 }
 
-type Tab = 'overview' | 'orders' | 'addresses' | 'inquiries' | 'trials';
+type Tab = 'overview' | 'orders' | 'addresses' | 'inquiries' | 'trials' | 'password';
 type OrderFilter = 'all' | 'shipped' | 'delivered' | 'cancelled';
 
 const MYPAGE_TAB_KEY = 'mypage:active-tab';
@@ -32,7 +33,7 @@ const MYPAGE_TAB_KEY = 'mypage:active-tab';
 function loadInitialTab(): Tab {
   try {
     const t = sessionStorage.getItem(MYPAGE_TAB_KEY);
-    if (t === 'overview' || t === 'orders' || t === 'addresses' || t === 'inquiries' || t === 'trials') return t;
+    if (t === 'overview' || t === 'orders' || t === 'addresses' || t === 'inquiries' || t === 'trials' || t === 'password') return t;
   } catch {}
   return 'overview';
 }
@@ -45,6 +46,87 @@ const orderStatusConfig: Record<string, { label: string; className: string; icon
   delivered: { label: '배송 완료', className: 'border-green-500/40 text-green-400', icon: CheckCircle2 },
   cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
 };
+
+function PasswordChangeSection() {
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    if (newPw.length < 6) { setError('새 비밀번호는 6자 이상이어야 합니다.'); return; }
+    if (newPw !== confirmPw) { setError('새 비밀번호가 일치하지 않습니다.'); return; }
+    if (!supabase) { setError('서비스를 사용할 수 없습니다.'); return; }
+    setBusy(true);
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPw });
+      if (updateError) throw updateError;
+      setSuccess(true);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    } catch (err: any) {
+      setError(err.message || '비밀번호 변경에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-md">
+      <div className="card-surface p-6">
+        <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+          <KeyRound className="h-4 w-4 text-cyan" /> 비밀번호 변경
+        </div>
+        {success && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            <Check className="h-4 w-4" /> 비밀번호가 변경되었습니다.
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">새 비밀번호</label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              placeholder="6자 이상"
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">새 비밀번호 확인</label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              placeholder="비밀번호 재입력"
+              className="input-field"
+            />
+            {confirmPw.length > 0 && newPw !== confirmPw && (
+              <p className="mt-1 text-xs text-red-500">비밀번호가 일치하지 않습니다.</p>
+            )}
+          </div>
+          <button type="submit" disabled={busy} className="btn-primary w-full">
+            {busy ? '변경 중...' : '비밀번호 변경'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, reviews, products, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>(loadInitialTab);
@@ -231,6 +313,7 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
           ['addresses', '배송지 관리'],
           ['inquiries', '1:1 문의'],
           ['trials', '체험단'],
+          ['password', '비밀번호 변경'],
         ] as [Tab, string][]).map(([k, label]) => (
           <button
             key={k}
@@ -263,8 +346,12 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
                     <span className="text-slate-800">{currentPlan?.name ?? '—'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">월 구독료</span>
-                    <span className="text-slate-800">{formatKRW(currentPlan?.monthly_price ?? 0)}</span>
+                    <span className="text-slate-400">결제 주기</span>
+                    <span className="text-slate-800">{profile.subscription_billing_period === 'annual' ? '연 구독' : '월 구독'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">구독료</span>
+                    <span className="text-slate-800">{formatKRW(profile.subscription_billing_period === 'annual' ? (currentPlan?.annual_price ?? 0) : (currentPlan?.monthly_price ?? 0))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">할인율</span>
@@ -739,6 +826,11 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
       {/* Trials */}
       {tab === 'trials' && (
         <MyTrials trials={trialHook.items} products={products} userId={profile.id} onRefresh={() => { trialHook.refresh(); onRefresh(); }} />
+      )}
+
+      {/* Password change */}
+      {tab === 'password' && (
+        <PasswordChangeSection />
       )}
 
       {/* Cancel order modal */}
