@@ -93,9 +93,9 @@ Deno.serve(async (req: Request) => {
     let verifiedAmount: number | null = null;
 
     if (portoneApiSecret) {
-      for (let attempt = 0; attempt < 3 && !portoneVerified; attempt++) {
+      for (let attempt = 0; attempt < 8 && !portoneVerified; attempt++) {
         try {
-          if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
+          if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
           const paymentResponse = await fetch(
             `https://api.portone.io/v2/payments/${encodeURIComponent(body.paymentId)}`,
             { headers: { Authorization: `PortOne ${portoneApiSecret}` } },

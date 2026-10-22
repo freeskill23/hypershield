@@ -53,9 +53,9 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
     (async () => {
       setBusy('redirect-confirm');
       setError(null);
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 8; attempt++) {
         try {
-          if (attempt > 0) await new Promise((r) => setTimeout(r, 2000 * attempt));
+          if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
           const result = await confirmManualSubscriptionPayment({
             paymentId: ctx.paymentId,
             planId: ctx.planId,
@@ -73,10 +73,10 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
             setBusy(null);
             return;
           }
-          if (attempt < 2) continue;
+          if (attempt < 7) continue;
           setError(result.error || '결제 확인에 실패했습니다. 잠시 후 다시 시도해 주세요. 문제가 지속되면 관리자에게 문의해 주세요.');
         } catch (e: any) {
-          if (attempt < 2) continue;
+          if (attempt < 7) continue;
           setError(e.message || '결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
         }
       }
@@ -190,14 +190,28 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
       }
 
       const confirmedPaymentId = response.paymentId || paymentId;
-      const result = await confirmManualSubscriptionPayment({
-        paymentId: confirmedPaymentId,
-        planId: plan.id,
-        period: banner.period,
-        amount: banner.amount,
-      });
-      if (!result.ok) {
-        setError(result.error || '결제 확인에 실패했습니다.');
+      let confirmOk = false;
+      let confirmError: string | null = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
+          const result = await confirmManualSubscriptionPayment({
+            paymentId: confirmedPaymentId,
+            planId: plan.id,
+            period: banner.period,
+            amount: banner.amount,
+          });
+          if (result.ok) {
+            confirmOk = true;
+            break;
+          }
+          confirmError = result.error || '결제 확인에 실패했습니다.';
+        } catch (e: any) {
+          confirmError = e.message || '결제 확인 중 오류가 발생했습니다.';
+        }
+      }
+      if (!confirmOk) {
+        setError(confirmError || '결제 확인에 실패했습니다. 잠시 후 다시 시도해 주세요. 문제가 지속되면 관리자에게 문의해 주세요.');
         return;
       }
       sessionStorage.removeItem('pending_subscription_payment');
