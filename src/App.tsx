@@ -311,7 +311,6 @@ function ShellContent({
             reviews={reviews.filter((r: any) => r.product_id === route.productId)}
             hasActiveSubscription={profile.subscription_status === 'active'}
             onBack={() => navigate({ name: 'shop' })}
-            onGoCart={() => { onRefreshCart(); navigate({ name: 'cart' }); }}
             onBuyNow={onBuyNow}
             onAddedToCart={onRefreshCart}
           />

@@ -802,7 +802,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setSelectedIds(new Set()); setBatchPlanId('');
     setOrderSelectedIds(new Set());
     setProductSelectedIds(new Set());
-    setOrderSubTab('all');
+    setOrderSubTab('paid');
     setMemberFilter('all');
     setMemberSearch('');
     setTracking({});

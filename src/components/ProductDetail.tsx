@@ -48,12 +48,11 @@ interface Props {
   reviews?: Review[];
   hasActiveSubscription?: boolean;
   onBack: () => void;
-  onGoCart: () => void;
   onBuyNow?: (item: { product: Product; quantity: number; selected_options?: SelectedOption[] }) => void;
   onAddedToCart?: () => void;
 }
 
-export default function ProductDetail({ product, settings, reviews = [], hasActiveSubscription = true, onBack, onGoCart, onBuyNow, onAddedToCart }: Props) {
+export default function ProductDetail({ product, settings, reviews = [], hasActiveSubscription = true, onBack, onBuyNow, onAddedToCart }: Props) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
@@ -347,7 +346,7 @@ export default function ProductDetail({ product, settings, reviews = [], hasActi
                   ) : added ? (
                     <><Check className="h-4 w-4" /> 추가됨</>
                   ) : (
-                    <><ShoppingCart className="h-4 w-4" /> 장바구니</>
+                    <><ShoppingCart className="h-4 w-4" /> 장바구니 담기</>
                   )}
                 </button>
                 <button
@@ -356,9 +355,6 @@ export default function ProductDetail({ product, settings, reviews = [], hasActi
                   className="btn-primary flex-1"
                 >
                   <Zap className="h-4 w-4" /> 바로 구매
-                </button>
-                <button onClick={onGoCart} className="btn-ghost px-4 py-2.5">
-                  장바구니
                 </button>
               </div>
             ) : (
