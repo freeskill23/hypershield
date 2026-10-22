@@ -70,7 +70,7 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                     {recruitmentBatch}차 구독자 모집
                   </div>
                   <div className="font-gothic text-2xl font-bold text-slate-800">
-                    선착순 {recruitmentLimit}명
+                    {recruitmentBatch}차 회원 {recruitmentLimit}명
                   </div>
                   <p className="mt-1 text-xs text-slate-400">
                     제품 공급량 조절을 위해 구독자를 제한합니다
@@ -155,10 +155,10 @@ export default function LandingPage({ onEnter, onViewBoard, onViewPost }: Props)
                 </div>
                 <div>
                   <div className="font-gothic text-lg font-bold text-slate-800">
-                    {recruitmentBatch}차 구독자 선착순 {recruitmentLimit}명 모집
+                    {recruitmentBatch}차 회원 {recruitmentLimit}명 모집
                   </div>
                   <p className="mt-1 text-sm text-slate-400">
-                    제품 공급량 조절을 위해 구독자를 제한합니다. 한정 인원으로 조기 마감될 수 있습니다.
+                    제품 공급량 조절을 위해 회원을 제한합니다. 한정 인원으로 조기 마감될 수 있습니다.
                   </p>
                 </div>
               </div>
