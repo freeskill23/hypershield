@@ -61,7 +61,13 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (existingPayment?.status === "paid") {
-      return json({ ok: true, expiresAt: null, alreadyConfirmed: true });
+      // Webhook already activated — return success with the profile's current expiry
+      const { data: curProfile } = await adminClient
+        .from("profiles")
+        .select("subscription_expires_at, subscription_billing_period")
+        .eq("id", userId)
+        .maybeSingle();
+      return json({ ok: true, expiresAt: curProfile?.subscription_expires_at ?? null, alreadyConfirmed: true, period: curProfile?.subscription_billing_period ?? null });
     }
     if (existingPayment && existingPayment.user_id !== userId) {
       return json({ error: "결제를 확인할 수 없습니다." }, 400);
@@ -119,6 +125,20 @@ Deno.serve(async (req: Request) => {
     if (!portoneVerified) {
       if (existingPayment?.payment_method === "bank_transfer") {
         return json({ error: "무통장 입금은 관리자가 입금 확인 후 활성화됩니다." }, 400);
+      }
+      // Fallback: the webhook may have already activated the subscription while we were retrying.
+      const { data: curPayment } = await adminClient
+        .from("subscription_payments")
+        .select("status")
+        .eq("portone_payment_id", body.paymentId)
+        .maybeSingle();
+      if (curPayment?.status === "paid") {
+        const { data: curProfile } = await adminClient
+          .from("profiles")
+          .select("subscription_expires_at, subscription_billing_period")
+          .eq("id", userId)
+          .maybeSingle();
+        return json({ ok: true, expiresAt: curProfile?.subscription_expires_at ?? null, alreadyConfirmed: true, period: curProfile?.subscription_billing_period ?? null });
       }
       const reason = portoneApiSecret
         ? "결제가 완료되지 않았거나 결제 검증에 실패했습니다. 잠시 후 다시 시도해 주세요."
