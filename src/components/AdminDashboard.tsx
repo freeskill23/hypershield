@@ -1520,6 +1520,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         {o.tracking_number && <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400"><Truck className="h-3 w-3" /><span>{o.carrier} {o.tracking_number}</span></div>}
                         <div className="mt-2 text-xs text-slate-500">상품: {orderItems.filter(i => i.order_id === o.id).map(i => `${i.product_name} x ${i.quantity}`).join(', ') || '주문 상품 정보 없음'}</div>
                         {o.shipping_message && <div className="mt-1 text-xs text-slate-500">배송 메세지: {o.shipping_message}</div>}
+                        {o.combined_shipping && (
+                          <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/5 px-2.5 py-1.5 text-xs font-medium text-cyan">
+                            <Package className="h-3.5 w-3.5" /> 체험단 합배송
+                            {o.trial_application_id && <span className="text-slate-500">(신청번호: {o.trial_application_id.slice(0, 8)})</span>}
+                          </div>
+                        )}
                       </div>
                       </label>
                     </div>
@@ -2283,7 +2289,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
 
                     {inq.status === 'approved' && (
                       <div className="mt-3 flex justify-end gap-1.5">
-                        <button onClick={async () => { try { await shipTrialApplication(inq.id); refresh(); } catch (e: any) { alert(e.message); } }} className="btn-primary px-4 py-2 text-sm">
+                        <button onClick={async () => { try { await shipTrialApplication(inq.id); refresh(); } catch (e: any) { alert(e.message); } }} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700">
                           <Truck className="h-3.5 w-3.5" /> 발송 완료 처리
                         </button>
                       </div>

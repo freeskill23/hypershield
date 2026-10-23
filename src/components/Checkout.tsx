@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck, Loader2,
+  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck, Loader2, Package,
 } from 'lucide-react';
-import { CartItemWithProduct, Address, Setting, Product, SelectedOption } from '../lib/types';
+import { CartItemWithProduct, Address, Setting, Product, SelectedOption, TrialApplication } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
 import { clearCart, createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
@@ -44,6 +44,23 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     shipping_message: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'manual'>('card');
+  const [approvedTrials, setApprovedTrials] = useState<TrialApplication[]>([]);
+  const [selectedTrialId, setSelectedTrialId] = useState<string | null>(null);
+  const [combinedShipping, setCombinedShipping] = useState(false);
+
+  useEffect(() => {
+    async function fetchApprovedTrials() {
+      if (!supabase) return;
+      const { data } = await supabase
+        .from('trial_applications')
+        .select('*, products:product_id(name, image_url)')
+        .eq('user_id', userId)
+        .in('status', ['approved', 'shipped'])
+        .order('created_at', { ascending: false });
+      if (data) setApprovedTrials(data as unknown as TrialApplication[]);
+    }
+    fetchApprovedTrials();
+  }, [userId]);
 
   const isBuyNow = !!buyNowItem;
   const checkoutItems: CartItemWithProduct[] = isBuyNow && buyNowItem
@@ -91,6 +108,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
   const shippingFee = (() => {
     if (isFreeShipping) return 0;
     if (isCollect) return 0;
+    if (combinedShipping) return 0;
     let fee = defaultFee;
     const products = checkoutItems.map(i => i.product).filter(Boolean);
     const hasCustomShipping = products.some(p => !p!.use_default_shipping);
@@ -136,7 +154,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         const order = await createOrder(
           userId,
           checkoutItems,
-          { ...shippingData, payment_method: 'card', portone_payment_id: paymentId },
+          { ...shippingData, payment_method: 'card', portone_payment_id: paymentId, combined_shipping: combinedShipping, trial_application_id: combinedShipping ? selectedTrialId : null },
           0,
           true,
           shippingFee,
@@ -172,7 +190,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         await clearCart(userId);
         onComplete();
       } else {
-        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod }, 0, isBuyNow, shippingFee);
+        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod, combined_shipping: combinedShipping, trial_application_id: combinedShipping ? selectedTrialId : null }, 0, isBuyNow, shippingFee);
         if (order) {
           if (paymentMethod === 'card') await updateOrderStatus(order.id, 'paid');
           onComplete();
@@ -358,6 +376,72 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
               )}
             </div>
           </div>
+
+          {/* Combined shipping with trial */}
+          {approvedTrials.length > 0 && !isCollect && (
+            <div className="card-surface p-5">
+              <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+                <Package className="h-4 w-4 text-cyan" /> 체험단 합배송
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={combinedShipping}
+                  onChange={(e) => {
+                    setCombinedShipping(e.target.checked);
+                    if (!e.target.checked) setSelectedTrialId(null);
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded"
+                />
+                <div>
+                  <div className="font-medium text-slate-800">체험단 제품과 합배송 요청</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    승인된 체험단 제품을 이 주문과 함께 한 박스로 발송 요청합니다. 배송료는 한 번만 부과됩니다.
+                  </div>
+                </div>
+              </label>
+              {combinedShipping && (
+                <div className="mt-3 space-y-2">
+                  <label className="block text-xs text-slate-500">합배송할 체험단 신청 선택</label>
+                  {approvedTrials.map((trial) => {
+                    const trialProduct = (trial as any).products;
+                    return (
+                      <button
+                        key={trial.id}
+                        type="button"
+                        onClick={() => setSelectedTrialId(trial.id)}
+                        className={`w-full rounded-lg border p-3 text-left transition ${
+                          selectedTrialId === trial.id
+                            ? 'border-cyan bg-cyan/5'
+                            : 'border-navy-700 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-800">
+                            {trialProduct?.name ?? '체험단 제품'}
+                          </span>
+                          <span className="rounded-full bg-cyan/20 px-2 py-0.5 text-xs text-cyan">
+                            {trial.status === 'approved' ? '승인됨' : '발송 대기'}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          신청일: {new Date(trial.created_at).toLocaleDateString('ko-KR')}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {combinedShipping && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-cyan/5 p-3 text-xs text-cyan">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    체험단 제품은 무료배송이므로, 합배송 시 배송료가 이 주문에만 부과됩니다. 관리자가 확인 후 함께 발송합니다.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Payment method placeholder */}
           <div className="card-surface p-5">

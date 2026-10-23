@@ -133,6 +133,8 @@ export interface Order {
   refund_account: string | null;
   refund_holder: string | null;
   cancelled_at: string | null;
+  combined_shipping: boolean;
+  trial_application_id: string | null;
 }
 
 export interface OrderItem {

@@ -292,6 +292,8 @@ export async function createOrder(
     shipping_message?: string;
     payment_method?: string;
     portone_payment_id?: string;
+    combined_shipping?: boolean;
+    trial_application_id?: string | null;
   },
   pointsUsed: number = 0,
   skipClearCart: boolean = false,
@@ -322,6 +324,8 @@ export async function createOrder(
       shipping_fee: shippingFee,
       points_used: pointsUsed,
       points_earned: Math.floor(itemsTotal / 100),
+      combined_shipping: shipping.combined_shipping ?? false,
+      trial_application_id: shipping.trial_application_id ?? null,
     })
     .select()
     .single();
