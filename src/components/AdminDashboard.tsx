@@ -312,7 +312,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     c.inquiries = inquiries.filter(i => isNewer(i.created_at, lastSeen.inquiries ?? 0)).length;
     c.reviews = reviews.filter(r => isNewer(r.created_at, lastSeen.reviews ?? 0)).length;
     c.bank_transfers = pendingTransfers.filter(t => isNewer(t.created_at, lastSeen.bank_transfers ?? 0)).length;
-    c.trials = trials.filter(t => isNewer(t.created_at, lastSeen.trials ?? 0)).length;
+    c.trials = trials.filter(t =>
+      isNewer(t.created_at, lastSeen.trials ?? 0) ||
+      isNewer(t.review_url_submitted_at, lastSeen.trials ?? 0)
+    ).length;
     c.members = profiles.filter(p => isNewer(p.created_at, lastSeen.members ?? 0)).length;
     return c;
   }, [orders, inquiries, reviews, pendingTransfers, trials, profiles, lastSeen]);
@@ -2221,6 +2224,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                             {inq.status === 'pending' && <><Clock className="h-3 w-3" /> 대기</>}
                           </span>
                           <span className="text-xs text-slate-500">{applicant?.full_name ?? '알 수 없음'}</span>
+                          {inq.review_url_submitted_at && isNewer(inq.review_url_submitted_at, lastSeen.trials ?? 0) && (
+                            <span className="inline-flex items-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white animate-pulse">URL 제출</span>
+                          )}
                           <span className="ml-auto text-xs text-slate-500">{formatDate(inq.created_at)}</span>
                         </div>
                         <div className="mt-3 flex items-center gap-3">
