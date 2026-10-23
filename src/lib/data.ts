@@ -605,6 +605,21 @@ export async function confirmManualSubscriptionPayment(input: {
   return { ok: true, expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null };
 }
 
+export async function getMyPendingCardPayments(): Promise<Array<{ portone_payment_id: string; plan_id: string; billing_period: string; amount: number }>> {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return [];
+  const { data, error } = await supabase
+    .from('subscription_payments')
+    .select('portone_payment_id, plan_id, billing_period, amount')
+    .eq('user_id', userData.user.id)
+    .eq('status', 'pending')
+    .eq('payment_method', 'card')
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return (data ?? []) as Array<{ portone_payment_id: string; plan_id: string; billing_period: string; amount: number }>;
+}
+
 export async function createPendingCardPayment(input: {
   paymentId: string;
   planId: string;

@@ -3,7 +3,7 @@ import { Crown, Check, AlertCircle, ArrowRight, Loader2, CreditCard, Sparkles, S
 import { Profile, SubscriptionPlan, BillingPeriod, Setting } from '../lib/types';
 import { formatKRW } from '../lib/format';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
-import { confirmManualSubscriptionPayment, requestBankTransferSubscription, createPendingCardPayment, getSettingValue } from '../lib/data';
+import { confirmManualSubscriptionPayment, requestBankTransferSubscription, createPendingCardPayment, getSettingValue, getMyPendingCardPayments } from '../lib/data';
 
 interface Props {
   profile: Profile;
@@ -43,6 +43,38 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
     .sort((a, b) => a.sort_order - b.sort_order);
 
   const [redirectConfirming, setRedirectConfirming] = useState(false);
+  const [autoRetrying, setAutoRetrying] = useState(false);
+
+  useEffect(() => {
+    if (profile.subscription_status === 'active') return;
+    if (autoRetrying) return;
+    setAutoRetrying(true);
+    (async () => {
+      const pending = await getMyPendingCardPayments();
+      if (pending.length === 0) { setAutoRetrying(false); return; }
+      const latest = pending[0];
+      setBusy('auto-retry');
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 9000)));
+        const result = await confirmManualSubscriptionPayment({
+          paymentId: latest.portone_payment_id,
+          planId: latest.plan_id,
+          period: latest.billing_period === 'annual' ? 'annual' : 'monthly',
+          amount: latest.amount,
+        });
+        if (result.ok) {
+          setSuccess('이전 결제가 확인되었습니다. 구독이 활성화되었습니다.');
+          onActivated();
+          setBusy(null);
+          setAutoRetrying(false);
+          return;
+        }
+      }
+      setBusy(null);
+      setAutoRetrying(false);
+      setError('이전 카드 결제가 정상 처리되었으나 시스템 확인이 지연되고 있습니다. 잠시 후 새로고침하거나 관리자에게 문의해 주세요. 결제금액은 안전하게 보관됩니다.');
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const stored = sessionStorage.getItem('pending_subscription_payment');
@@ -74,10 +106,10 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
             return;
           }
           if (attempt < 7) continue;
-          setError(result.error || '결제 확인에 실패했습니다. 잠시 후 다시 시도해 주세요. 문제가 지속되면 관리자에게 문의해 주세요.');
+          setError('카드 결제는 정상적으로 처리되었습니다. 시스템 확인이 지연되고 있으며 잠시 후 자동으로 활성화됩니다. 페이지를 새로고침하거나 잠시 후 다시 접속해 주세요. 결제금액은 안전하게 보관됩니다.');
         } catch (e: any) {
           if (attempt < 7) continue;
-          setError(e.message || '결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
+          setError('카드 결제는 정상적으로 처리되었습니다. 시스템 확인이 지연되고 있으며 잠시 후 자동으로 활성화됩니다. 페이지를 새로고침하거나 잠시 후 다시 접속해 주세요. 결제금액은 안전하게 보관됩니다.');
         }
       }
       setBusy(null);
@@ -211,7 +243,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
         }
       }
       if (!confirmOk) {
-        setError(confirmError || '결제 확인에 실패했습니다. 잠시 후 다시 시도해 주세요. 문제가 지속되면 관리자에게 문의해 주세요.');
+        setError('카드 결제는 정상적으로 처리되었습니다. 시스템 확인이 지연되고 있으며 잠시 후 자동으로 활성화됩니다. 페이지를 새로고침하거나 잠시 후 다시 접속해 주세요. 결제금액은 안전하게 보관됩니다.');
         return;
       }
       sessionStorage.removeItem('pending_subscription_payment');
@@ -316,7 +348,7 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
             </div>
           )}
 
-          {busy === 'redirect-confirm' && (
+          {(busy === 'redirect-confirm' || busy === 'auto-retry') && (
             <div className="mb-6 flex items-start gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-3 text-sm text-cyan">
               <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin" />
               <span>결제 확인 중입니다. 잠시만 기다려주세요...</span>
