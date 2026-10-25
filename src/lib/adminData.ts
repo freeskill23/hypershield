@@ -526,3 +526,104 @@ export async function deleteTrialApplication(id: string) {
   const { error } = await adminSupabase.from('trial_applications').delete().eq('id', id);
   if (error) throw new Error(`삭제 실패: ${error.message}`);
 }
+
+export interface VisitorLogRow {
+  id: string;
+  session_id: string;
+  path: string;
+  referrer: string | null;
+  search_keyword: string | null;
+  user_agent: string | null;
+  is_mobile: boolean;
+  created_at: string;
+}
+
+export async function fetchVisitorLogs(days: number = 7): Promise<VisitorLogRow[]> {
+  if (!isAdminSupabaseConfigured || !adminSupabase) return [];
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const { data, error } = await adminSupabase
+    .from('visitor_logs')
+    .select('*')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false });
+  if (error) { console.error('fetch visitor logs error', error); return []; }
+  return (data as VisitorLogRow[]) ?? [];
+}
+
+export interface AnalyticsData {
+  totalVisitors: number;
+  uniqueVisitors: number;
+  mobileVisitors: number;
+  todayVisitors: number;
+  todayUniqueVisitors: number;
+  pathCounts: { path: string; count: number }[];
+  referrerCounts: { referrer: string; count: number }[];
+  keywordCounts: { keyword: string; count: number }[];
+  dailyCounts: { date: string; count: number; unique: number }[];
+  recentVisits: VisitorLogRow[];
+}
+
+export function analyzeVisitorLogs(logs: VisitorLogRow[]): AnalyticsData {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const uniqueSessions = new Set(logs.map(l => l.session_id));
+  const todayLogs = logs.filter(l => l.created_at.slice(0, 10) === todayStr);
+  const todayUniqueSessions = new Set(todayLogs.map(l => l.session_id));
+
+  const pathMap = new Map<string, number>();
+  for (const l of logs) {
+    pathMap.set(l.path, (pathMap.get(l.path) ?? 0) + 1);
+  }
+  const pathCounts = [...pathMap.entries()]
+    .map(([path, count]) => ({ path, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
+
+  const referrerMap = new Map<string, number>();
+  for (const l of logs) {
+    if (!l.referrer) continue;
+    let host = l.referrer;
+    try { host = new URL(l.referrer).hostname; } catch {}
+    referrerMap.set(host, (referrerMap.get(host) ?? 0) + 1);
+  }
+  const referrerCounts = [...referrerMap.entries()]
+    .map(([referrer, count]) => ({ referrer, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+
+  const keywordMap = new Map<string, number>();
+  for (const l of logs) {
+    if (!l.search_keyword) continue;
+    keywordMap.set(l.search_keyword, (keywordMap.get(l.search_keyword) ?? 0) + 1);
+  }
+  const keywordCounts = [...keywordMap.entries()]
+    .map(([keyword, count]) => ({ keyword, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
+
+  const dailyMap = new Map<string, { count: number; sessions: Set<string> }>();
+  for (const l of logs) {
+    const day = l.created_at.slice(0, 10);
+    if (!dailyMap.has(day)) dailyMap.set(day, { count: 0, sessions: new Set() });
+    const e = dailyMap.get(day)!;
+    e.count++;
+    e.sessions.add(l.session_id);
+  }
+  const dailyCounts = [...dailyMap.entries()]
+    .map(([date, v]) => ({ date, count: v.count, unique: v.sessions.size }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    totalVisitors: logs.length,
+    uniqueVisitors: uniqueSessions.size,
+    mobileVisitors: logs.filter(l => l.is_mobile).length,
+    todayVisitors: todayLogs.length,
+    todayUniqueVisitors: todayUniqueSessions.size,
+    pathCounts,
+    referrerCounts,
+    keywordCounts,
+    dailyCounts,
+    recentVisits: logs.slice(0, 50),
+  };
+}

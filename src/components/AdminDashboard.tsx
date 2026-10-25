@@ -24,11 +24,12 @@ import {
   createAdminReview, deleteAdminReview,
   approveTrialApplication, rejectTrialApplication, shipTrialApplication, completeTrialApplication, deleteTrialApplication,
   fetchPendingBankTransfers, confirmBankTransferPayment, rejectBankTransferPayment,
+  fetchVisitorLogs, analyzeVisitorLogs,
 } from '../lib/adminData';
 import ImageUpload from './ImageUpload';
 import RichTextEditor from './RichTextEditor';
 
-type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews' | 'trials' | 'bank_transfers';
+type Tab = 'overview' | 'products' | 'orders' | 'members' | 'posts' | 'plans' | 'inquiries' | 'reviews' | 'trials' | 'bank_transfers' | 'analytics';
 type OrderSubTab = 'all' | 'pending' | 'paid' | 'shipped' | 'delivered' | 'past_delivered' | 'cancelled' | 'cancel_request';
 
 const orderSubTabs: [OrderSubTab, string, OrderStatus[]][] = [
@@ -127,7 +128,7 @@ const ShippingField = ({ label, value, onSave, type = 'text', hint }: { label: s
 export default function AdminDashboard({ profile, products, categories, orders, orderItems, profiles, posts, plans, settings, inquiries, reviews, trials, refresh }: Props) {
   const initialTab = (() => {
     const h = window.location.hash.replace('#admin', '').replace('/', '');
-    const valid: Tab[] = ['overview', 'products', 'orders', 'members', 'posts', 'plans', 'inquiries', 'reviews', 'trials'];
+    const valid: Tab[] = ['overview', 'products', 'orders', 'members', 'posts', 'plans', 'inquiries', 'reviews', 'trials', 'analytics'];
     return (valid as string[]).includes(h) ? (h as Tab) : 'overview';
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -136,7 +137,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   useEffect(() => {
     const onPopState = () => {
       const h = window.location.hash.replace('#admin', '').replace('/', '');
-      const valid: Tab[] = ['overview', 'products', 'orders', 'members', 'posts', 'plans', 'inquiries', 'reviews', 'trials'];
+      const valid: Tab[] = ['overview', 'products', 'orders', 'members', 'posts', 'plans', 'inquiries', 'reviews', 'trials', 'analytics'];
       setTab((valid as string[]).includes(h) ? (h as Tab) : 'overview');
     };
     window.addEventListener('popstate', onPopState);
@@ -206,6 +207,9 @@ export default function AdminDashboard({ profile, products, categories, orders, 
   const [bankNameVal, setBankNameVal] = useState('');
   const [bankAccountVal, setBankAccountVal] = useState('');
   const [bankHolderVal, setBankHolderVal] = useState('');
+  const [analyticsDays, setAnalyticsDays] = useState(7);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<ReturnType<typeof analyzeVisitorLogs> | null>(null);
   const [lastSeen, setLastSeenState] = useState<Record<string, number>>(() => {
     const m: Record<string, number> = {};
     NEW_TABS.forEach(t => { m[t] = getLastSeen(t); });
@@ -229,6 +233,12 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     if (tab === 'bank_transfers') loadPendingTransfers();
   }, [tab]);
   useEffect(() => { loadPendingTransfers(); }, []);
+
+  useEffect(() => {
+    if (tab === 'analytics') loadAnalytics();
+  }, [tab]);
+  useEffect(() => { loadAnalytics(); }, []);
+  useEffect(() => { if (tab === 'analytics') loadAnalytics(); }, [analyticsDays]);
 
   const stats = useMemo(() => ({
     totalMembers: profiles.length,
@@ -663,6 +673,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       setPendingTransfers(data as any[]);
     } finally { setTransferLoading(false); }
   }
+  async function loadAnalytics() {
+    setAnalyticsLoading(true);
+    try {
+      const logs = await fetchVisitorLogs(analyticsDays);
+      setAnalyticsData(analyzeVisitorLogs(logs));
+    } finally { setAnalyticsLoading(false); }
+  }
   async function handleConfirmTransfer(t: any) {
     const plan = plans.find(pl => pl.id === t.plan_id);
     if (!plan) { alert('결제된 등급을 찾을 수 없습니다.'); return; }
@@ -830,7 +847,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
     setReviewF(emptyReviewForm);
   }
 
-  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['bank_transfers', '입금확인'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리'], ['trials', '체험단']];
+  const tabs: [Tab, string][] = [['overview', '대시보드'], ['products', '상품 관리'], ['orders', '주문 관리'], ['members', '회원 관리'], ['bank_transfers', '입금확인'], ['posts', '게시판 관리'], ['plans', '회원 등급'], ['inquiries', '1:1 문의'], ['reviews', '후기 관리'], ['trials', '체험단'], ['analytics', '로그 분석']];
 
   return (
     <div className="space-y-6">
@@ -2325,6 +2342,189 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 );
               })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Analytics ── */}
+      {tab === 'analytics' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-gothic text-lg font-semibold text-slate-800">로그 분석</h2>
+            <div className="flex items-center gap-2">
+              <select value={analyticsDays} onChange={e => { const d = parseInt(e.target.value, 10); setAnalyticsDays(d); }} className="input-field h-9 px-3 text-sm">
+                <option value={1}>최근 1일</option>
+                <option value={3}>최근 3일</option>
+                <option value={7}>최근 7일</option>
+                <option value={14}>최근 14일</option>
+                <option value={30}>최근 30일</option>
+              </select>
+              <button onClick={loadAnalytics} disabled={analyticsLoading} className="btn-ghost px-4 py-2 text-sm">
+                <Loader2 className={`h-4 w-4 ${analyticsLoading ? 'animate-spin' : ''}`} /> 새로고침
+              </button>
+            </div>
+          </div>
+
+          {analyticsLoading ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <Loader2 className="mb-3 h-8 w-8 animate-spin text-slate-400" />
+              <p className="text-sm text-slate-500">불러오는 중...</p>
+            </div>
+          ) : !analyticsData || analyticsData.totalVisitors === 0 ? (
+            <div className="card-surface grid place-items-center py-16 text-center">
+              <Search className="mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm text-slate-500">해당 기간의 방문 기록이 없습니다.</p>
+            </div>
+          ) : (
+            <>
+              {/* Summary KPIs */}
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+                <div className="card-surface p-4">
+                  <div className="mb-2 inline-grid h-9 w-9 place-items-center rounded-lg bg-cyan/10"><TrendingUp className="h-4 w-4 text-cyan" /></div>
+                  <div className="font-gothic text-xl font-bold text-slate-800">{analyticsData.totalVisitors}</div>
+                  <div className="text-xs text-slate-500">총 방문 (PV)</div>
+                </div>
+                <div className="card-surface p-4">
+                  <div className="mb-2 inline-grid h-9 w-9 place-items-center rounded-lg bg-gold/10"><Users className="h-4 w-4 text-gold" /></div>
+                  <div className="font-gothic text-xl font-bold text-slate-800">{analyticsData.uniqueVisitors}</div>
+                  <div className="text-xs text-slate-500">고유 방문자 (UV)</div>
+                </div>
+                <div className="card-surface p-4">
+                  <div className="mb-2 inline-grid h-9 w-9 place-items-center rounded-lg bg-cyan/10"><UserIcon className="h-4 w-4 text-cyan" /></div>
+                  <div className="font-gothic text-xl font-bold text-slate-800">{analyticsData.todayVisitors}</div>
+                  <div className="text-xs text-slate-500">오늘 방문 (PV)</div>
+                </div>
+                <div className="card-surface p-4">
+                  <div className="mb-2 inline-grid h-9 w-9 place-items-center rounded-lg bg-gold/10"><Users className="h-4 w-4 text-gold" /></div>
+                  <div className="font-gothic text-xl font-bold text-slate-800">{analyticsData.todayUniqueVisitors}</div>
+                  <div className="text-xs text-slate-500">오늘 고유 (UV)</div>
+                </div>
+                <div className="card-surface p-4">
+                  <div className="mb-2 inline-grid h-9 w-9 place-items-center rounded-lg bg-slate-200"><Package className="h-4 w-4 text-slate-600" /></div>
+                  <div className="font-gothic text-xl font-bold text-slate-800">{analyticsData.mobileVisitors}</div>
+                  <div className="text-xs text-slate-500">모바일 방문</div>
+                </div>
+              </div>
+
+              {/* Daily chart */}
+              <div className="card-surface p-5">
+                <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+                  <TrendingUp className="h-4 w-4 text-cyan" /> 일별 방문 추이
+                </div>
+                <div className="space-y-2">
+                  {analyticsData.dailyCounts.map(d => {
+                    const maxCount = Math.max(...analyticsData.dailyCounts.map(x => x.count), 1);
+                    const pct = (d.count / maxCount) * 100;
+                    return (
+                      <div key={d.date} className="flex items-center gap-3">
+                        <span className="w-24 text-xs text-slate-500">{formatDate(d.date)}</span>
+                        <div className="relative flex-1 overflow-hidden rounded-lg bg-slate-100">
+                          <div className="h-7 rounded-lg bg-gradient-to-r from-cyan/60 to-cyan" style={{ width: `${pct}%` }} />
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-700">{d.count} 방문 · {d.unique} 고유</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Path breakdown */}
+                <div className="card-surface p-5">
+                  <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+                    <MapPin className="h-4 w-4 text-cyan" /> 방문 경로 (페이지별)
+                  </div>
+                  <div className="space-y-2">
+                    {analyticsData.pathCounts.map(({ path, count }) => {
+                      const maxCount = Math.max(...analyticsData.pathCounts.map(x => x.count), 1);
+                      const pct = (count / maxCount) * 100;
+                      return (
+                        <div key={path} className="flex items-center gap-3">
+                          <span className="w-32 truncate text-xs font-medium text-slate-700" title={path}>{path || '/'}</span>
+                          <div className="relative flex-1 overflow-hidden rounded-lg bg-slate-100">
+                            <div className="h-6 rounded-lg bg-cyan/40" style={{ width: `${pct}%` }} />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-700">{count}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Referrer breakdown */}
+                <div className="card-surface p-5">
+                  <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+                    <ExternalLink className="h-4 w-4 text-cyan" /> 유입 경로 (Referrer)
+                  </div>
+                  {analyticsData.referrerCounts.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-slate-500">유입 경로 데이터가 없습니다.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {analyticsData.referrerCounts.map(({ referrer, count }) => {
+                        const maxCount = Math.max(...analyticsData.referrerCounts.map(x => x.count), 1);
+                        const pct = (count / maxCount) * 100;
+                        return (
+                          <div key={referrer} className="flex items-center gap-3">
+                            <span className="w-36 truncate text-xs font-medium text-slate-700" title={referrer}>{referrer}</span>
+                            <div className="relative flex-1 overflow-hidden rounded-lg bg-slate-100">
+                              <div className="h-6 rounded-lg bg-gold/40" style={{ width: `${pct}%` }} />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-700">{count}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Search keywords */}
+              {analyticsData.keywordCounts.length > 0 && (
+                <div className="card-surface p-5">
+                  <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+                    <Search className="h-4 w-4 text-cyan" /> 검색 키워드
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analyticsData.keywordCounts.map(({ keyword, count }) => (
+                      <span key={keyword} className="inline-flex items-center gap-1.5 rounded-full border border-cyan/30 bg-cyan/5 px-3 py-1.5 text-sm font-medium text-cyan">
+                        {keyword} <span className="text-xs text-slate-500">{count}회</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent visits */}
+              <div className="card-surface p-5">
+                <div className="mb-4 flex items-center gap-2 font-gothic text-base font-semibold text-slate-800">
+                  <Clock className="h-4 w-4 text-cyan" /> 최근 방문 기록 (최대 50건)
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">시간</th>
+                        <th className="px-4 py-3 font-medium">경로</th>
+                        <th className="px-4 py-3 font-medium">유입 경로</th>
+                        <th className="px-4 py-3 font-medium">기기</th>
+                        <th className="px-4 py-3 font-medium">검색어</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-navy-700">
+                      {analyticsData.recentVisits.map(v => (
+                        <tr key={v.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(v.created_at)}</td>
+                          <td className="px-4 py-3 text-xs font-medium text-slate-700">{v.path || '/'}</td>
+                          <td className="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate" title={v.referrer ?? ''}>{v.referrer ? (() => { try { return new URL(v.referrer).hostname } catch { return v.referrer.slice(0, 30) } })() : '직접 방문'}</td>
+                          <td className="px-4 py-3"><span className={`text-xs ${v.is_mobile ? 'text-cyan' : 'text-slate-500'}`}>{v.is_mobile ? '모바일' : 'PC'}</span></td>
+                          <td className="px-4 py-3 text-xs text-slate-600">{v.search_keyword ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

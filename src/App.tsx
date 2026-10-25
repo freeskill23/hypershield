@@ -20,6 +20,7 @@ import MyPage from './components/MyPage';
 import MyTrials from './components/MyTrials';
 import AdminApp from './components/AdminApp';
 import ErrorBoundary from './components/ErrorBoundary';
+import { logPageView } from './lib/analytics';
 
 type Route =
   | { name: 'landing' }
@@ -121,6 +122,11 @@ function Shell() {
   }, []);
 
   useEffect(() => {
+    const path = routeToHash(route).replace('#', '/') || '/';
+    logPageView(path);
+  }, [route]);
+
+  useEffect(() => {
     if (loading) return;
     if (profile) return;
     if (showAuth) return;
@@ -147,6 +153,7 @@ function Shell() {
 
   if (!profile) {
     if (route.name === 'board') {
+      logPageView('/board');
       return (
         <BoardList
           posts={postsHook.items}
@@ -158,6 +165,7 @@ function Shell() {
     }
     if (route.name === 'post') {
       const post = postsHook.items.find((p) => p.id === route.postId) ?? null;
+      logPageView(`/post/${route.postId}`);
       return (
         <BoardDetail
           post={post}
@@ -167,6 +175,7 @@ function Shell() {
         />
       );
     }
+    logPageView('/');
     return (
       <LandingPage
         onEnter={() => setShowAuth(true)}
