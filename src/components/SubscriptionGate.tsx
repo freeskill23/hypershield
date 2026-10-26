@@ -46,7 +46,6 @@ export default function SubscriptionGate({ profile, plans, settings, onSignOut, 
   const [autoRetrying, setAutoRetrying] = useState(false);
 
   useEffect(() => {
-    if (profile.subscription_status === 'active') return;
     if (autoRetrying) return;
     setAutoRetrying(true);
     (async () => {

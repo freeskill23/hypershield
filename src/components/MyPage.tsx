@@ -572,7 +572,10 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
                           <div className="rounded-lg border border-navy-700 bg-slate-50 p-3">
                             <div className="mb-1.5 text-xs font-semibold text-slate-600">결제 정보</div>
                             <div className="space-y-1 text-xs text-slate-500">
-                              <div>결제 방법: {order.payment_method === 'card' ? '카드결제' : '수동결제'}</div>
+                              <div>결제 방법: {order.payment_method === 'card' ? '카드결제' : '무통장입금'}</div>
+                              {order.cash_receipt_requested && (
+                                <div>현금영수증: {order.cash_receipt_type === 'business' ? '지출증빙' : '소득공제'} ({order.cash_receipt_number})</div>
+                              )}
                               {order.shipping_fee > 0 && <div>배송비: {formatKRW(order.shipping_fee)}</div>}
                               {order.points_used > 0 && <div>포인트 사용: {formatKRW(order.points_used)}</div>}
                               {order.points_earned > 0 && <div>포인트 적립: {formatKRW(order.points_earned)}</div>}

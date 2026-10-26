@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck, Loader2, Package,
+  ArrowLeft, Check, MapPin, User, Phone, Home, CreditCard, AlertCircle, Truck, Loader2, Package, Receipt,
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product, SelectedOption, TrialApplication } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
@@ -44,6 +44,11 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     shipping_message: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'manual'>('card');
+  const [cashReceipt, setCashReceipt] = useState({
+    requested: false,
+    type: 'personal' as 'personal' | 'business',
+    number: '',
+  });
   const [approvedTrials, setApprovedTrials] = useState<TrialApplication[]>([]);
   const [selectedTrialId, setSelectedTrialId] = useState<string | null>(null);
   const [combinedShipping, setCombinedShipping] = useState(false);
@@ -137,6 +142,10 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
       setError('연락처를 올바른 형식으로 입력해 주세요. 예: 010-0000-0000');
       return;
     }
+    if (paymentMethod === 'manual' && cashReceipt.requested && !cashReceipt.number.trim()) {
+      setError('현금영수증 발급 번호를 입력해 주세요.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -186,11 +195,40 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           return;
         }
 
-        await updateOrderStatus(order.id, 'paid');
-        await clearCart(userId);
-        onComplete();
+        const verifyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`;
+        try {
+          const verifyRes = await fetch(verifyUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ''}`,
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ paymentId, orderId: order.id }),
+          });
+          if (verifyRes.ok) {
+            await updateOrderStatus(order.id, 'paid');
+            await clearCart(userId);
+            onComplete();
+            return;
+          }
+          const verifyBody = await verifyRes.json().catch(() => ({}));
+          setError(verifyBody.error || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
+          return;
+        } catch {
+          setError('결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
+          return;
+        }
       } else {
-        const order = await createOrder(userId, checkoutItems, { ...shippingData, payment_method: paymentMethod, combined_shipping: combinedShipping, trial_application_id: combinedShipping ? selectedTrialId : null }, 0, isBuyNow, shippingFee);
+        const order = await createOrder(userId, checkoutItems, {
+          ...shippingData,
+          payment_method: paymentMethod,
+          combined_shipping: combinedShipping,
+          trial_application_id: combinedShipping ? selectedTrialId : null,
+          cash_receipt_requested: paymentMethod === 'manual' && cashReceipt.requested,
+          cash_receipt_type: paymentMethod === 'manual' && cashReceipt.requested ? cashReceipt.type : null,
+          cash_receipt_number: paymentMethod === 'manual' && cashReceipt.requested ? cashReceipt.number : null,
+        }, 0, isBuyNow, shippingFee);
         if (order) {
           if (paymentMethod === 'card') await updateOrderStatus(order.id, 'paid');
           onComplete();
@@ -455,7 +493,7 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
               </label>
               <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition ${paymentMethod === 'manual' ? 'border-cyan bg-cyan/5 text-slate-800' : 'border-slate-200 text-slate-500'}`}>
                 <input type="radio" name="payment_method" checked={paymentMethod === 'manual'} onChange={() => setPaymentMethod('manual')} />
-                기타 결제 / 관리자 확인
+                무통장입금
               </label>
             </div>
             {paymentMethod === 'card' && (
@@ -467,11 +505,60 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
               </div>
             )}
             {paymentMethod === 'manual' && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                <span>
-                  주문 생성 후 관리자가 확인하여 처리합니다.
-                </span>
+              <div className="mt-3 space-y-3">
+                <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                  <span>
+                    무통장입금으로 주문 후 관리자가 입금 확인 후 결제 완료 처리합니다.
+                  </span>
+                </div>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm transition hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={cashReceipt.requested}
+                    onChange={(e) => setCashReceipt({ ...cashReceipt, requested: e.target.checked })}
+                    className="h-4 w-4 rounded"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-cyan" />
+                    <span className="font-medium text-slate-800">현금영수증 신청</span>
+                  </div>
+                </label>
+                {cashReceipt.requested && (
+                  <div className="space-y-3 rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-sm transition ${cashReceipt.type === 'personal' ? 'border-cyan bg-white text-slate-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                        <input
+                          type="radio"
+                          name="cash_receipt_type"
+                          checked={cashReceipt.type === 'personal'}
+                          onChange={() => setCashReceipt({ ...cashReceipt, type: 'personal' })}
+                        />
+                        소득공제
+                      </label>
+                      <label className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2.5 text-sm transition ${cashReceipt.type === 'business' ? 'border-cyan bg-white text-slate-800' : 'border-slate-200 bg-white text-slate-500'}`}>
+                        <input
+                          type="radio"
+                          name="cash_receipt_type"
+                          checked={cashReceipt.type === 'business'}
+                          onChange={() => setCashReceipt({ ...cashReceipt, type: 'business' })}
+                        />
+                        지출증빙
+                      </label>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-500">
+                        {cashReceipt.type === 'personal' ? '휴대폰 번호' : '사업자등록번호'}
+                      </label>
+                      <input
+                        value={cashReceipt.number}
+                        onChange={(e) => setCashReceipt({ ...cashReceipt, number: e.target.value })}
+                        placeholder={cashReceipt.type === 'personal' ? '010-0000-0000' : '000-00-00000'}
+                        className="input-field text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

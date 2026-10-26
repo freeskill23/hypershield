@@ -135,6 +135,9 @@ export interface Order {
   cancelled_at: string | null;
   combined_shipping: boolean;
   trial_application_id: string | null;
+  cash_receipt_requested: boolean;
+  cash_receipt_type: 'personal' | 'business' | null;
+  cash_receipt_number: string | null;
 }
 
 export interface OrderItem {

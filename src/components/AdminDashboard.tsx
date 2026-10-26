@@ -5,7 +5,7 @@ import {
   Crown, Megaphone, Eye, Lock, Pin, ExternalLink,
   Loader2, User as UserIcon, Flame, KeyRound, GripVertical, ArrowUp, ArrowDown, Copy,
   MessageSquare, Star, Upload, X, Gift, Search,
-  Power, ShieldCheck, Building2,
+  Power, ShieldCheck, Building2, Receipt,
 } from 'lucide-react';
 import {
   Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus, CafeMembership, SpecialMemberStatus,
@@ -1540,6 +1540,11 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         {o.tracking_number && <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400"><Truck className="h-3 w-3" /><span>{o.carrier} {o.tracking_number}</span></div>}
                         <div className="mt-2 text-xs text-slate-500">상품: {orderItems.filter(i => i.order_id === o.id).map(i => `${i.product_name} x ${i.quantity}`).join(', ') || '주문 상품 정보 없음'}</div>
                         {o.shipping_message && <div className="mt-1 text-xs text-slate-500">배송 메세지: {o.shipping_message}</div>}
+                        {o.cash_receipt_requested && (
+                          <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/5 px-2.5 py-1.5 text-xs font-medium text-cyan">
+                            <Receipt className="h-3.5 w-3.5" /> 현금영수증 {o.cash_receipt_type === 'business' ? '지출증빙' : '소득공제'} · {o.cash_receipt_number}
+                          </div>
+                        )}
                         {o.combined_shipping && (
                           <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/5 px-2.5 py-1.5 text-xs font-medium text-cyan">
                             <Package className="h-3.5 w-3.5" /> 체험단 합배송

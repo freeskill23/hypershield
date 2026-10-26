@@ -294,6 +294,9 @@ export async function createOrder(
     portone_payment_id?: string;
     combined_shipping?: boolean;
     trial_application_id?: string | null;
+    cash_receipt_requested?: boolean;
+    cash_receipt_type?: 'personal' | 'business' | null;
+    cash_receipt_number?: string | null;
   },
   pointsUsed: number = 0,
   skipClearCart: boolean = false,
@@ -326,6 +329,9 @@ export async function createOrder(
       points_earned: Math.floor(itemsTotal / 100),
       combined_shipping: shipping.combined_shipping ?? false,
       trial_application_id: shipping.trial_application_id ?? null,
+      cash_receipt_requested: shipping.cash_receipt_requested ?? false,
+      cash_receipt_type: shipping.cash_receipt_type ?? null,
+      cash_receipt_number: shipping.cash_receipt_number ?? null,
     })
     .select()
     .single();
