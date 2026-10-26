@@ -146,8 +146,20 @@ Deno.serve(async (req: Request) => {
       return json({ error: reason }, 400);
     }
 
-    const startedAt = new Date();
-    const expiresAt = new Date(startedAt);
+    const now = new Date();
+    const { data: curProfile } = await adminClient
+      .from("profiles")
+      .select("subscription_expires_at, subscription_billing_period, subscription_tier, subscription_status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    let baseDate = now;
+    if (curProfile?.subscription_status !== 'inactive' && curProfile?.subscription_expires_at) {
+      const currentExpiry = new Date(curProfile.subscription_expires_at);
+      if (currentExpiry > now) baseDate = currentExpiry;
+    }
+
+    const expiresAt = new Date(baseDate);
     if (period === "annual") {
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
     } else {
@@ -160,7 +172,7 @@ Deno.serve(async (req: Request) => {
         subscription_plan_id: plan.id,
         subscription_tier: plan.tier,
         subscription_status: "active",
-        subscription_started_at: startedAt.toISOString(),
+        subscription_started_at: now.toISOString(),
         subscription_expires_at: expiresAt.toISOString(),
         subscription_billing_period: period,
       })
@@ -182,7 +194,7 @@ Deno.serve(async (req: Request) => {
     };
 
     const { error: paymentRecordError } = existingPayment
-      ? await adminClient.from("subscription_payments").update({ ...paymentRecord, confirmed_at: startedAt.toISOString() }).eq("id", existingPayment.id)
+      ? await adminClient.from("subscription_payments").update({ ...paymentRecord, confirmed_at: now.toISOString() }).eq("id", existingPayment.id)
       : await adminClient.from("subscription_payments").insert(paymentRecord);
 
     if (paymentRecordError) {

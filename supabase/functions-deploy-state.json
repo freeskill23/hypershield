@@ -15,7 +15,7 @@
     },
     "confirm-subscription-payment": {
       "hasChanged": false,
-      "hash": "c5214bb95262ccd0a4858e3196bd4c7e66dd342d3a1ed55f155dd0c19e580791"
+      "hash": "0844d0fcac124fe19b318d3f217d2e1263b88fd775e291f855d57a373759639a"
     },
     "fetch-product-info": {
       "hasChanged": false,
@@ -24,6 +24,10 @@
     "portone-webhook": {
       "hasChanged": false,
       "hash": "c96dd37fa2dfe87f0c7f5b7349a5eb3be03b900f4c0cc248fcbf59ec70a7f6e8"
+    },
+    "verify-payment": {
+      "hasChanged": false,
+      "hash": "487e997028b20f9458e5e1ee9fe6efba3b47053eceb672dd3b367fe89c09d446"
     }
   }
 }
