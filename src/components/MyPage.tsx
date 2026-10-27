@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   User as UserIcon, Mail, Calendar, Package, MapPin, Plus, Trash2,
   CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
-  ChevronRight, ArrowLeft, Search, MessageSquare, Star, Upload, X,
+  ChevronRight, ArrowLeft, Search, MessageSquare, Star, Upload, X, ExternalLink,
 } from 'lucide-react';
 import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry, Review, TrialApplication, Product } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
@@ -46,6 +46,26 @@ const orderStatusConfig: Record<string, { label: string; className: string; icon
   delivered: { label: '배송 완료', className: 'border-green-500/40 text-green-400', icon: CheckCircle2 },
   cancelled: { label: '취소됨', className: 'border-slate-600 text-slate-500', icon: XCircle },
 };
+
+const CARRIER_TRACKING_URLS: Record<string, string> = {
+  'CJ대한통운': 'https://www.cjlogistics.com/ko/tool/parcel/tracking?paramInvNo=',
+  '롯데택배': 'https://www.lotteglogis.com/open/tracking?invno=',
+  '로젠택배': 'https://www.ilogen.com/web/personal/trace/',
+  '한진택배': 'https://www.hanjin.com/tracking/info.jsp?wblnum=',
+  '우체국택배': 'https://service.epost.go.kr/trace.RetrieveDomesticTrace.empost?sid=',
+  'CU편의점택배': 'https://www.cupost.co.kr/delivery/delivery.do?barcode=',
+  'GS편의점택배': 'https://www.cvsnet.co.kr/page/delivery/delivery_search.jsp?dlvry_type=domestic&barcode=',
+  '대신택배': 'https://www.ds3211.co.kr/freight/internalFreightSearch.do?billno=',
+  '경동택배': 'https://www.kdexp.com/delivery/delivery_search.jsp?barcode=',
+  '천일택배': 'https://www.chunil.co.kr/Trace.asp?slide=2&slip_no=',
+};
+
+function getTrackingUrl(carrier: string | null, trackingNumber: string): string | null {
+  if (!carrier || !trackingNumber) return null;
+  const baseUrl = CARRIER_TRACKING_URLS[carrier];
+  if (!baseUrl) return null;
+  return baseUrl + encodeURIComponent(trackingNumber);
+}
 
 function PasswordChangeSection() {
   const [currentPw, setCurrentPw] = useState('');
@@ -606,6 +626,15 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
                                     <span className="text-slate-800">{formatDateTime(order.shipped_at)}</span>
                                   </div>
                                 )}
+                                {(() => {
+                                  const url = getTrackingUrl(order.carrier, order.tracking_number!);
+                                  if (!url) return null;
+                                  return (
+                                    <a href={url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-cyan px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-600">
+                                      <ExternalLink className="h-3.5 w-3.5" /> 배송조회
+                                    </a>
+                                  );
+                                })()}
                               </div>
                             ) : (
                               <div className="text-xs text-slate-500">운송장이 등록되지 않았습니다.</div>
@@ -638,6 +667,15 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
                                   <span className="text-slate-800">{formatDateTime(order.delivered_at)}</span>
                                 </div>
                               )}
+                              {(() => {
+                                const url = getTrackingUrl(order.carrier, order.tracking_number!);
+                                if (!url) return null;
+                                return (
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-green-500/40 bg-green-500/5 px-3 py-1.5 text-xs font-medium text-green-600 transition hover:bg-green-500/10">
+                                    <ExternalLink className="h-3.5 w-3.5" /> 배송경로 확인
+                                  </a>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
