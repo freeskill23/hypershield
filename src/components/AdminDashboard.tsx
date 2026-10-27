@@ -587,10 +587,10 @@ export default function AdminDashboard({ profile, products, categories, orders, 
       const list = items.length > 0 ? items : [{ product_name: '주문 상품 정보 없음', quantity: 0, unit_price: 0 } as any];
       const bg = orderIdx % 2 === 0 ? ' style="background:#ffffff"' : ' style="background:#f3f4f6"';
       return list.map(item =>
-        `<tr${bg}><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.id.slice(0, 8))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td style="mso-number-format:'\\@'">${escapeCell(formatPhoneNumber(o.recipient_phone ?? ''))}</td><td>${escapeCell(item.product_name)}</td><td>${item.quantity}</td><td>${formatKRW(item.unit_price)}</td><td>${formatKRW(item.unit_price * item.quantity)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`
+        `<tr${bg}><td>${escapeCell(formatDateTime(o.created_at))}</td><td>${escapeCell(o.id.slice(0, 8))}</td><td>${escapeCell(o.recipient_name ?? '')}</td><td>${escapeCell(profiles.find(p => p.id === o.user_id)?.full_name ?? '비회원')}</td><td>${escapeCell(`${o.address ?? ''} ${o.address_detail ?? ''}`)}</td><td style="mso-number-format:'\\@'">${escapeCell(formatPhoneNumber(o.recipient_phone ?? ''))}</td><td>${escapeCell(item.product_name)}</td><td>${item.quantity}</td><td>${formatKRW(item.unit_price)}</td><td>${formatKRW(item.unit_price * item.quantity)}</td><td>${escapeCell(o.shipping_message ?? '')}</td></tr>`
       ).join('');
     }).join('');
-    const html = `<table border="1"><thead><tr style="background:#e2e8f0;font-weight:bold"><th>날짜</th><th>주문번호</th><th>주문자명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>수량</th><th>단가</th><th>금액</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const html = `<table border="1"><thead><tr style="background:#e2e8f0;font-weight:bold"><th>날짜</th><th>주문번호</th><th>주문자명</th><th>회원명</th><th>주소</th><th>연락처</th><th>주문상품</th><th>수량</th><th>단가</th><th>금액</th><th>배송메세지</th></tr></thead><tbody>${rows}</tbody></table>`;
     const blob = new Blob([`<html><head><meta charset="UTF-8"></head><body>${html}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = `주문목록-${new Date().toISOString().slice(0, 10)}.xls`; link.click(); URL.revokeObjectURL(url);
@@ -1049,7 +1049,7 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                 const sc = orderStatusConfig[o.status] ?? fallbackOrderStatus;
                 return (
                   <div key={o.id} className="flex items-center justify-between rounded-lg border border-navy-700 bg-slate-50 px-3 py-2.5">
-                    <div><div className="text-sm font-medium text-slate-800">{o.recipient_name ?? '알 수 없음'}</div><div className="text-xs text-slate-500">{formatKRW(o.total_amount)} · {formatDate(o.created_at)}</div></div>
+                    <div><div className="text-sm font-medium text-slate-800">{o.recipient_name ?? '알 수 없음'} <span className="text-xs font-normal text-slate-500">/ 회원 {profiles.find(p => p.id === o.user_id)?.full_name ?? '비회원'}</span></div><div className="text-xs text-slate-500">{formatKRW(o.total_amount)} · {formatDate(o.created_at)}</div></div>
                     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${sc.cls}`}>{o.status === 'pending' && <Clock className="h-3 w-3" />}{sc.label}</span>
                   </div>
                 );
@@ -1530,6 +1530,16 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                           <h3 className="font-gothic text-base font-semibold text-slate-800">{o.recipient_name ?? '알 수 없음'}</h3>
                           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${sc.cls}`}>{o.status === 'pending' && <Clock className="h-3 w-3" />}{sc.label}</span>
                         </div>
+                        {(() => {
+                          const orderer = profiles.find(p => p.id === o.user_id);
+                          const ordererName = orderer?.full_name ?? '비회원';
+                          const isDifferent = ordererName !== o.recipient_name;
+                          return (
+                            <div className="mt-0.5 text-xs text-slate-500">
+                              회원: <span className={isDifferent ? 'font-medium text-slate-700' : 'text-slate-500'}>{ordererName}</span>{orderer?.email && <span className="text-slate-400"> ({orderer.email})</span>}
+                            </div>
+                          );
+                        })()}
                         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDateTime(o.created_at)}</span>
                           <span className="flex items-center gap-1 text-cyan"><Banknote className="h-3 w-3" /> {formatKRW(o.total_amount)}</span>
