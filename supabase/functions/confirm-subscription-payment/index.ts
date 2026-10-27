@@ -141,7 +141,7 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true, expiresAt: curProfile?.subscription_expires_at ?? null, alreadyConfirmed: true, period: curProfile?.subscription_billing_period ?? null });
       }
       const reason = portoneApiSecret
-        ? "결제가 완료되지 않았거나 결제 검증에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        ? `결제가 완료되지 않았거나 결제 검증에 실패했습니다 (paymentId: ${body.paymentId}). 잠시 후 다시 시도해 주세요.`
         : "결제 검증 설정이 누락되어 있습니다. 관리자에게 문의해 주세요.";
       return json({ error: reason }, 400);
     }

@@ -32,22 +32,31 @@ Deno.serve(async (req: Request) => {
     }
 
     let isPaid = false;
-    try {
-      const verifyRes = await fetch(
-        `https://api.portone.io/v2/payments/${encodeURIComponent(paymentId)}`,
-        { method: "GET", headers: { "Authorization": `PortOne ${PORTONE_API_SECRET}` } },
-      );
-      if (verifyRes.ok) {
-        const payment = await verifyRes.json();
-        isPaid = payment?.status === "PAID";
+    let lastError = "";
+    for (let attempt = 0; attempt < 5 && !isPaid; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
+      try {
+        const verifyRes = await fetch(
+          `https://api.portone.io/v2/payments/${encodeURIComponent(paymentId)}`,
+          { method: "GET", headers: { "Authorization": `PortOne ${PORTONE_API_SECRET}` } },
+        );
+        if (verifyRes.ok) {
+          const payment = await verifyRes.json();
+          if (payment?.status === "PAID") {
+            isPaid = true;
+            break;
+          }
+        } else {
+          lastError = `PortOne returned ${verifyRes.status}`;
+        }
+      } catch (e) {
+        lastError = `PortOne API error: ${e.message}`;
       }
-    } catch (e) {
-      console.error("verify-payment: PortOne API error", e);
     }
 
     if (!isPaid) {
       return new Response(
-        JSON.stringify({ ok: false, error: "결제가 완료되지 않았습니다." }),
+        JSON.stringify({ ok: false, error: `결제가 완료되지 않았습니다. ${lastError}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

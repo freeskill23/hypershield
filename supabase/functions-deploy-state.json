@@ -15,7 +15,7 @@
     },
     "confirm-subscription-payment": {
       "hasChanged": false,
-      "hash": "0844d0fcac124fe19b318d3f217d2e1263b88fd775e291f855d57a373759639a"
+      "hash": "4841f3ce6001e38e472a5114791ef9ff1d74e0cf897bb8ad12405f2a6de48f6b"
     },
     "fetch-product-info": {
       "hasChanged": false,
@@ -27,7 +27,7 @@
     },
     "verify-payment": {
       "hasChanged": false,
-      "hash": "487e997028b20f9458e5e1ee9fe6efba3b47053eceb672dd3b367fe89c09d446"
+      "hash": "4a325196c4fb7e81a36c391fe5b5154e2322f52bdfeb1da0ad38c144f2bc759f"
     }
   }
 }
