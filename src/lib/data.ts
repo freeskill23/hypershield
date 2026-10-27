@@ -611,6 +611,46 @@ export async function confirmManualSubscriptionPayment(input: {
   return { ok: true, expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null };
 }
 
+export async function getMyPendingCardOrders(): Promise<Array<{ id: string; portone_payment_id: string }>> {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return [];
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, portone_payment_id')
+    .eq('user_id', userData.user.id)
+    .eq('status', 'pending')
+    .eq('payment_method', 'card')
+    .not('portone_payment_id', 'is', null)
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return (data ?? []) as Array<{ id: string; portone_payment_id: string }>;
+}
+
+export async function confirmOrderPayment(orderId: string, paymentId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: '서비스를 사용할 수 없습니다.' };
+  const verifyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`;
+  try {
+    const verifyRes = await fetch(verifyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ''}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ paymentId, orderId }),
+    });
+    if (verifyRes.ok) {
+      await updateOrderStatus(orderId, 'paid');
+      return { ok: true };
+    }
+    const verifyBody = await verifyRes.json().catch(() => ({}));
+    return { ok: false, error: verifyBody.error || '결제 확인에 실패했습니다.' };
+  } catch (e: any) {
+    return { ok: false, error: e.message || '결제 확인 중 오류가 발생했습니다.' };
+  }
+}
+
 export async function getMyPendingCardPayments(): Promise<Array<{ portone_payment_id: string; plan_id: string; billing_period: string; amount: number }>> {
   if (!isSupabaseConfigured || !supabase) return [];
   const { data: userData } = await supabase.auth.getUser();

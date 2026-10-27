@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product, SelectedOption, TrialApplication } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
-import { clearCart, createOrder, getSettingValue, updateOrderStatus } from '../lib/data';
+import { clearCart, createOrder, getSettingValue, updateOrderStatus, getMyPendingCardOrders, confirmOrderPayment } from '../lib/data';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
 import { supabase } from '../lib/supabase';
 import AddressSearchButton from './AddressSearchButton';
@@ -52,6 +52,29 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
   const [approvedTrials, setApprovedTrials] = useState<TrialApplication[]>([]);
   const [selectedTrialId, setSelectedTrialId] = useState<string | null>(null);
   const [combinedShipping, setCombinedShipping] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const pending = await getMyPendingCardOrders();
+      if (pending.length === 0 || cancelled) return;
+      setRecovering(true);
+      const latest = pending[0];
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (cancelled) return;
+        if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
+        const result = await confirmOrderPayment(latest.id, latest.portone_payment_id);
+        if (result.ok) {
+          await clearCart(userId);
+          onComplete();
+          return;
+        }
+      }
+      setRecovering(false);
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     async function fetchApprovedTrials() {
@@ -196,29 +219,35 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         }
 
         const verifyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`;
-        try {
-          const verifyRes = await fetch(verifyUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ''}`,
-              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({ paymentId, orderId: order.id }),
-          });
-          if (verifyRes.ok) {
-            await updateOrderStatus(order.id, 'paid');
-            await clearCart(userId);
-            onComplete();
-            return;
+        let verified = false;
+        let verifyError: string | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
+          try {
+            const verifyRes = await fetch(verifyUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token ?? ''}`,
+                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({ paymentId, orderId: order.id }),
+            });
+            if (verifyRes.ok) { verified = true; break; }
+            const verifyBody = await verifyRes.json().catch(() => ({}));
+            verifyError = verifyBody.error || '결제 확인에 실패했습니다.';
+          } catch {
+            verifyError = '결제 확인 중 오류가 발생했습니다.';
           }
-          const verifyBody = await verifyRes.json().catch(() => ({}));
-          setError(verifyBody.error || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
-          return;
-        } catch {
-          setError('결제 확인 중 오류가 발생했습니다. 관리자에게 문의해 주세요.');
+        }
+        if (verified) {
+          await updateOrderStatus(order.id, 'paid');
+          await clearCart(userId);
+          onComplete();
           return;
         }
+        setError(verifyError || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
+        return;
       } else {
         const order = await createOrder(userId, checkoutItems, {
           ...shippingData,
@@ -263,6 +292,12 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
       </button>
 
       <h1 className="font-gothic text-2xl font-bold text-slate-800">주문/결제</h1>
+
+      {recovering && (
+        <div className="flex items-center gap-2 rounded-lg border border-cyan/30 bg-cyan/5 px-4 py-3 text-sm text-cyan">
+          <Loader2 className="h-4 w-4 animate-spin" /> 이전 카드 결제 확인 중입니다. 잠시만 기다려주세요...
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
