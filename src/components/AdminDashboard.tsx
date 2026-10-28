@@ -10,7 +10,7 @@ import {
 import {
   Profile, Product, ProductOption, Category, Order, OrderItem, Post, SubscriptionPlan, OrderStatus, Setting, Inquiry, Review, TrialApplication, TrialStatus, CafeMembership, SpecialMemberStatus,
 } from '../lib/types';
-import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber, getRemainingDays } from '../lib/format';
+import { formatKRW, formatDate, formatDateTime, calcDiscountRate, formatPhoneNumber, getRemainingDays, formatKCPTransactionDate } from '../lib/format';
 import {
   createProduct, updateProduct, deleteProduct,
   createCategory, updateCategory, deleteCategory,
@@ -1529,6 +1529,13 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         <div className="flex items-center gap-2">
                           <h3 className="font-gothic text-base font-semibold text-slate-800">{o.recipient_name ?? '알 수 없음'}</h3>
                           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${sc.cls}`}>{o.status === 'pending' && <Clock className="h-3 w-3" />}{sc.label}</span>
+                          {o.payment_method === 'manual' && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/5 px-2 py-0.5 text-xs font-medium text-gold">무통장입금</span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+                          <span>주문번호:</span>
+                          <code className="font-mono text-slate-600">{o.id.slice(0, 8)}</code>
                         </div>
                         {(() => {
                           const orderer = profiles.find(p => p.id === o.user_id);
@@ -1551,8 +1558,31 @@ export default function AdminDashboard({ profile, products, categories, orders, 
                         <div className="mt-2 text-xs text-slate-500">상품: {orderItems.filter(i => i.order_id === o.id).map(i => `${i.product_name} x ${i.quantity}`).join(', ') || '주문 상품 정보 없음'}</div>
                         {o.shipping_message && <div className="mt-1 text-xs text-slate-500">배송 메세지: {o.shipping_message}</div>}
                         {o.cash_receipt_requested && (
-                          <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-cyan/30 bg-cyan/5 px-2.5 py-1.5 text-xs font-medium text-cyan">
-                            <Receipt className="h-3.5 w-3.5" /> 현금영수증 {o.cash_receipt_type === 'business' ? '지출증빙' : '소득공제'} · {o.cash_receipt_number}
+                          <div className="mt-2 rounded-lg border border-cyan/30 bg-cyan/5 p-3">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan">
+                              <Receipt className="h-3.5 w-3.5" /> 현금영수증 {o.cash_receipt_type === 'business' ? '지출증빙' : '소득공제'} · {o.cash_receipt_number}
+                            </div>
+                            <div className="mt-2 flex items-center gap-2 rounded bg-white/60 px-2 py-1.5">
+                              <span className="text-xs text-slate-500">주문번호 (KCP 입력용)</span>
+                              <code className="text-xs font-mono text-slate-800">{o.id}</code>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(o.id); }}
+                                className="inline-flex items-center gap-1 rounded border border-cyan/40 px-1.5 py-0.5 text-[10px] font-medium text-cyan transition hover:bg-cyan/10"
+                              >
+                                <Copy className="h-3 w-3" /> 복사
+                              </button>
+                              <span className="text-xs text-slate-500">· {formatKRW(o.total_amount)}</span>
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-2 rounded bg-white/60 px-2 py-1.5">
+                              <span className="text-xs text-slate-500">거래일시 (KCP 입력용)</span>
+                              <code className="text-xs font-mono text-slate-800">{formatKCPTransactionDate(o.created_at)}</code>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(formatKCPTransactionDate(o.created_at)); }}
+                                className="inline-flex items-center gap-1 rounded border border-cyan/40 px-1.5 py-0.5 text-[10px] font-medium text-cyan transition hover:bg-cyan/10"
+                              >
+                                <Copy className="h-3 w-3" /> 복사
+                              </button>
+                            </div>
                           </div>
                         )}
                         {o.combined_shipping && (

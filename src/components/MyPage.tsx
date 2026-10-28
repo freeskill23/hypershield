@@ -4,9 +4,9 @@ import {
   CheckCircle2, Clock, Truck, XCircle, CreditCard, Crown, AlertCircle,
   ChevronRight, ArrowLeft, Search, MessageSquare, Star, Upload, X, ExternalLink,
 } from 'lucide-react';
-import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry, Review, TrialApplication, Product } from '../lib/types';
+import { Profile, Order, OrderItem, Address, SubscriptionPlan, OrderStatus, Inquiry, Review, TrialApplication, Product, Setting } from '../lib/types';
 import { formatKRW, formatDate, formatDateTime, getRemainingDays, formatPhoneNumber } from '../lib/format';
-import { addAddress, deleteAddress, requestOrderCancellation, createReviewWithError, useTrialApplications } from '../lib/data';
+import { addAddress, deleteAddress, requestOrderCancellation, createReviewWithError, useTrialApplications, getSettingValue } from '../lib/data';
 import AddressSearchButton from './AddressSearchButton';
 import MyInquiry from './MyInquiry';
 import MyTrials from './MyTrials';
@@ -22,6 +22,7 @@ interface Props {
   inquiries: Inquiry[];
   reviews: Review[];
   products: Product[];
+  settings: Setting[];
   onRefresh: () => void;
 }
 
@@ -148,7 +149,7 @@ function PasswordChangeSection() {
   );
 }
 
-export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, reviews, products, onRefresh }: Props) {
+export default function MyPage({ profile, orders, orderItems, addresses, plans, inquiries, reviews, products, settings, onRefresh }: Props) {
   const [tab, setTab] = useState<Tab>(loadInitialTab);
 
   useEffect(() => {
@@ -603,6 +604,46 @@ export default function MyPage({ profile, orders, orderItems, addresses, plans, 
                             </div>
                           </div>
                         </div>
+
+                        {/* Bank transfer info — for pending manual orders */}
+                        {order.status === 'pending' && order.payment_method === 'manual' && (
+                          (() => {
+                            const bank = getSettingValue(settings, 'bank_transfer_bank');
+                            const account = getSettingValue(settings, 'bank_transfer_account');
+                            const holder = getSettingValue(settings, 'bank_transfer_holder');
+                            return (
+                              <div className="mb-4 rounded-lg border border-gold/40 bg-gold/5 p-4">
+                                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold">
+                                  <AlertCircle className="h-4 w-4" /> 무통장입금 안내
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  <p className="text-slate-600">아래 계좌로 입금해 주시면 확인 후 결제 완료 처리됩니다.</p>
+                                  <div className="rounded-lg border border-gold/30 bg-white p-3">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-slate-500">입금 은행</span>
+                                      <span className="font-medium text-slate-800">{bank ?? '—'}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center justify-between">
+                                      <span className="text-xs text-slate-500">계좌번호</span>
+                                      <span className="font-mono font-medium text-slate-800">{account ?? '—'}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center justify-between">
+                                      <span className="text-xs text-slate-500">예금주</span>
+                                      <span className="font-medium text-slate-800">{holder ?? '—'}</span>
+                                    </div>
+                                    <div className="mt-1.5 flex items-center justify-between border-t border-slate-100 pt-1.5">
+                                      <span className="text-xs text-slate-500">입금 금액</span>
+                                      <span className="font-gothic font-bold text-cyan">{formatKRW(order.total_amount)}</span>
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-slate-500">
+                                    주문 번호 {order.id.slice(0, 8)}을 입금자명과 함께 메모해 주세요. 입금 확인 후 자동으로 결제 완료 처리됩니다.
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        )}
 
                         {/* Tracking info - only for shipped orders */}
                         {order.status === 'shipped' && (

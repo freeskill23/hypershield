@@ -670,6 +670,7 @@ export async function getMyPendingCardPayments(): Promise<Array<{ portone_paymen
     .eq('user_id', userData.user.id)
     .eq('status', 'pending')
     .eq('payment_method', 'card')
+    .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
     .order('created_at', { ascending: false });
   if (error) return [];
   return (data ?? []) as Array<{ portone_payment_id: string; plan_id: string; billing_period: string; amount: number }>;

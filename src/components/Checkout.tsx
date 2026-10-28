@@ -33,6 +33,7 @@ function isValidPhoneNumber(phone: string): boolean {
 export default function Checkout({ cartItems, buyNowItem, addresses, userId, settings, onBack, onComplete }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualOrder, setManualOrder] = useState<{ id: string; totalAmount: number } | null>(null);
   const [selectedAddrId, setSelectedAddrId] = useState<string | null>(
     addresses.find((a) => a.is_default)?.id ?? null,
   );
@@ -279,8 +280,12 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           cash_receipt_number: paymentMethod === 'manual' && cashReceipt.requested ? cashReceipt.number : null,
         }, 0, isBuyNow, shippingFee);
         if (order) {
-          if (paymentMethod === 'card') await updateOrderStatus(order.id, 'paid');
-          onComplete();
+          if (paymentMethod === 'card') {
+            await updateOrderStatus(order.id, 'paid');
+            onComplete();
+          } else {
+            setManualOrder({ id: order.id, totalAmount: order.total_amount });
+          }
         } else {
           setError('주문 생성에 실패했습니다.');
         }
@@ -290,6 +295,58 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
     } finally {
       setBusy(false);
     }
+  }
+
+  const bankName = getSettingValue(settings, 'bank_transfer_bank');
+  const bankAccount = getSettingValue(settings, 'bank_transfer_account');
+  const bankHolder = getSettingValue(settings, 'bank_transfer_holder');
+
+  if (manualOrder) {
+    return (
+      <div className="mx-auto max-w-lg space-y-5">
+        <div className="card-surface p-6">
+          <div className="mb-4 flex items-center gap-2 font-gothic text-xl font-bold text-slate-800">
+            <Check className="h-5 w-5 text-green-500" /> 주문 신청 완료
+          </div>
+          <p className="text-sm text-slate-600">
+            주문이 접수되었습니다. 아래 계좌로 입금해 주시면 확인 후 결제 완료 처리됩니다.
+          </p>
+
+          <div className="mt-4 rounded-lg border border-gold/40 bg-gold/5 p-4">
+            <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-gold">
+              <AlertCircle className="h-4 w-4" /> 무통장입금 안내
+            </div>
+            <div className="rounded-lg border border-gold/30 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">입금 은행</span>
+                <span className="font-medium text-slate-800">{bankName ?? '—'}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-slate-500">계좌번호</span>
+                <span className="font-mono text-sm font-medium text-slate-800">{bankAccount ?? '—'}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-slate-500">예금주</span>
+                <span className="font-medium text-slate-800">{bankHolder ?? '—'}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+                <span className="text-xs text-slate-500">입금 금액</span>
+                <span className="font-gothic text-lg font-bold text-cyan">{formatKRW(manualOrder.totalAmount)}</span>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              주문 번호 <span className="font-mono font-medium text-slate-700">{manualOrder.id.slice(0, 8)}</span> 을 입금자명과 함께 메모해 주세요. 관리자가 입금 확인 후 자동으로 결제 완료 처리합니다.
+            </p>
+          </div>
+
+          <div className="mt-5 flex gap-3">
+            <button onClick={onComplete} className="btn-primary flex-1">
+              <Check className="h-4 w-4" /> 마이페이지로 이동
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (checkoutItems.length === 0) {
@@ -561,11 +618,25 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
             )}
             {paymentMethod === 'manual' && (
               <div className="mt-3 space-y-3">
-                <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                  <span>
-                    무통장입금으로 주문 후 관리자가 입금 확인 후 결제 완료 처리합니다.
-                  </span>
+                <div className="rounded-lg border border-gold/30 bg-gold/5 p-3">
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold">
+                    <AlertCircle className="h-4 w-4" /> 입금 계좌 안내
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">은행</span>
+                      <span className="font-medium text-slate-800">{bankName ?? '—'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">계좌번호</span>
+                      <span className="font-mono font-medium text-slate-800">{bankAccount ?? '—'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">예금주</span>
+                      <span className="font-medium text-slate-800">{bankHolder ?? '—'}</span>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">주문 신청 후 위 계좌로 입금해 주세요. 관리자 확인 후 결제 완료 처리됩니다.</p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm transition hover:bg-slate-50">
                   <input

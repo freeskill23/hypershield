@@ -42,6 +42,17 @@ export function formatDateShort(iso: string): string {
   }).format(d);
 }
 
+export function formatKCPTransactionDate(iso: string): string {
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const MM = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const HH = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}${MM}${dd}${HH}${mm}${ss}`;
+}
+
 export function calcDiscountRate(original: number, club: number): number {
   if (original <= 0) return 0;
   return Math.round((1 - club / original) * 100);

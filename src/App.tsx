@@ -368,6 +368,7 @@ function ShellContent({
             inquiries={inquiries}
             reviews={reviews}
             products={products}
+            settings={settings}
             onRefresh={refreshAll}
           />
         ) : (
