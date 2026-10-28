@@ -627,6 +627,15 @@ export async function getMyPendingCardOrders(): Promise<Array<{ id: string; port
   return (data ?? []) as Array<{ id: string; portone_payment_id: string }>;
 }
 
+export async function cancelStalePendingOrder(orderId: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  await supabase
+    .from('orders')
+    .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .eq('status', 'pending');
+}
+
 export async function confirmOrderPayment(orderId: string, paymentId: string): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: '서비스를 사용할 수 없습니다.' };
   const verifyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`;

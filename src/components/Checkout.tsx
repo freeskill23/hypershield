@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { CartItemWithProduct, Address, Setting, Product, SelectedOption, TrialApplication } from '../lib/types';
 import { formatKRW, formatPhoneNumber } from '../lib/format';
-import { clearCart, createOrder, getSettingValue, updateOrderStatus, getMyPendingCardOrders, confirmOrderPayment } from '../lib/data';
+import { clearCart, createOrder, getSettingValue, updateOrderStatus, getMyPendingCardOrders, confirmOrderPayment, cancelStalePendingOrder } from '../lib/data';
 import { requestProductPayment, generatePaymentId, isPaymentConfigured } from '../lib/payment';
 import { supabase } from '../lib/supabase';
 import AddressSearchButton from './AddressSearchButton';
@@ -181,6 +181,11 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           setError('결제 서비스를 사용할 수 없습니다.');
           return;
         }
+        // Clean up any stale pending card orders from previous failed attempts
+        const stalePending = await getMyPendingCardOrders();
+        for (const stale of stalePending) {
+          await cancelStalePendingOrder(stale.id);
+        }
         const paymentId = generatePaymentId('order');
         const { data: userData } = await supabase.auth.getUser();
         const order = await createOrder(
@@ -209,11 +214,15 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         });
 
         if (response && response.code) {
+          // Payment failed or user closed the popup — cancel the pending order so it doesn't linger
+          await cancelStalePendingOrder(order.id);
           setError(response.message || '결제에 실패했습니다.');
           return;
         }
 
         if (!response) {
+          // No payment response (user closed popup, network error) — cancel the pending order
+          await cancelStalePendingOrder(order.id);
           setError('결제가 완료되지 않았습니다.');
           return;
         }
@@ -221,8 +230,8 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         const verifyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-payment`;
         let verified = false;
         let verifyError: string | null = null;
-        for (let attempt = 0; attempt < 5; attempt++) {
-          if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 12000)));
+        for (let attempt = 0; attempt < 8; attempt++) {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, Math.min(3000 * attempt, 15000)));
           try {
             const verifyRes = await fetch(verifyUrl, {
               method: 'POST',
@@ -246,6 +255,17 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
           onComplete();
           return;
         }
+        // PortOne SDK returned success (no error code), but server verification timed out.
+        // The webhook will update the order to paid asynchronously.
+        // Mark as paid optimistically so the user doesn't see a false failure.
+        if (response && !response.code) {
+          await updateOrderStatus(order.id, 'paid');
+          await clearCart(userId);
+          onComplete();
+          return;
+        }
+        // Verification genuinely failed and SDK didn't confirm success — cancel stale order
+        await cancelStalePendingOrder(order.id);
         setError(verifyError || '결제 확인에 실패했습니다. 관리자에게 문의해 주세요.');
         return;
       } else {
