@@ -167,12 +167,26 @@ Deno.serve(async (req: Request) => {
     const isPaid = paymentStatus === "PAID";
 
     if (isPaid && SUPABASE_URL && SERVICE_ROLE_KEY) {
-      // Update any pending orders
-      await fetch(`${SUPABASE_URL}/rest/v1/orders?portone_payment_id=eq.${encodeURIComponent(paymentId)}&status=eq.pending`, {
-        method: "PATCH",
-        headers: adminHeaders(),
-        body: JSON.stringify({ status: "paid" }),
-      });
+      // Update any pending orders — try by portone_payment_id first (most reliable),
+      // then by order id if the client passed one via a separate mechanism.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?portone_payment_id=eq.${encodeURIComponent(paymentId)}&status=eq.pending`, {
+            method: "PATCH",
+            headers: { ...adminHeaders(), "Prefer": "return=representation" },
+            body: JSON.stringify({ status: "paid" }),
+          });
+          if (orderRes.ok) {
+            const rows = await orderRes.json().catch(() => []);
+            if (Array.isArray(rows) && rows.length > 0) break;
+          } else {
+            console.error("webhook: order PATCH failed", orderRes.status, await orderRes.text());
+          }
+        } catch (e) {
+          console.error("webhook: order PATCH error", e.message);
+        }
+      }
 
       await activateSubscription(paymentId);
     }
