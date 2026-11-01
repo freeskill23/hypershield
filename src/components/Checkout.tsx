@@ -185,7 +185,8 @@ export default function Checkout({ cartItems, buyNowItem, addresses, userId, set
         // Clean up any stale pending card orders from previous failed attempts
         const stalePending = await getMyPendingCardOrders();
         for (const stale of stalePending) {
-          await cancelStalePendingOrder(stale.id);
+          const check = await confirmOrderPayment(stale.id, stale.portone_payment_id);
+          if (!check.ok) await cancelStalePendingOrder(stale.id);
         }
         const paymentId = generatePaymentId('order');
         const { data: userData } = await supabase.auth.getUser();
