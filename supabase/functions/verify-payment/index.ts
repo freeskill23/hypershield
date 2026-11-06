@@ -126,6 +126,12 @@ Deno.serve(async (req: Request) => {
           }
         }
       }
+      if (!updated) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "결제는 완료되었지만 주문 상태를 변경하지 못했습니다. 관리자에게 문의해 주세요." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     return new Response(
