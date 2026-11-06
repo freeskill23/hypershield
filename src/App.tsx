@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import {
   useProducts, useCategories, useOrders, useUserOrderItems, useProfiles, usePosts,
   useSubscriptionPlans, useCart, useAddresses, useSettings, useInquiries, useReviews,
-  useTrialApplications,
+  useTrialApplications, getMyPendingCardOrders, confirmOrderPayment,
 } from './lib/data';
 import { Profile, Post, Setting, Product, SelectedOption, Inquiry, TrialApplication } from './lib/types';
 import Gatekeeper from './components/Gatekeeper';
@@ -85,6 +85,20 @@ function Shell() {
   const inquiriesHook = useInquiries(profile?.id, authReady);
   const reviewsHook = useReviews(true);
   const trialsHook = useTrialApplications(profile?.id, authReady);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    (async () => {
+      const pending = await getMyPendingCardOrders();
+      for (const order of pending) {
+        if (cancelled) return;
+        const result = await confirmOrderPayment(order.id, order.portone_payment_id);
+        if (result.ok) ordersHook.refresh();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshAll = useCallback(() => {
     refreshAuth();
