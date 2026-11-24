@@ -54,8 +54,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
 
   const selected = trials.find((t) => t.id === selectedId);
   const productMap = new Map(products.map((p) => [p.id, p]));
-  const usedProductIds = new Set(trials.filter((t) => t.status !== 'rejected').map((t) => t.product_id));
-  const availableProducts = products.filter((p) => p.is_active && p.is_trial_available && !usedProductIds.has(p.id));
+  const availableProducts = products.filter((p) => p.is_active && p.is_trial_available);
   const completedCount = trials.filter((t) => t.status === 'completed').length;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -276,7 +275,7 @@ export default function MyTrials({ trials, products, userId, onRefresh }: Props)
               ))}
             </select>
             {availableProducts.length === 0 && (
-              <p className="mt-1 text-xs text-slate-400">신청 가능한 상품이 없습니다. (이미 신청한 상품은 중복 신청할 수 없습니다.)</p>
+              <p className="mt-1 text-xs text-slate-400">신청 가능한 상품이 없습니다.</p>
             )}
           </div>
 
